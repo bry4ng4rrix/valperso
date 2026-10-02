@@ -3,35 +3,15 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.api.responses import PROTECTED, error_responses
-from app.core.deps import ClientIP, DbSession, require_permission
+from app.core.dependencies import ClientIP, DbSession, require_permission
 from app.core.permissions import PermissionCode as P
 from app.models import User
 from app.schemas.common import Page
-from app.schemas.sale import SaleCancel, SaleCreate, SaleFilters, SaleRead, SaleSummary
+from app.schemas.payment import PaymentRead
+from app.schemas.sale import SaleCancel, SaleCreate, SaleHistoryFilters, SaleRead, SaleSummary
 from app.services import sale_service
 
 router = APIRouter(prefix="/sales", tags=["Ventes"], responses=PROTECTED)
-
-
-@router.get("", response_model=Page[SaleSummary], summary="Lister les ventes")
-def list_sales(
-    db: DbSession,
-    filters: Annotated[SaleFilters, Query()],
-    current_user: Annotated[User, require_permission(P.SALE_VIEW)],
-):
-    """Un utilisateur rattaché à un magasin ne voit que les ventes de ce magasin.
-    Tri possible : `created_at`, `total`, `sale_number`."""
-    return sale_service.list_sales(db, current_user, filters)
-
-
-@router.get(
-    "/{sale_id}",
-    response_model=SaleRead,
-    summary="Détail d'une vente (lignes et paiements)",
-    responses=error_responses(404),
-)
-def get_sale(sale_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.SALE_VIEW)]):
-    return sale_service.get_sale(db, current_user, sale_id)
 
 
 @router.post(
@@ -47,16 +27,52 @@ def create_sale(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.SALE_CREATE)],
 ):
-    """Enregistre une vente complète dans une seule transaction : lignes, déduction du stock du magasin,
-    mouvements de stock, paiement, caisse (si espèces) et audit. En cas d'erreur, rien n'est enregistré.
+    """Enregistre une vente complète en une seule transaction (lignes, stock, mouvements, paiement,
+    caisse, audit). En cas d'erreur, rien n'est enregistré.
 
-    - Les prix et totaux sont **calculés par le serveur** à partir des prix des produits.
-    - `customer_name` est facultatif (il n'y a pas de fiche client).
-    - Une réduction (`PERCENTAGE` ou `FIXED`) nécessite la permission `sale.discount`.
-    - Un paiement `CASH` nécessite une caisse ouverte dans le magasin.
-    - Un paiement `CREDIT` laisse le total dû ; il se règle ensuite via `POST /api/v1/payments`.
+    - L'utilisateur responsable est **l'utilisateur connecté** ; un VENDEUR vend dans **son** magasin.
+    - Client : `customer_id` (client existant) ou `customer` (nom, prénom, téléphone).
+    - Prix, sous-total, remise et total sont calculés par le serveur. Remise : permission `sale.discount`.
+    - Paiement : absent ou `CREDIT` = vente à crédit ; `amount` absent = paiement complet ;
+      `amount` < total = avance. S'il reste un montant dû : téléphone du client et `payment_due_date`
+      obligatoires. Un paiement `CASH` nécessite une caisse ouverte.
     """
     return sale_service.create_sale(db, current_user, data, ip_address)
+
+
+@router.get("/history", response_model=Page[SaleSummary], summary="Historique des ventes")
+def list_history(
+    db: DbSession,
+    filters: Annotated[SaleHistoryFilters, Query()],
+    current_user: Annotated[User, require_permission(P.SALE_VIEW)],
+):
+    """Recherche par n° de facture, nom, prénom ou téléphone du client (`search`), et filtres
+    `user_id`, `store_id`, `customer_id`, `payment_status`, `has_debt`, `status`, `date_from`, `date_to`.
+    Un VENDEUR ne voit que les ventes de son magasin. Tri : `created_at`, `total`, `sale_number`."""
+    return sale_service.list_history(db, current_user, filters)
+
+
+@router.get(
+    "/{sale_id}",
+    response_model=SaleRead,
+    summary="Détail d'une vente",
+    responses=error_responses(404),
+)
+def get_sale(sale_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.SALE_VIEW)]):
+    return sale_service.get_sale(db, current_user, sale_id)
+
+
+@router.get(
+    "/{sale_id}/payments",
+    response_model=list[PaymentRead],
+    summary="Historique des paiements d'une vente",
+    responses=error_responses(404),
+)
+def list_sale_payments(
+    sale_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.PAYMENT_VIEW)]
+):
+    """Tous les paiements de la vente, du plus ancien au plus récent (rien n'est jamais écrasé)."""
+    return sale_service.get_sale(db, current_user, sale_id).payments
 
 
 @router.post(
@@ -73,5 +89,5 @@ def cancel_sale(
     current_user: Annotated[User, require_permission(P.SALE_CANCEL)],
 ):
     """Remet les quantités dans le stock du magasin (mouvements RETURN) et rembourse les espèces
-    encaissées depuis la caisse ouverte."""
+    depuis la caisse ouverte. Erreur SALE_ALREADY_CANCELLED si la vente est déjà annulée."""
     return sale_service.cancel_sale(db, current_user, sale_id, data, ip_address)

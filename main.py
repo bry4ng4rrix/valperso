@@ -1,1 +1,0 @@
-from fatsapi import FatsAPI

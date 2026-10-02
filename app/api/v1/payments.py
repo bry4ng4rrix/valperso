@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.api.responses import PROTECTED, error_responses
-from app.core.deps import ClientIP, DbSession, require_permission
+from app.core.dependencies import ClientIP, DbSession, require_permission
 from app.core.permissions import PermissionCode as P
 from app.models import User
 from app.schemas.common import Page
@@ -39,7 +39,7 @@ def get_payment(
     "",
     response_model=PaymentRead,
     status_code=status.HTTP_201_CREATED,
-    summary="Enregistrer un règlement",
+    summary="Enregistrer un paiement",
     responses=error_responses(400, 404),
 )
 def create_payment(
@@ -48,6 +48,10 @@ def create_payment(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.PAYMENT_CREATE)],
 ):
-    """Règle tout ou partie du reste à payer d'une vente (ex. vente faite à CREDIT).
-    Le montant ne peut pas dépasser le reste à payer. Un règlement en espèces entre dans la caisse."""
+    """Paiement d'une vente avec un reste à payer (solde d'une avance ou d'une vente à crédit).
+
+    - Montant > 0 et inférieur ou égal au reste à payer (pas de surpaiement).
+    - Refusé si la vente est déjà PAID (PAYMENT_ALREADY_COMPLETED) ou annulée.
+    - Le statut passe à PARTIAL ou PAID ; un paiement CASH entre dans la caisse ouverte du magasin.
+    """
     return payment_service.add_payment(db, current_user, data, ip_address)

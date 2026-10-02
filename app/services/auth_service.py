@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import AuthenticationError, PermissionDeniedError
+from app.core.exceptions import AuthenticationError, PermissionDenied
 from app.core.permissions import get_user_permissions
 from app.core.security import (
     TokenType,
@@ -29,6 +29,7 @@ def _issue_tokens(user: User) -> TokenResponse:
 def _record_failed_login(
     db: Session, user: User | None, username: str, reason: str, ip_address: str | None
 ) -> None:
+    # Seul le nom d'utilisateur est tracé : jamais le mot de passe saisi.
     audit_service.record(
         db,
         user_id=user.id if user else None,
@@ -51,7 +52,7 @@ def login(db: Session, data: LoginRequest, ip_address: str | None = None) -> Tok
         raise AuthenticationError("Nom d'utilisateur ou mot de passe incorrect", code="INVALID_CREDENTIALS")
     if not user.is_active:
         _record_failed_login(db, user, data.username, "ACCOUNT_DISABLED", ip_address)
-        raise PermissionDeniedError("Ce compte est désactivé", code="ACCOUNT_DISABLED")
+        raise PermissionDenied("Ce compte est désactivé", code="ACCOUNT_DISABLED")
 
     audit_service.record(
         db, user_id=user.id, action="auth.login", entity_type="user", entity_id=user.id, ip_address=ip_address

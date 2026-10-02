@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.api.responses import PROTECTED, error_responses
-from app.core.deps import ClientIP, DbSession, require_permission
+from app.core.dependencies import ClientIP, DbSession, require_permission
 from app.core.permissions import PermissionCode as P
 from app.models import User
 from app.schemas.category import CategoryCreate, CategoryFilters, CategoryRead, CategoryUpdate
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/categories", tags=["Catégories"], responses=PROTECT
 def list_categories(
     db: DbSession,
     filters: Annotated[CategoryFilters, Query()],
-    _: Annotated[User, require_permission(P.CATEGORY_VIEW)],
+    _: Annotated[User, require_permission(P.PRODUCT_VIEW)],
 ):
     """Tri possible : `name`, `created_at`."""
     return category_service.list_categories(db, filters)
@@ -29,7 +29,7 @@ def list_categories(
     summary="Détail d'une catégorie",
     responses=error_responses(404),
 )
-def get_category(category_id: int, db: DbSession, _: Annotated[User, require_permission(P.CATEGORY_VIEW)]):
+def get_category(category_id: int, db: DbSession, _: Annotated[User, require_permission(P.PRODUCT_VIEW)]):
     return category_service.get_category(db, category_id)
 
 
@@ -44,7 +44,7 @@ def create_category(
     data: CategoryCreate,
     db: DbSession,
     ip_address: ClientIP,
-    current_user: Annotated[User, require_permission(P.CATEGORY_CREATE)],
+    current_user: Annotated[User, require_permission(P.PRODUCT_CREATE)],
 ):
     return category_service.create_category(db, current_user, data, ip_address)
 
@@ -60,7 +60,7 @@ def update_category(
     data: CategoryUpdate,
     db: DbSession,
     ip_address: ClientIP,
-    current_user: Annotated[User, require_permission(P.CATEGORY_UPDATE)],
+    current_user: Annotated[User, require_permission(P.PRODUCT_UPDATE)],
 ):
     return category_service.update_category(db, current_user, category_id, data, ip_address)
 
@@ -75,7 +75,7 @@ def delete_category(
     category_id: int,
     db: DbSession,
     ip_address: ClientIP,
-    current_user: Annotated[User, require_permission(P.CATEGORY_DELETE)],
+    current_user: Annotated[User, require_permission(P.PRODUCT_DELETE)],
 ) -> None:
     """Suppression logique : la catégorie est désactivée, ses produits sont conservés."""
     category_service.delete_category(db, current_user, category_id, ip_address)

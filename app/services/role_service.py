@@ -1,16 +1,16 @@
+"""Rôles et permissions. Les deux rôles (ADMIN, VENDEUR) sont fixes : seules leur description et
+leurs permissions se modifient."""
+
 from collections.abc import Iterable
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
-from app.core.permissions import RoleName
+from app.core.exceptions import BusinessRuleError, NotFoundError
+from app.core.permissions import ADMIN_REQUIRED_PERMISSIONS, RoleName
 from app.models import Permission, Role, User
 from app.repositories import role_repository
-from app.schemas.role import RoleCreate, RolePermissionsUpdate, RoleRead, RoleUpdate
+from app.schemas.role import RolePermissionsUpdate, RoleRead, RoleUpdate
 from app.services import audit_service
-from app.utils.text import display_text
-
-SYSTEM_ROLES = {role.value for role in RoleName}
 
 
 def list_roles(db: Session) -> list[Role]:
@@ -37,51 +37,14 @@ def _get_permissions(db: Session, permission_ids: Iterable[int]) -> list[Permiss
     return permissions
 
 
-def _ensure_unique_name(db: Session, name: str) -> None:
-    if role_repository.get_by_name(db, name) is not None:
-        raise ConflictError(f"Le rôle « {display_text(name)} » existe déjà")
-
-
-def create_role(db: Session, actor: User, data: RoleCreate, ip_address: str | None = None) -> Role:
-    _ensure_unique_name(db, data.name)
-    role = Role(
-        name=data.name,
-        description=data.description,
-        permissions=_get_permissions(db, data.permission_ids),
-    )
-    db.add(role)
-    db.flush()
-    audit_service.record(
-        db,
-        user_id=actor.id,
-        action="role.create",
-        entity_type="role",
-        entity_id=role.id,
-        new_data=audit_service.snapshot(RoleRead, role),
-        ip_address=ip_address,
-    )
-    db.commit()
-    return role
-
-
-def update_role(
-    db: Session, actor: User, role_id: int, data: RoleUpdate, ip_address: str | None = None
+def _save_role_change(
+    db: Session, actor: User, role: Role, action: str, old_data: dict, ip_address: str | None
 ) -> Role:
-    role = get_role(db, role_id)
-    changes = data.changes()
-    if "name" in changes and changes["name"] != role.name:
-        if role.name in SYSTEM_ROLES:
-            raise BusinessRuleError("Un rôle système ne peut pas être renommé")
-        _ensure_unique_name(db, changes["name"])
-
-    old_data = audit_service.snapshot(RoleRead, role)
-    for field, value in changes.items():
-        setattr(role, field, value)
     db.flush()
     audit_service.record(
         db,
         user_id=actor.id,
-        action="role.update",
+        action=action,
         entity_type="role",
         entity_id=role.id,
         old_data=old_data,
@@ -90,6 +53,13 @@ def update_role(
     )
     db.commit()
     return role
+
+
+def update_role(db: Session, actor: User, role_id: int, data: RoleUpdate, ip_address: str | None = None) -> Role:
+    role = get_role(db, role_id)
+    old_data = audit_service.snapshot(RoleRead, role)
+    role.description = data.description
+    return _save_role_change(db, actor, role, "role.update", old_data, ip_address)
 
 
 def set_role_permissions(
@@ -97,44 +67,15 @@ def set_role_permissions(
 ) -> Role:
     """Remplace la liste complète des permissions d'un rôle."""
     role = get_role(db, role_id)
+    permissions = _get_permissions(db, data.permission_ids)
     if role.name == RoleName.ADMIN:
-        raise BusinessRuleError("Le rôle ADMIN possède toujours toutes les permissions")
+        missing = {code.value for code in ADMIN_REQUIRED_PERMISSIONS} - {p.name for p in permissions}
+        if missing:
+            raise BusinessRuleError(
+                f"Le rôle ADMIN doit conserver : {', '.join(sorted(missing))} "
+                "(sinon plus personne ne pourrait gérer les permissions)"
+            )
 
     old_data = audit_service.snapshot(RoleRead, role)
-    role.permissions = _get_permissions(db, data.permission_ids)
-    db.flush()
-    audit_service.record(
-        db,
-        user_id=actor.id,
-        action="role.permissions_update",
-        entity_type="role",
-        entity_id=role.id,
-        old_data=old_data,
-        new_data=audit_service.snapshot(RoleRead, role),
-        ip_address=ip_address,
-    )
-    db.commit()
-    return role
-
-
-def delete_role(db: Session, actor: User, role_id: int, ip_address: str | None = None) -> None:
-    role = get_role(db, role_id)
-    if role.name in SYSTEM_ROLES:
-        raise BusinessRuleError("Un rôle système ne peut pas être supprimé")
-    if role_repository.count_users(db, role.id) > 0:
-        raise BusinessRuleError(
-            "Ce rôle est attribué à des utilisateurs : réaffectez-les avant de le supprimer"
-        )
-
-    old_data = audit_service.snapshot(RoleRead, role)
-    db.delete(role)
-    audit_service.record(
-        db,
-        user_id=actor.id,
-        action="role.delete",
-        entity_type="role",
-        entity_id=role_id,
-        old_data=old_data,
-        ip_address=ip_address,
-    )
-    db.commit()
+    role.permissions = permissions
+    return _save_role_change(db, actor, role, "role.permissions_update", old_data, ip_address)

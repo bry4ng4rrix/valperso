@@ -9,7 +9,7 @@ from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import BusinessRuleError, NotFoundError
+from app.core.exceptions import BusinessRuleError, CashRegisterClosed, NotFoundError
 from app.models import CashRegister, CashTransaction, User
 from app.models.enums import CashRegisterStatus, CashTransactionType
 from app.repositories import cash_repository
@@ -35,9 +35,8 @@ OUTGOING_TYPES = {CashTransactionType.EXPENSE, CashTransactionType.WITHDRAWAL}
 def get_open_register_for_update(db: Session, store_id: int) -> CashRegister:
     register = cash_repository.get_open_register(db, store_id, for_update=True)
     if register is None:
-        raise BusinessRuleError(
-            "Aucune caisse ouverte pour ce magasin : ouvrez une caisse avant d'encaisser en espèces",
-            code="NO_OPEN_CASH_REGISTER",
+        raise CashRegisterClosed(
+            "Aucune caisse ouverte pour ce magasin : ouvrez une caisse avant d'encaisser en espèces"
         )
     return register
 
@@ -57,7 +56,7 @@ def add_transaction(
     La caisse doit avoir été verrouillée au préalable (get_open_register_for_update / get_for_update).
     """
     if register.status != CashRegisterStatus.OPEN:
-        raise BusinessRuleError("Cette caisse est clôturée", code="CASH_REGISTER_CLOSED")
+        raise CashRegisterClosed("Cette caisse est clôturée")
     if register.expected_amount + amount < 0:
         raise BusinessRuleError(
             f"Fonds insuffisants en caisse (disponible : {register.expected_amount})",
@@ -119,7 +118,7 @@ def close_register(
         raise NotFoundError("Caisse introuvable")
     store_access.ensure_store_access(user, register.store_id)
     if register.status == CashRegisterStatus.CLOSED:
-        raise BusinessRuleError("Cette caisse est déjà clôturée", code="CASH_REGISTER_CLOSED")
+        raise CashRegisterClosed("Cette caisse est déjà clôturée")
 
     old_data = audit_service.snapshot(CashRegisterRead, register)
     register.closing_amount = data.closing_amount
@@ -203,4 +202,4 @@ def list_transactions(
     db: Session, user: User, register_id: int, pagination: Pagination
 ) -> PageResult[CashTransaction]:
     register = get_register(db, user, register_id)
-    return cash_repository.list_transactions(db, register.id, pagination.page, pagination.size)
+    return cash_repository.list_transactions(db, register.id, pagination.page, pagination.page_size)

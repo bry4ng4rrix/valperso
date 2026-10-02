@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.responses import error_responses
-from app.core.deps import ClientIP, CurrentUser, DbSession
+from app.core.dependencies import ClientIP, CurrentUser, DbSession
 from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
 from app.schemas.user import UserProfile
 from app.services import auth_service

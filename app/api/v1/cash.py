@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.api.responses import PROTECTED, error_responses
-from app.core.deps import ClientIP, DbSession, require_permission
+from app.core.dependencies import ClientIP, DbSession, require_permission
 from app.core.permissions import PermissionCode as P
 from app.models import User
 from app.schemas.cash import (

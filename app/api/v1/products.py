@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.api.responses import PROTECTED, error_responses
-from app.core.deps import ClientIP, DbSession, require_permission
+from app.core.dependencies import ClientIP, DbSession, require_permission
 from app.core.permissions import PermissionCode as P
 from app.models import User
 from app.schemas.common import Page
@@ -20,7 +20,7 @@ def list_products(
     _: Annotated[User, require_permission(P.PRODUCT_VIEW)],
 ):
     """Recherche sur la référence ou le nom (insensible à la casse).
-    Tri possible : `name`, `reference`, `selling_price`, `stock`, `created_at`."""
+    La référence et le nom ne sont pas uniques. Tri : `name`, `reference`, `selling_price`, `created_at`."""
     return product_service.list_products(db, filters)
 
 
@@ -36,7 +36,7 @@ def get_product(product_id: int, db: DbSession, _: Annotated[User, require_permi
     response_model=ProductRead,
     status_code=status.HTTP_201_CREATED,
     summary="Créer un produit",
-    responses=error_responses(400, 404, 409),
+    responses=error_responses(400, 404),
 )
 def create_product(
     data: ProductCreate,
@@ -44,8 +44,8 @@ def create_product(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.PRODUCT_CREATE)],
 ):
-    """Le produit est créé avec un stock à 0. Pour le stocker, faire une entrée de stock
-    (`POST /api/v1/stock/entry`), par défaut dans le STOCK LOCAL."""
+    """Crée le produit et sa ligne de stock à 0 dans le Stock Local. Pour l'approvisionner :
+    `POST /api/v1/stock/entry`. Référence et nom peuvent être identiques à ceux d'un autre produit."""
     return product_service.create_product(db, current_user, data, ip_address)
 
 
@@ -53,7 +53,7 @@ def create_product(
     "/{product_id}",
     response_model=ProductRead,
     summary="Modifier un produit",
-    responses=error_responses(400, 404, 409),
+    responses=error_responses(400, 404),
 )
 def update_product(
     product_id: int,

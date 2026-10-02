@@ -7,7 +7,7 @@ réutiliser directement `send_message()`.
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import BusinessRuleError, NotFoundError, PermissionDeniedError
+from app.core.exceptions import BusinessRuleError, NotFoundError, PermissionDenied
 from app.models import Conversation, ConversationMember, Message, User
 from app.models.enums import ConversationType
 from app.repositories import chat_repository
@@ -21,7 +21,7 @@ def _get_membership(db: Session, user: User, conversation_id: int) -> Conversati
         raise NotFoundError("Conversation introuvable")
     member = chat_repository.get_member(db, conversation_id, user.id)
     if member is None:
-        raise PermissionDeniedError("Vous ne participez pas à cette conversation")
+        raise PermissionDenied("Vous ne participez pas à cette conversation")
     return member
 
 
@@ -74,7 +74,7 @@ def list_messages(
 ) -> PageResult[Message]:
     """Messages du plus récent au plus ancien."""
     _get_membership(db, user, conversation_id)
-    return chat_repository.list_messages(db, conversation_id, pagination.page, pagination.size)
+    return chat_repository.list_messages(db, conversation_id, pagination.page, pagination.page_size)
 
 
 def send_message(db: Session, user: User, conversation_id: int, data: MessageCreate) -> Message:
@@ -100,6 +100,6 @@ def delete_message(db: Session, user: User, message_id: int) -> None:
         raise NotFoundError("Message introuvable")
     _get_membership(db, user, message.conversation_id)
     if message.sender_id != user.id:
-        raise PermissionDeniedError("Vous ne pouvez supprimer que vos propres messages")
+        raise PermissionDenied("Vous ne pouvez supprimer que vos propres messages")
     message.is_deleted = True
     db.commit()

@@ -1,12 +1,15 @@
+"""Catalogue des produits. Ni la référence ni le nom ne sont uniques : seul l'id identifie un produit."""
+
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
-from app.models import Category, Product, User
+from app.core.config import settings
+from app.core.exceptions import InactiveProduct, ProductNotFound
+from app.models import Category, Product, Stock, User
 from app.repositories import product_repository
 from app.repositories.base import PageResult
 from app.schemas.product import ProductCreate, ProductFilters, ProductRead, ProductUpdate
-from app.services import audit_service
-from app.services.category_service import get_category
+from app.services import audit_service, store_access
+from app.services.category_service import get_active_category
 from app.utils.text import display_text
 
 
@@ -17,39 +20,44 @@ def list_products(db: Session, filters: ProductFilters) -> PageResult[Product]:
 def get_product(db: Session, product_id: int) -> Product:
     product = db.get(Product, product_id)
     if product is None:
-        raise NotFoundError(f"Produit {product_id} introuvable")
+        raise ProductNotFound(f"Produit {product_id} introuvable")
     return product
 
 
-def _ensure_unique_reference(db: Session, reference: str) -> None:
-    if product_repository.get_by_reference(db, reference) is not None:
-        raise ConflictError(f"La référence « {display_text(reference)} » est déjà utilisée")
+def get_active_product(db: Session, product_id: int) -> Product:
+    product = get_product(db, product_id)
+    if not product.is_active:
+        raise InactiveProduct(f"Le produit « {display_text(product.reference)} » est désactivé")
+    return product
 
 
-def _get_active_category(db: Session, category_id: int) -> Category:
-    category = get_category(db, category_id)
-    if not category.is_active:
-        raise BusinessRuleError(f"La catégorie « {display_text(category.name)} » est désactivée")
-    return category
-
-
-def create_product(db: Session, actor: User, data: ProductCreate, ip_address: str | None = None) -> Product:
-    """Crée un produit au catalogue. Son stock démarre à 0 et s'alimente par une entrée de stock."""
-    _ensure_unique_reference(db, data.reference)
-    category = _get_active_category(db, data.category_id) if data.category_id is not None else None
-
-    product = Product(**data.model_dump(exclude={"category_id"}), category=category, stock=0)
-    db.add(product)
+def _audit(
+    db: Session, actor: User, product: Product, action: str, ip_address: str | None, old_data: dict | None = None
+) -> None:
     db.flush()
     audit_service.record(
         db,
         user_id=actor.id,
-        action="product.create",
+        action=action,
         entity_type="product",
         entity_id=product.id,
+        old_data=old_data,
         new_data=audit_service.snapshot(ProductRead, product),
         ip_address=ip_address,
     )
+
+
+def create_product(db: Session, actor: User, data: ProductCreate, ip_address: str | None = None) -> Product:
+    """Crée le produit et sa ligne de stock à 0 dans le Stock Local."""
+    category = get_active_category(db, data.category_id) if data.category_id is not None else None
+    central = store_access.get_central_store(db)
+
+    product = Product(**data.model_dump(exclude={"category_id"}), category=category)
+    product.stocks.append(
+        Stock(store_id=central.id, quantity=0, alert_threshold=settings.DEFAULT_ALERT_THRESHOLD)
+    )
+    db.add(product)
+    _audit(db, actor, product, "product.create", ip_address)
     db.commit()
     return product
 
@@ -59,42 +67,24 @@ def update_product(
 ) -> Product:
     product = get_product(db, product_id)
     changes = data.changes()
-    if "reference" in changes and changes["reference"] != product.reference:
-        _ensure_unique_reference(db, changes["reference"])
-
-    old_data = audit_service.snapshot(ProductRead, product)
+    category: Category | None = product.category
     if "category_id" in changes:
         category_id = changes.pop("category_id")
-        product.category = _get_active_category(db, category_id) if category_id is not None else None
+        category = get_active_category(db, category_id) if category_id is not None else None
+
+    old_data = audit_service.snapshot(ProductRead, product)
+    product.category = category
     for field, value in changes.items():
         setattr(product, field, value)
-    db.flush()
-    audit_service.record(
-        db,
-        user_id=actor.id,
-        action="product.update",
-        entity_type="product",
-        entity_id=product.id,
-        old_data=old_data,
-        new_data=audit_service.snapshot(ProductRead, product),
-        ip_address=ip_address,
-    )
+    _audit(db, actor, product, "product.update", ip_address, old_data)
     db.commit()
     return product
 
 
 def delete_product(db: Session, actor: User, product_id: int, ip_address: str | None = None) -> None:
-    """Suppression logique : le produit est désactivé (donc non vendable), l'historique est conservé."""
+    """Suppression logique : le produit devient non vendable, son historique et son stock sont conservés."""
     product = get_product(db, product_id)
     old_data = audit_service.snapshot(ProductRead, product)
     product.is_active = False
-    audit_service.record(
-        db,
-        user_id=actor.id,
-        action="product.delete",
-        entity_type="product",
-        entity_id=product.id,
-        old_data=old_data,
-        ip_address=ip_address,
-    )
+    _audit(db, actor, product, "product.delete", ip_address, old_data)
     db.commit()

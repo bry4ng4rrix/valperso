@@ -1,59 +1,43 @@
-"""Stock par magasin : opérations de base, entrées, sorties, ajustements et consultation.
+"""Stock par magasin : opérations de base, entrées, sorties, ajustements, seuils et consultation.
 
-Règle centrale : toute variation de stock passe par `apply_stock_change()`, qui met à jour
-à la fois la ligne du magasin (store_stocks), le stock total du produit et crée le
-mouvement de stock correspondant. Ces trois écritures sont donc toujours cohérentes.
+Règle centrale : toute variation de stock passe par `apply_stock_change()`, qui modifie la ligne
+de stock verrouillée et crée le mouvement correspondant. Le stock ne devient jamais négatif.
 """
 
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import BusinessRuleError, InsufficientStockError, NotFoundError
-from app.models import Product, StockMovement, Store, StoreStock, User
+from app.core.exceptions import BusinessRuleError, InsufficientStock, NotFoundError
+from app.models import Product, Stock, StockMovement, Store, User
 from app.models.enums import StockMovementType
-from app.repositories import product_repository, stock_repository
+from app.repositories import stock_repository
 from app.repositories.base import PageResult
 from app.schemas.stock import (
+    AlertThresholdUpdate,
     StockAdjustmentCreate,
+    StockAlertFilters,
     StockEntryCreate,
     StockExitCreate,
+    StockFilters,
     StockMovementFilters,
     StockMovementRead,
-    StoreStockFilters,
+    StockRead,
 )
 from app.services import audit_service, store_access
+from app.services.product_service import get_product
 from app.utils.text import display_text
 
 # --- Opérations de base (utilisées aussi par les ventes et les transferts) -----------------------
 
 
-def lock_products(db: Session, product_ids: list[int]) -> dict[int, Product]:
-    """Verrouille les produits (FOR UPDATE) ; erreur 404 si l'un d'eux n'existe pas."""
-    products = product_repository.lock_by_ids(db, product_ids)
-    missing = sorted(set(product_ids) - products.keys())
-    if missing:
-        raise NotFoundError(f"Produit(s) introuvable(s) : {', '.join(map(str, missing))}")
-    return products
+def lock_line(db: Session, store: Store, product: Product) -> Stock:
+    """Ligne de stock verrouillée jusqu'au COMMIT, créée à 0 si le magasin n'a pas encore le produit."""
+    stock_repository.create_missing_lines(db, [store.id], [product.id], settings.DEFAULT_ALERT_THRESHOLD)
+    return stock_repository.lock_lines(db, [store.id], [product.id])[(store.id, product.id)]
 
 
-def lock_product(db: Session, product_id: int) -> Product:
-    return lock_products(db, [product_id])[product_id]
-
-
-def lock_or_create_line(db: Session, store_id: int, product_id: int) -> StoreStock:
-    """Ligne de stock du produit dans le magasin, créée à 0 si le magasin n'a pas encore l'article."""
-    line = stock_repository.lock_lines(db, store_id, [product_id]).get(product_id)
-    if line is None:
-        line = StoreStock(store_id=store_id, product_id=product_id, quantity=0)
-        db.add(line)
-        db.flush()
-    return line
-
-
-def insufficient_stock_error(
-    product: Product, store: Store, available: int, requested: int
-) -> InsufficientStockError:
-    return InsufficientStockError(
+def insufficient_stock(product: Product, store: Store, available: int, requested: int) -> InsufficientStock:
+    return InsufficientStock(
         f"Stock insuffisant pour « {display_text(product.reference)} - {display_text(product.name)} » "
         f"dans le magasin « {display_text(store.name)} » : disponible {available}, demandé {requested}"
     )
@@ -62,27 +46,21 @@ def insufficient_stock_error(
 def apply_stock_change(
     db: Session,
     *,
-    product: Product,
-    store: Store,
+    line: Stock,
     delta: int,
     movement_type: StockMovementType,
     user_id: int,
     reason: str | None = None,
     reference: str | None = None,
 ) -> StockMovement:
-    """Ajoute `delta` (positif ou négatif) au stock du produit dans le magasin et trace le mouvement.
-
-    Le produit doit avoir été verrouillé au préalable avec `lock_products()`.
-    """
-    line = lock_or_create_line(db, store.id, product.id)
+    """Ajoute `delta` (positif ou négatif) à une ligne de stock VERROUILLÉE et trace le mouvement."""
     if line.quantity + delta < 0:
-        raise insufficient_stock_error(product, store, line.quantity, -delta)
+        raise insufficient_stock(line.product, line.store, line.quantity, -delta)
 
     line.quantity += delta
-    product.stock += delta
     movement = StockMovement(
-        product_id=product.id,
-        store_id=store.id,
+        product_id=line.product_id,
+        store_id=line.store_id,
         user_id=user_id,
         type=movement_type,
         quantity=delta,
@@ -96,7 +74,7 @@ def apply_stock_change(
 # --- Opérations manuelles ------------------------------------------------------------------------
 
 
-def _save_manual_movement(
+def _save_movement(
     db: Session, user: User, movement: StockMovement, action: str, ip_address: str | None
 ) -> StockMovement:
     db.flush()
@@ -113,35 +91,29 @@ def _save_manual_movement(
     return movement
 
 
-def record_entry(
-    db: Session, user: User, data: StockEntryCreate, ip_address: str | None = None
-) -> StockMovement:
-    """Entrée de stock (réception de marchandise) dans un magasin."""
+def record_entry(db: Session, user: User, data: StockEntryCreate, ip_address: str | None = None) -> StockMovement:
+    """Entrée de stock (réception de marchandise). La ligne est créée si le magasin n'a pas le produit."""
     store = store_access.resolve_operation_store(db, user, data.store_id)
-    product = lock_product(db, data.product_id)
+    line = lock_line(db, store, get_product(db, data.product_id))
     movement = apply_stock_change(
         db,
-        product=product,
-        store=store,
+        line=line,
         delta=data.quantity,
         movement_type=StockMovementType.ENTRY,
         user_id=user.id,
         reason=data.reason,
         reference=data.reference,
     )
-    return _save_manual_movement(db, user, movement, "stock.entry", ip_address)
+    return _save_movement(db, user, movement, "stock.entry", ip_address)
 
 
-def record_exit(
-    db: Session, user: User, data: StockExitCreate, ip_address: str | None = None
-) -> StockMovement:
-    """Sortie (EXIT) ou perte (LOSS) de stock dans un magasin."""
+def record_exit(db: Session, user: User, data: StockExitCreate, ip_address: str | None = None) -> StockMovement:
+    """Sortie (EXIT) ou perte (LOSS) de stock. Refusée si le stock est insuffisant."""
     store = store_access.resolve_operation_store(db, user, data.store_id)
-    product = lock_product(db, data.product_id)
+    line = lock_line(db, store, get_product(db, data.product_id))
     movement = apply_stock_change(
         db,
-        product=product,
-        store=store,
+        line=line,
         delta=-data.quantity,
         movement_type=data.type,
         user_id=user.id,
@@ -149,44 +121,80 @@ def record_exit(
         reference=data.reference,
     )
     action = "stock.loss" if data.type == StockMovementType.LOSS else "stock.exit"
-    return _save_manual_movement(db, user, movement, action, ip_address)
+    return _save_movement(db, user, movement, action, ip_address)
 
 
 def adjust_stock(
     db: Session, user: User, data: StockAdjustmentCreate, ip_address: str | None = None
 ) -> StockMovement:
-    """Corrige le stock d'un magasin après inventaire : la quantité devient `new_quantity`."""
+    """Corrige le stock après inventaire : la quantité devient `new_quantity`."""
     store = store_access.resolve_operation_store(db, user, data.store_id)
-    product = lock_product(db, data.product_id)
-    current_quantity = lock_or_create_line(db, store.id, product.id).quantity
-    delta = data.new_quantity - current_quantity
+    line = lock_line(db, store, get_product(db, data.product_id))
+    delta = data.new_quantity - line.quantity
     if delta == 0:
-        raise BusinessRuleError(
-            "La quantité saisie est identique au stock actuel : aucun ajustement nécessaire"
-        )
+        raise BusinessRuleError("La quantité saisie est identique au stock actuel : aucun ajustement nécessaire")
 
     movement = apply_stock_change(
-        db,
-        product=product,
-        store=store,
-        delta=delta,
-        movement_type=StockMovementType.ADJUSTMENT,
-        user_id=user.id,
-        reason=data.reason,
+        db, line=line, delta=delta, movement_type=StockMovementType.ADJUSTMENT, user_id=user.id, reason=data.reason
     )
-    return _save_manual_movement(db, user, movement, "stock.adjust", ip_address)
+    return _save_movement(db, user, movement, "stock.adjust", ip_address)
+
+
+def update_alert_threshold(
+    db: Session, user: User, stock_id: int, data: AlertThresholdUpdate, ip_address: str | None = None
+) -> Stock:
+    line = get_stock(db, user, stock_id)
+    old_data = audit_service.snapshot(StockRead, line)
+    line.alert_threshold = data.alert_threshold
+    db.flush()
+    audit_service.record(
+        db,
+        user_id=user.id,
+        action="stock.threshold",
+        entity_type="stock",
+        entity_id=line.id,
+        old_data=old_data,
+        new_data=audit_service.snapshot(StockRead, line),
+        ip_address=ip_address,
+    )
+    db.commit()
+    return line
 
 
 # --- Consultation --------------------------------------------------------------------------------
 
 
-def list_store_stock(
-    db: Session, user: User, store_id: int, filters: StoreStockFilters
-) -> PageResult[StoreStock]:
-    """Articles d'un magasin avec leur quantité et leur statut (en stock, stock faible, rupture)."""
+def get_stock(db: Session, user: User, stock_id: int) -> Stock:
+    line = db.get(Stock, stock_id)
+    if line is None:
+        raise NotFoundError("Ligne de stock introuvable")
+    store_access.ensure_store_access(user, line.store_id)
+    return line
+
+
+def list_stocks(db: Session, user: User, filters: StockFilters) -> PageResult[Stock]:
+    store_id = store_access.visible_store_id(user, filters.store_id)
+    return stock_repository.list_stocks(db, filters.model_copy(update={"store_id": store_id}))
+
+
+def list_store_stocks(db: Session, user: User, store_id: int, filters: StockFilters) -> PageResult[Stock]:
     store_access.ensure_store_access(user, store_id)
-    store = store_access.get_store_or_404(db, store_id)
-    return stock_repository.list_store_stock(db, store.id, filters, settings.LOW_STOCK_THRESHOLD)
+    store_access.get_store(db, store_id)
+    return stock_repository.list_stocks(db, filters.model_copy(update={"store_id": store_id}))
+
+
+def list_low_stock(db: Session, user: User, filters: StockAlertFilters) -> PageResult[Stock]:
+    store_id = store_access.visible_store_id(user, filters.store_id)
+    return stock_repository.list_alerts(
+        db, Stock.low_stock, store_id, filters.search, filters.page, filters.page_size
+    )
+
+
+def list_out_of_stock(db: Session, user: User, filters: StockAlertFilters) -> PageResult[Stock]:
+    store_id = store_access.visible_store_id(user, filters.store_id)
+    return stock_repository.list_alerts(
+        db, Stock.out_of_stock, store_id, filters.search, filters.page, filters.page_size
+    )
 
 
 def list_movements(db: Session, user: User, filters: StockMovementFilters) -> PageResult[StockMovement]:

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
 from app.models import Category, User
 from app.repositories import category_repository
 from app.repositories.base import PageResult
@@ -17,6 +17,13 @@ def get_category(db: Session, category_id: int) -> Category:
     category = db.get(Category, category_id)
     if category is None:
         raise NotFoundError(f"Catégorie {category_id} introuvable")
+    return category
+
+
+def get_active_category(db: Session, category_id: int) -> Category:
+    category = get_category(db, category_id)
+    if not category.is_active:
+        raise BusinessRuleError(f"La catégorie « {display_text(category.name)} » est désactivée")
     return category
 
 
