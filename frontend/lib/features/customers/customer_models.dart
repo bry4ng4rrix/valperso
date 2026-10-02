@@ -61,6 +61,7 @@ class DebtSale {
     required this.paymentStatus,
     required this.payments,
     this.dueDate,
+    this.installments = const [],
   });
 
   factory DebtSale.fromJson(Json json) => DebtSale(
@@ -74,6 +75,7 @@ class DebtSale {
     paymentStatus: PaymentStatus.fromCode('${json['payment_status']}'),
     dueDate: toDate(json['payment_due_date']),
     payments: toList(json['payments'], Payment.fromJson),
+    installments: toList(json['installments'], SaleInstallment.fromJson),
   );
 
   final int id;
@@ -84,8 +86,11 @@ class DebtSale {
   final double amountPaid;
   final double remainingAmount;
   final PaymentStatus paymentStatus;
+
+  /// Prochaine échéance non payée.
   final DateTime? dueDate;
   final List<Payment> payments;
+  final List<SaleInstallment> installments;
 
   bool get isOverdue {
     final due = dueDate;

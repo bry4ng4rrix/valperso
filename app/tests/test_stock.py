@@ -90,8 +90,9 @@ def test_alert_threshold_low_stock_and_out_of_stock(client, factory, admin_heade
     assert (updated.json()["alert_threshold"], updated.json()["low_stock"]) == (2, False)
 
     client.post("/api/v1/stock/exit", headers=admin_headers, json={"product_id": product.id, "quantity": 3})
-    empty = client.get(url, headers=admin_headers).json()
-    assert (empty["quantity"], empty["out_of_stock"], empty["low_stock"]) == (0, True, False)
+    # Stock épuisé : la ligne est retirée du magasin (le produit reste au catalogue).
+    assert client.get(url, headers=admin_headers).status_code == 404
+    assert client.get(f"/api/v1/products/{product.id}", headers=admin_headers).status_code == 200
 
 
 def test_low_stock_and_out_of_stock_endpoints(client, factory, admin_headers):

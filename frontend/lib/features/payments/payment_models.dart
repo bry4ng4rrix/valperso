@@ -1,30 +1,20 @@
 import '../../core/utils/json.dart';
 import '../../shared/models/refs.dart';
 
-/// Modes de paiement. CREDIT = vente à crédit (rien n'est encaissé).
+/// Code envoyé au serveur : il n'y a plus de choix du mode de paiement.
+/// CASH = payé (paiement complet ou avance) ; CREDIT = dette sans avance (rien n'est payé).
 enum PaymentMethod {
-  cash('CASH', 'Espèces'),
-  mobileMoney('MOBILE_MONEY', 'Mobile money'),
-  card('CARD', 'Carte'),
-  bankTransfer('BANK_TRANSFER', 'Virement'),
-  credit('CREDIT', 'Crédit');
+  cash('CASH'),
+  credit('CREDIT');
 
-  const PaymentMethod(this.code, this.label);
+  const PaymentMethod(this.code);
   final String code;
-  final String label;
-
-  static PaymentMethod fromCode(String code) =>
-      values.firstWhere((method) => method.code == code, orElse: () => PaymentMethod.cash);
-
-  /// Modes correspondant à un encaissement réel.
-  static List<PaymentMethod> get collected => values.where((m) => m != PaymentMethod.credit).toList();
 }
 
 class Payment {
   const Payment({
     required this.id,
     required this.saleId,
-    required this.method,
     required this.amount,
     required this.createdAt,
     this.reference,
@@ -34,7 +24,6 @@ class Payment {
   factory Payment.fromJson(Json json) => Payment(
     id: toInt(json['id']),
     saleId: toInt(json['sale_id']),
-    method: PaymentMethod.fromCode('${json['method']}'),
     amount: toDouble(json['amount']),
     reference: toStringOrNull(json['reference']),
     creator: toObject(json['creator'], UserRef.fromJson),
@@ -43,7 +32,6 @@ class Payment {
 
   final int id;
   final int saleId;
-  final PaymentMethod method;
   final double amount;
   final String? reference;
   final UserRef? creator;

@@ -1,3 +1,4 @@
+import '../../core/utils/formatters.dart';
 import '../../core/utils/json.dart';
 import '../../shared/models/refs.dart';
 import '../payments/payment_models.dart';
@@ -36,12 +37,14 @@ class SaleItem {
     required this.quantity,
     required this.unitPrice,
     required this.total,
+    this.description,
   });
 
   factory SaleItem.fromJson(Json json) => SaleItem(
     productId: toInt(json['product_id']),
     reference: '${json['product_reference']}',
     name: '${json['product_name']}',
+    description: toStringOrNull(json['description']),
     quantity: toInt(json['quantity']),
     unitPrice: toDouble(json['unit_price']),
     total: toDouble(json['total']),
@@ -50,10 +53,57 @@ class SaleItem {
   final int productId;
   final String reference;
   final String name;
+
+  /// Précision saisie dans le panier pour cet article (taille, couleur...).
+  final String? description;
   final int quantity;
   final double unitPrice;
   final double total;
 }
+
+/// Échéance d'une vente avec dette. Son état est calculé par le serveur à partir des paiements,
+/// qui soldent les échéances dans l'ordre des dates.
+class SaleInstallment {
+  const SaleInstallment({
+    required this.dueDate,
+    required this.amount,
+    required this.paidAmount,
+    required this.remainingAmount,
+    required this.status,
+    this.isOverdue = false,
+  });
+
+  factory SaleInstallment.fromJson(Json json) => SaleInstallment(
+    dueDate: toDate(json['due_date']) ?? DateTime.now(),
+    amount: toDouble(json['amount']),
+    paidAmount: toDouble(json['paid_amount']),
+    remainingAmount: toDouble(json['remaining_amount']),
+    status: PaymentStatus.fromCode('${json['status']}'),
+    isOverdue: json['is_overdue'] == true,
+  );
+
+  final DateTime dueDate;
+  final double amount;
+  final double paidAmount;
+  final double remainingAmount;
+  final PaymentStatus status;
+  final bool isOverdue;
+
+  String get statusLabel => isOverdue
+      ? 'En retard'
+      : switch (status) {
+          PaymentStatus.paid => 'Payé',
+          PaymentStatus.partial => 'Reste ${Formats.money(remainingAmount)}',
+          PaymentStatus.unpaid => 'À payer',
+        };
+}
+
+/// Échéancier en texte (une ligne par date), pour les résumés et la facture.
+String installmentsText(List<SaleInstallment> installments) => [
+  for (final installment in installments)
+    '${Formats.date(installment.dueDate)} : ${Formats.money(installment.amount)}'
+        '${installment.status == PaymentStatus.unpaid && !installment.isOverdue ? '' : ' (${installment.statusLabel.toLowerCase()})'}',
+].join('\n');
 
 /// Vente (ligne d'historique). Les champs du détail sont renseignés par GET /sales/{id}.
 class Sale {
@@ -76,6 +126,7 @@ class Sale {
     this.discountAmount = 0,
     this.items = const [],
     this.payments = const [],
+    this.installments = const [],
   });
 
   factory Sale.fromJson(Json json) => Sale(
@@ -97,6 +148,7 @@ class Sale {
     discountAmount: toDouble(json['discount_amount']),
     items: toList(json['items'], SaleItem.fromJson),
     payments: toList(json['payments'], Payment.fromJson),
+    installments: toList(json['installments'], SaleInstallment.fromJson),
   );
 
   final int id;
@@ -110,6 +162,8 @@ class Sale {
   final double remainingAmount;
   final PaymentStatus paymentStatus;
   final String status;
+
+  /// Prochaine échéance non payée.
   final DateTime? paymentDueDate;
   final double? subtotal;
   final DiscountType discountType;
@@ -117,6 +171,9 @@ class Sale {
   final double discountAmount;
   final List<SaleItem> items;
   final List<Payment> payments;
+
+  /// Échéancier du reste à payer (vide pour une vente payée en une fois).
+  final List<SaleInstallment> installments;
 
   bool get isCancelled => status == 'CANCELLED';
   bool get hasDebt => !isCancelled && remainingAmount > 0;
@@ -160,6 +217,7 @@ class Invoice {
     this.storeAddress,
     this.storePhone,
     this.dueDate,
+    this.installments = const [],
   });
 
   factory Invoice.fromJson(Json json) {
@@ -189,6 +247,7 @@ class Invoice {
       remainingAmount: toDouble(json['remaining_amount']),
       paymentStatus: PaymentStatus.fromCode('${json['payment_status']}'),
       dueDate: toDate(json['payment_due_date']),
+      installments: toList(json['installments'], SaleInstallment.fromJson),
       status: '${json['status']}',
       thankYouMessage: [...(json['thank_you_message'] as List? ?? const []).map((line) => '$line')],
     );
@@ -217,6 +276,7 @@ class Invoice {
   final double remainingAmount;
   final PaymentStatus paymentStatus;
   final DateTime? dueDate;
+  final List<SaleInstallment> installments;
   final String status;
   final List<String> thankYouMessage;
 }

@@ -140,7 +140,7 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                                 title: 'Stock du magasin',
                                 icon: Icons.inventory_outlined,
                                 trailing: TextButton(
-                                  onPressed: () => context.go('/stock'),
+                                  onPressed: () => context.go('/products?store=${store.id}'),
                                   child: const Text('Voir le stock'),
                                 ),
                                 child: total == null
@@ -148,7 +148,7 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                                     : Column(
                                         children: [
                                           InfoRow(label: 'Unités en stock', value: Formats.quantity(total.quantity)),
-                                          InfoRow(label: 'Valeur d\'achat', value: Formats.money(total.purchaseValue)),
+                                          InfoRow(label: 'Valeur au prix', value: Formats.money(total.purchaseValue)),
                                           InfoRow(label: 'Valeur de vente', value: Formats.money(total.saleValue)),
                                           InfoRow(
                                             label: 'Bénéfice potentiel',

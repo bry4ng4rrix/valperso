@@ -41,7 +41,9 @@ def test_summary(client, admin_headers, activity):
     assert (body["products_count"], body["stores_count"]) == (3, 2)
     assert body["stock_quantity"] == 87  # 100 - 15 vendus + 2 huiles ; le transfert ne change pas le total
     assert body["low_stock_count"] == 1  # huile : 2 <= seuil
-    assert body["out_of_stock_count"] == 2  # riz et sel à zéro dans le Stock Local
+    # Sel à zéro dans le Stock Local ; le riz restant (85) a été déplacé en totalité vers le magasin :
+    # il a quitté le Stock Local et ne compte donc pas comme rupture.
+    assert body["out_of_stock_count"] == 1
     assert body["unavailable_products_count"] == 1  # seul le sel n'existe nulle part
     assert [(p["name"], p["quantity_sold"]) for p in body["top_products"]] == [("riz", 15), ("huile", 1)]
     assert len(body["recent_sales"]) == 3
@@ -96,7 +98,6 @@ def test_sales_by_day_and_top_products(client, admin_headers, activity):
 def test_low_stock_alerts(client, admin_headers, activity):
     items = client.get("/api/v1/dashboard/low-stock", headers=admin_headers).json()["items"]
     assert {(line["product"]["name"], line["quantity"]) for line in items} == {
-        ("riz", 0),
         ("sel", 0),
         ("huile", 2),
     }

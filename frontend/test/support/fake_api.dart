@@ -26,6 +26,9 @@ class FakeApi implements HttpClientAdapter {
   final Map<String, _Route> _routes = {};
   final List<RequestOptions> requests = [];
 
+  /// Requêtes sans réponse prévue (« MÉTHODE /chemin ») : un écran a appelé une route non simulée.
+  final List<String> unmatched = [];
+
   /// Déclare une réponse. [handler] reçoit la requête (corps dans `request.data`).
   void on(String method, String path, FakeHandler handler, {int status = 200}) {
     _routes['${method.toUpperCase()} $path'] = _Route(handler, status);
@@ -62,6 +65,7 @@ class FakeApi implements HttpClientAdapter {
     requests.add(options);
     final route = _routes['${options.method.toUpperCase()} ${_path(options)}'];
     if (route == null) {
+      unmatched.add('${options.method.toUpperCase()} ${_path(options)}');
       return _json({'detail': 'Route non simulée : ${options.method} ${_path(options)}', 'code': 'NOT_FOUND'}, 404);
     }
     final body = route.handler(options);

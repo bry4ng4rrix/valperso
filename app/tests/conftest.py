@@ -26,9 +26,6 @@ from app.tests.factories import Factory
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-# Jamais de tâche planifiée pendant les tests : elle utiliserait la base de travail, pas la base de test.
-settings.CASH_AUTO_SCHEDULE = False
-
 
 def _test_database_url() -> URL:
     if os.environ.get("TEST_DATABASE_URL"):

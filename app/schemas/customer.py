@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from app.models.enums import PaymentStatus
 from app.schemas.common import DisplayStr, InputModel, Money, OptionalPhone, ORMModel, PageQuery
+from app.schemas.installment import SaleInstallmentRead
 from app.schemas.payment import PaymentRead
 from app.schemas.store import StoreSummary
 from app.schemas.user import PersonName
@@ -60,8 +61,9 @@ class DebtSale(ORMModel):
     amount_paid: Money
     remaining_amount: Money
     payment_status: PaymentStatus
-    payment_due_date: date | None
+    payment_due_date: date | None = Field(description="Prochaine échéance non payée")
     payments: list[PaymentRead]
+    installments: list[SaleInstallmentRead] = Field(validation_alias="installment_schedule")
 
 
 class CustomerDebts(BaseModel):

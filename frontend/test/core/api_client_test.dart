@@ -60,13 +60,13 @@ void main() {
   });
 
   test('erreur métier convertie en ApiException avec le message du backend', () async {
-    api.onError('POST', '/sales', status: 400, code: 'CASH_REGISTER_CLOSED', detail: 'Aucune caisse ouverte dans H109');
+    api.onError('POST', '/sales', status: 400, code: 'INSUFFICIENT_STOCK', detail: 'Stock insuffisant dans H109');
     await expectLater(
       client.post('/sales', data: const {}),
       throwsA(
         isA<ApiException>()
-            .having((error) => error.code, 'code', 'CASH_REGISTER_CLOSED')
-            .having((error) => error.message, 'message', 'Aucune caisse ouverte dans H109'),
+            .having((error) => error.code, 'code', 'INSUFFICIENT_STOCK')
+            .having((error) => error.message, 'message', 'Stock insuffisant dans H109'),
       ),
     );
   });

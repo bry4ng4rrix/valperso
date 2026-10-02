@@ -83,6 +83,8 @@ class StockMovement {
     required this.createdAt,
     this.reason,
     this.reference,
+    this.sourceStore,
+    this.destinationStore,
   });
 
   factory StockMovement.fromJson(Json json) => StockMovement(
@@ -94,6 +96,8 @@ class StockMovement {
     quantity: toInt(json['quantity']),
     reason: toStringOrNull(json['reason']),
     reference: toStringOrNull(json['reference']),
+    sourceStore: toObject(json['source_store'], StoreRef.fromJson),
+    destinationStore: toObject(json['destination_store'], StoreRef.fromJson),
     createdAt: toDate(json['created_at']) ?? DateTime.now(),
   );
 
@@ -107,7 +111,20 @@ class StockMovement {
   final int quantity;
   final String? reason;
   final String? reference;
+
+  /// Transferts seulement : magasin d'où part le stock et magasin qui le reçoit.
+  final StoreRef? sourceStore;
+  final StoreRef? destinationStore;
   final DateTime createdAt;
+
+  bool get isTransfer => sourceStore != null && destinationStore != null;
+
+  /// Les deux lignes d'un transfert (sortie et entrée) s'affichent « Transfert ».
+  String get typeLabel =>
+      type == MovementType.transferOut || type == MovementType.transferIn ? 'Transfert' : type.label;
+
+  /// « Source → destination » pour un transfert, sinon le magasin du mouvement.
+  String get storeLabel => isTransfer ? '${sourceStore!.label} → ${destinationStore!.label}' : store.label;
 }
 
 /// Valeur du stock (magasin ou total).

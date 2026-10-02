@@ -5,7 +5,7 @@ import '../../core/utils/responsive.dart';
 import 'app_card.dart';
 import 'list_page.dart';
 
-/// Écran principal hors liste (accueil, caisse, paramètres...) :
+/// Écran principal hors liste (accueil, paramètres...) :
 /// barre de titre sur mobile, en-tête de page sur grand écran.
 class AdaptivePage extends StatelessWidget {
   const AdaptivePage({

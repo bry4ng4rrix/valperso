@@ -59,7 +59,7 @@ def get_central_store(db: Session) -> Store:
 
 
 def resolve_operation_store(db: Session, user: User, requested_store_id: int | None) -> Store:
-    """Magasin dans lequel s'effectue une opération (vente, mouvement de stock, transfert, caisse)."""
+    """Magasin dans lequel s'effectue une opération (vente, mouvement de stock, transfert)."""
     if not is_admin(user):
         return get_active_store(db, visible_store_id(user, requested_store_id))
     if requested_store_id is not None:

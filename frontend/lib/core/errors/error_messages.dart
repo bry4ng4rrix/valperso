@@ -12,14 +12,13 @@ abstract final class ErrorMessages {
   /// Message par défaut quand le backend n'en fournit pas d'exploitable.
   static const byCode = <String, String>{
     'INSUFFICIENT_STOCK': 'Stock insuffisant pour ce produit.',
-    'INVALID_SELLING_PRICE': 'Le prix de vente doit être supérieur ou égal au prix de stock.',
+    'INVALID_SELLING_PRICE': 'Le prix de vente doit être supérieur ou égal au prix.',
     'PERMISSION_DENIED': "Vous n'avez pas l'autorisation d'effectuer cette action.",
     'INVALID_STORE_ACCESS': "Vous n'avez pas accès à ce magasin.",
     'INVALID_PAYMENT': 'Le montant du paiement est invalide.',
     'PAYMENT_ALREADY_COMPLETED': 'Cette vente est déjà entièrement payée.',
     'INVALID_DISCOUNT': 'La remise est invalide.',
     'DISCOUNT_NOT_ALLOWED': "Vous n'avez pas l'autorisation d'appliquer une remise.",
-    'CASH_REGISTER_CLOSED': 'Aucune caisse ouverte pour ce magasin.',
     'SALE_ALREADY_CANCELLED': 'Cette vente est déjà annulée.',
     'INACTIVE_PRODUCT': 'Ce produit est désactivé.',
     'INACTIVE_STORE': 'Ce magasin est désactivé.',

@@ -11,7 +11,6 @@ from app.core.permissions import PermissionCode, RoleName
 from app.core.security import create_access_token, hash_password
 from app.models import (
     COMPANY_ID,
-    CashRegister,
     Category,
     CompanyInformation,
     Customer,
@@ -21,7 +20,6 @@ from app.models import (
     Store,
     User,
 )
-from app.models.enums import CashRegisterStatus
 from app.repositories import role_repository, stock_repository, store_repository
 
 DEFAULT_PASSWORD = "Password123"
@@ -70,6 +68,7 @@ class Factory:
         """Produit avec sa ligne Stock Local (comme le service) et `stock` unités dans `store`
         (par défaut le Stock Local)."""
         number = self._next()
+        central_id = self.central_store().id  # avant Product(...) : pas d'autoflush d'un produit incomplet
         product = Product(
             reference=fields.pop("reference", f"REF-{number:04d}"),
             name=fields.pop("name", f"Produit {number}"),
@@ -78,9 +77,7 @@ class Factory:
             **fields,
         )
         product.stocks.append(
-            Stock(
-                store_id=self.central_store().id, quantity=0, alert_threshold=settings.DEFAULT_ALERT_THRESHOLD
-            )
+            Stock(store_id=central_id, quantity=0, alert_threshold=settings.DEFAULT_ALERT_THRESHOLD)
         )
         self._save(product)
         if stock:
@@ -171,16 +168,3 @@ class Factory:
             setattr(company, field, value)
         self.db.commit()
         return company
-
-    # --- Caisse ----------------------------------------------------------------------------------
-
-    def open_register(self, store: Store, user: User, opening_amount: str = "0") -> CashRegister:
-        amount = Decimal(opening_amount)
-        register = CashRegister(
-            store_id=store.id,
-            opened_by=user.id,
-            opening_amount=amount,
-            expected_amount=amount,
-            status=CashRegisterStatus.OPEN,
-        )
-        return self._save(register)

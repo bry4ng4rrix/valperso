@@ -34,7 +34,6 @@ const _entityLabels = {
   'customer': 'Client',
   'sale': 'Vente',
   'payment': 'Paiement',
-  'cash_register': 'Caisse',
   'company': 'Société',
 };
 

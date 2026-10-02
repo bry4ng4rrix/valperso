@@ -286,7 +286,7 @@ class _NewTransferScreenState extends State<NewTransferScreen> {
                                         Text(line.stock.product.label, style: theme.textTheme.titleSmall),
                                         Text(
                                           'Source : ${line.stock.quantity} → ${line.stock.quantity - line.value}'
-                                          '${line.value == line.stock.quantity ? ' (épuisé dans la source)' : ''}',
+                                          '${line.value == line.stock.quantity ? ' (tout déplacé)' : ''}',
                                           style: theme.textTheme.bodySmall?.copyWith(
                                             color: line.isValid ? null : AppColors.danger,
                                           ),
@@ -416,7 +416,7 @@ class _ResultView extends StatelessWidget {
                   title: Text(Formats.capitalize(level.product.name)),
                   subtitle: Text(
                     '${transfer.source.label} : ${level.sourceQuantity}'
-                    '${level.sourceQuantity == 0 ? ' (épuisé)' : ''}\n'
+                    '${level.sourceQuantity == 0 ? ' (tout déplacé)' : ''}\n'
                     '${transfer.destination.label} : ${level.destinationQuantity}',
                   ),
                   isThreeLine: true,

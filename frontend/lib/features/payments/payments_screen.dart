@@ -82,15 +82,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
       builder: (context, refresh) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FilterDropdown<String>(
-            label: 'Mode de paiement',
-            value: _payments.filter('method') as String?,
-            options: {for (final method in PaymentMethod.collected) method.code: method.label},
-            onChanged: (value) {
-              _payments.setFilter('method', value);
-              refresh();
-            },
-          ),
           if (_user.canChooseStore)
             StoreSelector(
               value: _payments.filter('store_id') as int?,
@@ -140,9 +131,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
               columns: [
                 ExportColumn('Date', (payment) => payment.createdAt),
                 ExportColumn('Vente', (payment) => payment.saleId),
-                ExportColumn('Mode', (payment) => payment.method.label),
                 ExportColumn('Montant (Ar)', (payment) => payment.amount),
-                ExportColumn('Référence', (payment) => payment.reference),
                 ExportColumn('Encaissé par', (payment) => payment.creator?.fullName),
               ],
             ),
@@ -153,9 +142,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
               emptyMessage: 'Modifiez la période ou les filtres.',
               columns: [
                 TableColumnDef.text('Date', (payment) => Formats.dateTime(payment.createdAt)),
-                TableColumnDef.text('Mode', (payment) => payment.method.label),
                 TableColumnDef.text('Montant', (payment) => Formats.money(payment.amount), numeric: true),
-                TableColumnDef.text('Référence', (payment) => payment.reference ?? '—'),
                 TableColumnDef.text('Encaissé par', (payment) => payment.creator?.fullName ?? '—'),
               ],
               cardBuilder: (context, payment) => AppCard(
@@ -164,7 +151,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.payments_outlined),
-                  title: Text('${payment.method.label} — ${Formats.money(payment.amount)}'),
+                  title: Text(Formats.money(payment.amount)),
                   subtitle: Text(
                     [
                       Formats.dateTime(payment.createdAt),

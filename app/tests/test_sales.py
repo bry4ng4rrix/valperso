@@ -3,7 +3,7 @@ import re
 import pytest
 from sqlalchemy import func, select
 
-from app.models import AuditLog, CashTransaction, Customer, Payment, Sale, SaleItem, StockMovement
+from app.models import AuditLog, Customer, Payment, Sale, StockMovement
 from app.services import audit_service
 from app.tests.helpers import CUSTOMER, sale_payload
 
@@ -150,21 +150,6 @@ def test_fully_paid_sale_does_not_require_a_phone(client, factory, shop, seller_
     assert client.post("/api/v1/sales", headers=seller_headers, json=payload).status_code == 201
 
 
-def test_rollback_when_cash_register_is_closed(client, factory, shop, seller_headers, db):
-    """L'erreur survient à l'étape caisse, après la création de la vente, du client
-    et la déduction du stock."""
-    product = factory.product(stock=10, store=shop)
-
-    response = client.post(
-        "/api/v1/sales", headers=seller_headers, json=sale_payload((product, 3), payment={"method": "CASH"})
-    )
-
-    assert response.status_code == 400 and response.json()["code"] == "CASH_REGISTER_CLOSED"
-    assert count(db, Sale) == count(db, SaleItem) == count(db, Payment) == count(db, StockMovement) == 0
-    assert count(db, Customer) == 0
-    assert factory.quantity(shop, product) == 10
-
-
 def test_rollback_when_an_unexpected_error_occurs(client, factory, shop, seller_headers, db, monkeypatch):
     product = factory.product(stock=10, store=shop)
 
@@ -179,10 +164,7 @@ def test_rollback_when_an_unexpected_error_occurs(client, factory, shop, seller_
     assert factory.quantity(shop, product) == 10
 
 
-def test_cancel_sale_restores_stock_and_refunds_cash(
-    client, factory, admin_headers, shop, seller, seller_headers, db
-):
-    register = factory.open_register(shop, seller, "10000")
+def test_cancel_sale_restores_stock(client, factory, admin_headers, shop, seller_headers, db):
     product = factory.product(selling_price="2000", stock=10, store=shop)
     sale = client.post(
         "/api/v1/sales", headers=seller_headers, json=sale_payload((product, 4), payment={"method": "CASH"})
@@ -200,9 +182,6 @@ def test_cancel_sale_restores_stock_and_refunds_cash(
     assert factory.quantity(shop, product) == 10
     returns = db.scalars(select(StockMovement).where(StockMovement.type == "RETURN")).all()
     assert [(m.quantity, m.reference) for m in returns] == [(4, sale["sale_number"])]
-    db.refresh(register)
-    assert register.expected_amount == 10000  # +8000 encaissés puis -8000 remboursés
-    assert db.scalar(select(CashTransaction).where(CashTransaction.type == "REFUND")).amount == -8000
     assert (
         db.scalar(select(AuditLog).where(AuditLog.action == "sale.cancel")).new_data["cancel_reason"]
         == "ERREUR"

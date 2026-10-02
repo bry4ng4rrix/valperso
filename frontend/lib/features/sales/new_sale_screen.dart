@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../app/navigation.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/api/paged_controller.dart';
 import '../../core/auth/current_user.dart';
-import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/responsive.dart';
@@ -134,28 +132,11 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
       await _catalog.refresh();
     } on ApiException catch (error) {
       if (!mounted) return;
-      if (error.code == 'CASH_REGISTER_CLOSED') {
-        setState(() => _submitting = false);
-        return _cashClosed(error);
-      }
       Notify.error(context, error);
       if (error.code == 'INSUFFICIENT_STOCK') await _catalog.refresh();
     } finally {
       if (mounted && _submitting) setState(() => _submitting = false);
     }
-  }
-
-  Future<void> _cashClosed(ApiException error) async {
-    final openCash = await showConfirmation(
-      context,
-      title: 'Caisse fermée',
-      message:
-          '${error.message}\nUn paiement en espèces nécessite une caisse ouverte dans ce magasin. '
-          'Ouvrez la caisse ou choisissez un autre mode de paiement.',
-      confirmLabel: _user.can(Perm.cashOpen) ? 'Ouvrir la caisse' : 'Compris',
-      type: ConfirmationType.warning,
-    );
-    if (openCash && _user.can(Perm.cashOpen) && mounted) context.push(Routes.cash);
   }
 
   Future<void> _clearCart() async {
@@ -247,10 +228,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
               ),
               const SizedBox(height: Gaps.md),
               const SectionCard(title: 'Client', icon: Icons.person_outline, child: CustomerPanel()),
-              if (_user.can(Perm.saleDiscount)) ...[
-                const SizedBox(height: Gaps.md),
-                const SectionCard(title: 'Remise', icon: Icons.percent, child: DiscountPanel()),
-              ],
               const SizedBox(height: Gaps.md),
               const SectionCard(title: 'Paiement', icon: Icons.payments_outlined, child: PaymentPanel()),
               const SizedBox(height: Gaps.md),
@@ -290,16 +267,8 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
       1 => const SingleChildScrollView(
         child: SectionCard(title: 'Client', icon: Icons.person_outline, child: CustomerPanel()),
       ),
-      2 => SingleChildScrollView(
-        child: Column(
-          children: [
-            if (_user.can(Perm.saleDiscount)) ...[
-              const SectionCard(title: 'Remise', icon: Icons.percent, child: DiscountPanel()),
-              const SizedBox(height: Gaps.md),
-            ],
-            const SectionCard(title: 'Paiement', icon: Icons.payments_outlined, child: PaymentPanel()),
-          ],
-        ),
+      2 => const SingleChildScrollView(
+        child: SectionCard(title: 'Paiement', icon: Icons.payments_outlined, child: PaymentPanel()),
       ),
       _ => SingleChildScrollView(
         child: Column(
@@ -511,7 +480,10 @@ class _SaleSuccess extends StatelessWidget {
                         value: Formats.money(sale.remainingAmount),
                         valueStyle: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
                       ),
-                      InfoRow(label: 'Échéance', value: Formats.date(sale.paymentDueDate)),
+                      if (sale.installments.isEmpty)
+                        InfoRow(label: 'Échéance', value: Formats.date(sale.paymentDueDate))
+                      else
+                        InfoRow(label: 'Remboursements', value: installmentsText(sale.installments)),
                     ],
                   ],
                 ),

@@ -41,7 +41,7 @@ _money_to_json = PlainSerializer(float, return_type=float, when_used="json")
 
 # Montant positif ou nul, 2 décimales maximum. Renvoyé en nombre dans le JSON.
 Money = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2), _money_to_json]
-# Montant signé (écart de caisse, opération de sortie...).
+# Montant signé (ajustement, opération de sortie...).
 SignedMoney = Annotated[Decimal, Field(max_digits=14, decimal_places=2), _money_to_json]
 
 

@@ -28,6 +28,44 @@ class SaleBadges extends StatelessWidget {
   }
 }
 
+/// Échéancier d'une vente : une ligne par date de remboursement, avec son montant et son état.
+class InstallmentList extends StatelessWidget {
+  const InstallmentList({super.key, required this.installments});
+
+  final List<SaleInstallment> installments;
+
+  static BadgeTone _tone(SaleInstallment installment) {
+    if (installment.isOverdue) return BadgeTone.danger;
+    return switch (installment.status) {
+      PaymentStatus.paid => BadgeTone.success,
+      PaymentStatus.partial => BadgeTone.warning,
+      PaymentStatus.unpaid => BadgeTone.neutral,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (index, installment) in installments.indexed)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Gaps.xs),
+            child: Row(
+              children: [
+                Expanded(child: Text('${index + 1}. ${Formats.date(installment.dueDate)}')),
+                Text(Formats.money(installment.amount), style: theme.textTheme.titleSmall),
+                const SizedBox(width: Gaps.sm),
+                StatusBadge(installment.statusLabel, tone: _tone(installment)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Carte d'une vente (historique, client, accueil).
 class SaleCard extends StatelessWidget {
   const SaleCard({super.key, required this.sale, this.onTap, this.showStore = true});
@@ -82,7 +120,8 @@ class SaleCard extends StatelessWidget {
                   'Reste ${Formats.money(sale.remainingAmount)}',
                   style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.danger, fontWeight: FontWeight.w600),
                 ),
-                if (sale.paymentDueDate != null) Text('Échéance ${Formats.date(sale.paymentDueDate)}', style: muted),
+                if (sale.paymentDueDate != null)
+                  Text('Prochaine échéance ${Formats.date(sale.paymentDueDate)}', style: muted),
               ],
             ),
           ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:valmag/core/widgets/app_dialog.dart';
+import 'package:valmag/shared/widgets/stat_card.dart';
 import 'package:go_router/go_router.dart';
 
 import '../support/fake_api.dart';
@@ -48,14 +49,15 @@ void main() {
     });
     await tester.enterText(find.widgetWithText(TextFormField, 'Référence *'), 'G-01');
     await tester.enterText(find.widgetWithText(TextFormField, 'Nom du produit *'), 'Gomme');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Prix d\'achat (prix de stock) *'), '1000');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Prix *'), '1000');
     await tester.enterText(find.widgetWithText(TextFormField, 'Prix de vente *'), '800');
     await tester.pumpAndSettle();
-    expect(find.text('Prix de vente inférieur au prix d\'achat : non autorisé.'), findsOneWidget);
+    expect(find.text('Prix de vente inférieur au prix : non autorisé.'), findsOneWidget);
 
     await tester.tap(find.text('Créer le produit'));
     await settle(tester);
-    expect(find.textContaining('Le prix de vente doit être supérieur ou égal au prix d\'achat'), findsOneWidget);
+    expect(find.textContaining('Le prix de vente doit être supérieur ou égal au prix ('), findsOneWidget);
+    expect(find.text('Prix d\'achat'), findsNothing, reason: 'le libellé est « Prix »');
     expect(api.calls('POST', '/products'), isEmpty);
 
     await tester.enterText(find.widgetWithText(TextFormField, 'Prix de vente *'), '1 500');
@@ -194,64 +196,49 @@ void main() {
     expect(api.calls('PUT', '/users/2/role').single.data, {'role': 'ADMIN'});
   });
 
-  testWidgets('caisse : fermeture avec écart affiché et confirmé', (tester) async {
-    final register = {
-      'id': 3,
-      'store_id': 1,
-      'opened_by': 1,
-      'closed_by': null,
-      'opening_amount': 50000,
-      'closing_amount': null,
-      'expected_amount': 62000,
-      'difference': null,
-      'status': 'OPEN',
-      'opened_at': '2026-10-02T07:00:00Z',
-      'closed_at': null,
+  testWidgets('mouvements : type « Transfert », magasins d\'origine et de destination', (tester) async {
+    final h109 = storeJson(id: 2, name: 'h109', central: false);
+    Map<String, Object?> movement(int id, String type, int quantity, Map<String, Object?> store) => {
+      'id': id,
+      'product': {'id': 10, 'reference': 'p-10', 'name': 'stylo bleu'},
+      'store': store,
+      'user': _userRef,
+      'type': type,
+      'quantity': quantity,
+      'reason': null,
+      'reference': 'TRF-2026-000001',
+      'source_store': storeJson(),
+      'destination_store': h109,
+      'created_at': '2026-10-02T10:00:00Z',
     };
-    final api = await _admin(tester, '/cash', (api) {
-      api.on('GET', '/cash/registers/current', (_) => {...register, 'opened_by': null, 'opened_automatically': true});
+    await _admin(tester, '/movements', (api) {
       api.on(
         'GET',
-        '/cash/schedule',
-        (_) => {'enabled': true, 'open_time': '06:00', 'close_time': '19:00', 'timezone': 'Indian/Antananarivo'},
-      );
-      api.on('GET', '/cash/registers/3/transactions', (_) => page([]));
-      api.on(
-        'POST',
-        '/cash/registers/3/close',
-        (_) => {
-          ...register,
-          'status': 'CLOSED',
-          'closing_amount': 61000,
-          'difference': -1000,
-          'closed_at': '2026-10-02T18:00:00Z',
-        },
+        '/stock/movements',
+        (_) => page([
+          movement(1, 'TRANSFER_OUT', -4, storeJson()),
+          movement(2, 'TRANSFER_IN', 4, h109),
+          {
+            ...movement(3, 'ENTRY', 5, storeJson()),
+            'reference': 'BL-1',
+            'source_store': null,
+            'destination_store': null,
+          },
+        ]),
       );
     });
-    expect(find.text('Caisse ouverte'), findsOneWidget);
-    expect(find.textContaining('Ouverture automatique à 06:00 et fermeture automatique à 19:00'), findsOneWidget);
-    expect(find.textContaining('heure de Madagascar'), findsOneWidget);
-    expect(find.textContaining('(automatique)'), findsOneWidget, reason: 'caisse ouverte automatiquement');
-    expect(find.text('Stock Local'), findsWidgets, reason: 'le sélecteur affiche le magasin de la caisse');
-    expect(find.text('62 000 Ar'), findsOneWidget);
-
-    await tester.tap(find.text('Fermer la caisse'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'Montant compté *'), '61000');
-    await tester.pumpAndSettle();
-    expect(find.textContaining('(manque)'), findsOneWidget);
-    await tester.tap(_inDialog('Continuer'));
-    await tester.pumpAndSettle();
-    expect(find.text('Fermer la caisse ?'), findsOneWidget);
-    expect(find.textContaining('un écart de'), findsOneWidget);
-    expect(api.calls('POST', '/cash/registers/3/close'), isEmpty);
-    await tester.tap(_inDialog('Fermer la caisse'));
-    await settle(tester);
-    expect(api.calls('POST', '/cash/registers/3/close').single.data, {'closing_amount': 61000.0});
+    expect(find.text('Transfert'), findsNWidgets(2), reason: 'sortie et entrée du même transfert');
+    expect(find.text('Magasin d\'origine'), findsOneWidget);
+    expect(find.text('Magasin de destination'), findsOneWidget);
+    expect(find.text('Motif'), findsNothing);
+    expect(find.text('Référence'), findsNothing);
+    expect(find.text('BL-1'), findsNothing, reason: 'la colonne Référence est retirée');
+    expect(find.text('H109'), findsNWidgets(3), reason: 'magasin de l\'entrée + destination des deux lignes');
+    expect(find.text('—'), findsNWidgets(2), reason: 'entrée simple : ni origine ni destination');
   });
 
   testWidgets('stock : entrée confirmée (quantité avant → après)', (tester) async {
-    final api = await _admin(tester, '/stock', (api) {
+    final api = await _admin(tester, '/movements', (api) {
       api.on(
         'POST',
         '/stock/entry',
@@ -327,5 +314,73 @@ void main() {
     await tester.tap(_inDialog('Confirmer'));
     await settle(tester);
     expect(api.calls('PATCH', '/categories/1').single.data, {'name': 'Papeterie fine'});
+  });
+
+  testWidgets('menu Stock : la page « Mouvements » remplace l\'onglet Stock', (tester) async {
+    final api = await _admin(tester, '/', (api) {
+      api.on(
+        'GET',
+        '/stock/movements',
+        (_) => page([
+          {
+            'id': 1,
+            'product': {'id': 10, 'reference': 'p-10', 'name': 'stylo bleu'},
+            'store': storeJson(),
+            'user': _userRef,
+            'type': 'TRANSFER_OUT',
+            'quantity': -4,
+            'reason': 'transfert vers h109',
+            'reference': 'trf-2026-000001',
+            'created_at': '2026-10-02T10:00:00Z',
+          },
+        ]),
+      );
+    });
+    expect(find.text('Mouvements'), findsOneWidget);
+    expect(find.text('Stock'), findsNothing, reason: 'plus d\'entrée « Stock » dans le menu');
+
+    await tester.tap(find.text('Mouvements'));
+    await settle(tester);
+    expect(find.text('Mouvements de stock'), findsOneWidget);
+    expect(find.text('Transfert'), findsOneWidget, reason: 'sortie de transfert affichée « Transfert »');
+    expect(find.text('Opération de stock'), findsOneWidget);
+    expect(find.text('Stock par magasin'), findsNothing);
+    expect(api.calls('GET', '/stock/movements'), isNotEmpty);
+  });
+
+  testWidgets('accueil « Stock faible » : Produits filtrés, tous les magasins', (tester) async {
+    final api = await _admin(tester, '/', (_) {});
+    await tester.tap(find.byTooltip('Afficher 4 de plus').first); // indicateurs masqués derrière « ⋯ »
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Stock faible').first); // la carte du tableau de bord
+    await settle(tester);
+    final request = api.calls('GET', '/stock').last;
+    expect(request.queryParameters['low_stock'], true);
+    expect(request.queryParameters.containsKey('store_id'), isFalse, reason: 'tous les magasins');
+    final chip = tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Stock faible'));
+    expect(chip.selected, isTrue);
+  });
+
+  testWidgets('accueil : 4 indicateurs et 3 actions rapides, « ⋯ » affiche les autres', (tester) async {
+    await _admin(tester, '/', (_) {});
+    for (final label in ['Chiffre d\'affaires', 'Ventes', 'Bénéfice estimé', 'Encaissé']) {
+      expect(find.widgetWithText(StatCard, label), findsOneWidget, reason: label);
+    }
+    expect(find.widgetWithText(StatCard, 'Reste à encaisser'), findsNothing);
+    expect(find.byType(QuickActionCard), findsNWidgets(3));
+
+    await tester.tap(find.byTooltip('Afficher 4 de plus').first); // indicateurs
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(StatCard, 'Reste à encaisser'), findsOneWidget);
+    expect(find.widgetWithText(StatCard, 'Produits indisponibles partout'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Afficher 3 de plus')); // actions rapides : 6 au total pour l'admin
+    await tester.pumpAndSettle();
+    expect(find.byType(QuickActionCard), findsNWidgets(6));
+    expect(find.widgetWithText(QuickActionCard, 'Caisse'), findsNothing);
+
+    await tester.tap(find.byTooltip('Réduire').first);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(StatCard, 'Reste à encaisser'), findsNothing);
   });
 }

@@ -202,7 +202,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               value: Formats.money(product.sellingPrice),
               color: theme.colorScheme.primary,
             ),
-            if (showCost) _Figure(label: 'Prix d\'achat', value: Formats.money(product.purchasePrice)),
+            if (showCost) _Figure(label: 'Prix', value: Formats.money(product.purchasePrice)),
             if (showCost)
               _Figure(
                 label: 'Marge unitaire',
@@ -308,19 +308,22 @@ class _Figure extends StatelessWidget {
 
 /// Ligne d'un mouvement de stock (quantité signée : + entrée, - sortie).
 class MovementTile extends StatelessWidget {
-  const MovementTile({super.key, required this.movement, this.showProduct = false});
+  const MovementTile({super.key, required this.movement, this.showProduct = false, this.showReason = true});
 
   final StockMovement movement;
   final bool showProduct;
+
+  /// Motif et référence du mouvement (masqués dans la page Mouvements).
+  final bool showReason;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final positive = movement.quantity >= 0;
     final details = [
-      movement.store.label,
+      movement.storeLabel,
       movement.user.fullName,
-      if (movement.reference != null) movement.reference!,
+      if (showReason && movement.reference != null) movement.reference!,
     ].join(' · ');
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -329,13 +332,13 @@ class MovementTile extends StatelessWidget {
         color: positive ? AppColors.success : AppColors.danger,
       ),
       title: Text(
-        showProduct ? '${movement.type.label} — ${Formats.capitalize(movement.product.name)}' : movement.type.label,
+        showProduct ? '${movement.typeLabel} — ${Formats.capitalize(movement.product.name)}' : movement.typeLabel,
       ),
       subtitle: Text(
         [
           Formats.dateTime(movement.createdAt),
           details,
-          if (movement.reason != null) Formats.text(movement.reason),
+          if (showReason && movement.reason != null) Formats.text(movement.reason),
         ].join('\n'),
       ),
       isThreeLine: true,

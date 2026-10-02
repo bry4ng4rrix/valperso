@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy import select
 
-from app.models import AuditLog, CashRegister
+from app.models import AuditLog
 from app.tests.helpers import due_date, sale_payload
 
 
@@ -23,11 +23,6 @@ def headers(factory, seller):
 
 
 @pytest.fixture
-def register(factory, shop, seller):
-    return factory.open_register(shop, seller)
-
-
-@pytest.fixture
 def article(factory, shop):
     return factory.product(selling_price="20000", stock=10, store=shop)  # total d'une vente : 20 000 Ar
 
@@ -42,13 +37,13 @@ def pay(client, headers, sale_id, amount, method="CASH"):
     )
 
 
-def test_full_payment(client, headers, article, register):
+def test_full_payment(client, headers, article):
     body = create_sale(client, headers, article, payment={"method": "CASH", "amount": 20000}).json()
     assert (body["total"], body["amount_paid"], body["remaining_amount"]) == (20000.0, 20000.0, 0.0)
     assert body["payment_status"] == "PAID" and body["payment_due_date"] is None
 
 
-def test_advance_then_balance(client, db, headers, article, register):
+def test_advance_then_balance(client, headers, article):
     """Avance de 10 000 sur 20 000 avec échéance, puis le client revient payer 10 000."""
     sale = create_sale(
         client, headers, article, payment={"method": "CASH", "amount": 10000}, payment_due_date=due_date()
@@ -66,8 +61,6 @@ def test_advance_then_balance(client, db, headers, article, register):
     final = client.get(f"/api/v1/sales/{sale['id']}", headers=headers).json()
     assert (final["total"], final["amount_paid"], final["remaining_amount"]) == (20000.0, 20000.0, 0.0)
     assert final["payment_status"] == "PAID"
-    db.refresh(register)
-    assert register.expected_amount == 20000  # deux encaissements de 10 000
 
 
 def test_unpaid_sale_on_credit(client, headers, article):
@@ -117,7 +110,7 @@ def test_due_date_is_ignored_for_a_full_payment(client, headers, article):
     assert body["payment_due_date"] is None
 
 
-def test_several_payments_are_all_kept(client, headers, article, register):
+def test_several_payments_are_all_kept(client, headers, article):
     """Vente de 20 000 réglée en trois fois : l'historique conserve les trois paiements."""
     sale = create_sale(client, headers, article, payment=None, payment_due_date=due_date()).json()
     statuses = []
@@ -170,11 +163,6 @@ def test_payment_on_cancelled_sale_is_refused(client, admin_headers, headers, ar
     sale = create_sale(client, headers, article, payment=None, payment_due_date=due_date()).json()
     client.post(f"/api/v1/sales/{sale['id']}/cancel", headers=admin_headers, json={"reason": "Annulée"})
     assert pay(client, admin_headers, sale["id"], 1000, "CARD").status_code == 400
-
-
-def test_non_cash_payment_does_not_touch_cash_register(client, db, headers, article, register):
-    create_sale(client, headers, article, payment={"method": "MOBILE_MONEY"})
-    assert db.get(CashRegister, register.id).expected_amount == 0
 
 
 def test_payment_is_audited(client, db, headers, article):

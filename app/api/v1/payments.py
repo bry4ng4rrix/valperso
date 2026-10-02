@@ -53,6 +53,6 @@ def create_payment(
 
     - Montant > 0 et inférieur ou égal au reste à payer (pas de surpaiement).
     - Refusé si la vente est déjà PAID (PAYMENT_ALREADY_COMPLETED) ou annulée.
-    - Le statut passe à PARTIAL ou PAID ; un paiement CASH entre dans la caisse ouverte du magasin.
+    - Le statut passe à PARTIAL ou PAID.
     """
     return payment_service.add_payment(db, current_user, data, ip_address)

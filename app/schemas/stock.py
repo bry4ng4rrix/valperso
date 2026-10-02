@@ -122,6 +122,10 @@ class StockMovementRead(ORMModel):
     quantity: int = Field(description="Positive pour une entrée, négative pour une sortie")
     reason: DisplayStr | None
     reference: str | None = Field(description="Document d'origine (n° de facture, de transfert...)")
+    source_store: StoreSummary | None = Field(None, description="Transfert : magasin d'où part le stock")
+    destination_store: StoreSummary | None = Field(
+        None, description="Transfert : magasin qui reçoit le stock"
+    )
     created_at: datetime
 
 

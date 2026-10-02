@@ -22,7 +22,7 @@ import 'products_repository.dart';
 import '../../shared/widgets/responsive_grid.dart';
 
 /// Création ou modification d'un produit.
-/// Règle métier : le prix de vente doit être supérieur ou égal au prix d'achat.
+/// Règle métier : le prix de vente doit être supérieur ou égal au prix (prix d'achat, affiché « Prix »).
 class ProductFormScreen extends StatefulWidget {
   const ProductFormScreen({super.key, this.productId});
 
@@ -76,7 +76,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> with ApiFormState
     final purchase = _purchase;
     if (selling == null) return 'Saisissez le prix de vente.';
     if (purchase != null && selling < purchase) {
-      return 'Le prix de vente doit être supérieur ou égal au prix d\'achat (${Formats.money(purchase)}).';
+      return 'Le prix de vente doit être supérieur ou égal au prix (${Formats.money(purchase)}).';
     }
     return null;
   }
@@ -130,7 +130,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> with ApiFormState
       }
       if (_purchase != existing.purchasePrice) {
         changes['purchase_price'] = _purchase;
-        diff.add(FieldChange('Prix d\'achat', Formats.money(existing.purchasePrice), Formats.money(_purchase)));
+        diff.add(FieldChange('Prix', Formats.money(existing.purchasePrice), Formats.money(_purchase)));
       }
       if (_selling != existing.sellingPrice) {
         changes['selling_price'] = _selling;
@@ -239,7 +239,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> with ApiFormState
                       child: Column(
                         children: [
                           MoneyField(
-                            label: 'Prix d\'achat (prix de stock)',
+                            label: 'Prix',
                             controller: _purchasePrice,
                             required: true,
                             errorText: errorFor('purchase_price'),
@@ -310,7 +310,7 @@ class _MarginPreview extends StatelessWidget {
           Expanded(
             child: Text(
               invalid
-                  ? 'Prix de vente inférieur au prix d\'achat : non autorisé.'
+                  ? 'Prix de vente inférieur au prix : non autorisé.'
                   : 'Marge unitaire : ${Formats.money(margin)}$percent',
               style: TextStyle(color: color),
             ),

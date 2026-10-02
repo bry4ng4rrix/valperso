@@ -77,7 +77,7 @@ class ProductCard extends StatelessWidget {
                       Formats.money(product.sellingPrice),
                       style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
                     ),
-                    if (showCost) Text('Achat ${Formats.money(product.purchasePrice)}', style: muted),
+                    if (showCost) Text('Prix ${Formats.money(product.purchasePrice)}', style: muted),
                     if (showCost)
                       Text(
                         'Marge ${marginLabel(product)}',
@@ -134,8 +134,7 @@ List<TableColumnDef<ProductListItem>> productTableColumns({required bool showCos
   ),
   TableColumnDef.text('Référence', (item) => item.product.reference.toUpperCase()),
   TableColumnDef.text('Catégorie', (item) => Formats.capitalize(item.product.category?.name ?? '—')),
-  if (showCost)
-    TableColumnDef.text('Prix d\'achat', (item) => Formats.money(item.product.purchasePrice), numeric: true),
+  if (showCost) TableColumnDef.text('Prix', (item) => Formats.money(item.product.purchasePrice), numeric: true),
   TableColumnDef.text('Prix de vente', (item) => Formats.money(item.product.sellingPrice), numeric: true),
   if (showCost) TableColumnDef.text('Marge', (item) => marginLabel(item.product), numeric: true),
   if (withStock) TableColumnDef.text('Magasin', (item) => item.store?.label ?? '—'),
@@ -147,7 +146,7 @@ List<ExportColumn<ProductListItem>> productExportColumns({required bool showCost
   ExportColumn('Référence', (item) => item.product.reference.toUpperCase()),
   ExportColumn('Nom', (item) => item.product.label),
   ExportColumn('Catégorie', (item) => Formats.capitalize(item.product.category?.name ?? '')),
-  if (showCost) ExportColumn('Prix d\'achat (Ar)', (item) => item.product.purchasePrice),
+  if (showCost) ExportColumn('Prix (Ar)', (item) => item.product.purchasePrice),
   ExportColumn('Prix de vente (Ar)', (item) => item.product.sellingPrice),
   if (showCost) ExportColumn('Marge unitaire (Ar)', (item) => item.product.unitProfit),
   if (withStock) ExportColumn('Magasin', (item) => item.store?.label),

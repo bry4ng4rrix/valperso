@@ -15,9 +15,11 @@ from app.schemas.common import (
     UpperStr,
 )
 from app.schemas.customer import CustomerCreate, CustomerSummary
+from app.schemas.installment import SaleInstallmentRead
 from app.schemas.payment import PaymentRead
 from app.schemas.store import StoreSummary
 from app.schemas.user import UserSummary
+from app.utils.dates import local_today
 
 # --- Création ------------------------------------------------------------------------------------
 
@@ -25,6 +27,9 @@ from app.schemas.user import UserSummary
 class SaleItemCreate(InputModel):
     product_id: int = Field(gt=0)
     quantity: int = Field(gt=0, le=100_000)
+    description: OptionalUpperStr = Field(
+        None, max_length=255, description="Précision pour cet article (taille, couleur...)"
+    )
 
 
 class SalePaymentCreate(InputModel):
@@ -46,6 +51,11 @@ class SalePaymentCreate(InputModel):
         return self
 
 
+class SaleInstallmentCreate(InputModel):
+    due_date: date = Field(description="Date du remboursement")
+    amount: Money = Field(gt=0, description="Montant à rembourser à cette date")
+
+
 class SaleCreate(InputModel):
     """Les prix, le sous-total, la remise, le total et le reste à payer sont calculés par le serveur.
     L'utilisateur responsable est toujours l'utilisateur connecté."""
@@ -59,7 +69,14 @@ class SaleCreate(InputModel):
     discount_type: DiscountType = DiscountType.NONE
     discount_value: Money = Field(Decimal("0"), description="Pourcentage (0-100) ou montant fixe")
     payment: SalePaymentCreate | None = Field(None, description="Absent = vente à crédit (rien encaissé)")
-    payment_due_date: date | None = Field(None, description="Obligatoire s'il reste un montant à payer")
+    payment_due_date: date | None = Field(
+        None, description="Échéance unique du reste à payer (si `installments` est absent)"
+    )
+    installments: list[SaleInstallmentCreate] | None = Field(
+        None,
+        max_length=36,
+        description="Échéancier du reste à payer : la somme des montants doit être égale au reste à payer",
+    )
 
     @model_validator(mode="after")
     def _check_sale(self):
@@ -77,8 +94,15 @@ class SaleCreate(InputModel):
         if self.discount_type == DiscountType.PERCENTAGE and self.discount_value > 100:
             raise ValueError("Une remise en pourcentage ne peut pas dépasser 100")
 
-        if self.payment_due_date is not None and self.payment_due_date < date.today():
+        today = local_today()
+        if self.payment_due_date is not None and self.payment_due_date < today:
             raise ValueError("La date d'échéance ne peut pas être dans le passé")
+        if self.installments:
+            dates = [installment.due_date for installment in self.installments]
+            if len(dates) != len(set(dates)):
+                raise ValueError("Deux échéances ne peuvent pas avoir la même date")
+            if min(dates) < today:
+                raise ValueError("Une date de remboursement ne peut pas être dans le passé")
         return self
 
 
@@ -94,6 +118,7 @@ class SaleItemRead(ORMModel):
     product_id: int
     product_reference: DisplayStr
     product_name: DisplayStr
+    description: DisplayStr | None
     quantity: int
     unit_price: Money
     total: Money
@@ -112,7 +137,7 @@ class SaleSummary(ORMModel):
     amount_paid: Money
     remaining_amount: Money
     payment_status: PaymentStatus
-    payment_due_date: date | None
+    payment_due_date: date | None = Field(description="Prochaine échéance non payée")
     status: SaleStatus
 
 
@@ -123,6 +148,7 @@ class SaleRead(SaleSummary):
     discount_amount: Money
     items: list[SaleItemRead]
     payments: list[PaymentRead]
+    installments: list[SaleInstallmentRead] = Field(validation_alias="installment_schedule")
     updated_at: datetime
 
 

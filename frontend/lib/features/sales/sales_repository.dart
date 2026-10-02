@@ -1,5 +1,6 @@
 import '../../core/api/api_client.dart';
 import '../../core/api/paged.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/json.dart';
 import '../payments/payment_models.dart';
 import 'sale_models.dart';
@@ -18,12 +19,15 @@ class NewSale {
     this.discountValue = 0,
     this.paymentMethod,
     this.paidAmount,
-    this.paymentReference,
-    this.dueDate,
+    this.descriptions = const {},
+    this.installments = const [],
   });
 
   /// product_id -> quantité
   final Map<int, int> lines;
+
+  /// product_id -> précision de l'article (taille, couleur...)
+  final Map<int, String> descriptions;
   final int? storeId;
   final int? customerId;
   final String? customerFirstName;
@@ -32,13 +36,14 @@ class NewSale {
   final DiscountType discountType;
   final double discountValue;
 
-  /// null = vente à crédit (rien n'est encaissé).
+  /// CASH = payé (complet ou avance) ; CREDIT ou null = dette sans avance.
   final PaymentMethod? paymentMethod;
 
   /// null = paiement complet (le serveur prend le total).
   final double? paidAmount;
-  final String? paymentReference;
-  final DateTime? dueDate;
+
+  /// Dates de remboursement du reste à payer (dette), triées par date.
+  final List<({DateTime dueDate, double amount})> installments;
 
   Json toJson() => {
     'store_id': storeId,
@@ -47,19 +52,22 @@ class NewSale {
     else
       'customer': {'first_name': customerFirstName, 'last_name': customerLastName, 'phone': customerPhone},
     'items': [
-      for (final entry in lines.entries) {'product_id': entry.key, 'quantity': entry.value},
+      for (final entry in lines.entries)
+        {
+          'product_id': entry.key,
+          'quantity': entry.value,
+          if (descriptions[entry.key] != null) 'description': descriptions[entry.key],
+        },
     ],
     'discount_type': discountType.code,
     'discount_value': discountType == DiscountType.none ? 0 : discountValue,
     if (paymentMethod != null)
-      'payment': {
-        'method': paymentMethod!.code,
-        'amount': paymentMethod == PaymentMethod.credit ? null : paidAmount,
-        'reference': paymentReference,
-      },
-    'payment_due_date': dueDate == null
-        ? null
-        : '${dueDate!.year.toString().padLeft(4, '0')}-${dueDate!.month.toString().padLeft(2, '0')}-${dueDate!.day.toString().padLeft(2, '0')}',
+      'payment': {'method': paymentMethod!.code, 'amount': paymentMethod == PaymentMethod.credit ? null : paidAmount},
+    if (installments.isNotEmpty)
+      'installments': [
+        for (final installment in installments)
+          {'due_date': Formats.apiDate(installment.dueDate), 'amount': installment.amount},
+      ],
   };
 }
 

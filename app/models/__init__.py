@@ -2,7 +2,6 @@
 
 from app.models.audit import AuditLog
 from app.models.base import Base
-from app.models.cash import CashRegister, CashTransaction
 from app.models.category import Category
 from app.models.chat import Conversation, ConversationMember, Message
 from app.models.company import COMPANY_ID, CompanyInformation, InvoiceCompanySnapshot
@@ -11,7 +10,7 @@ from app.models.payment import Payment
 from app.models.permission import Permission
 from app.models.product import Product
 from app.models.role import Role, role_permissions
-from app.models.sale import Sale, SaleItem, invoice_number_sequence
+from app.models.sale import Sale, SaleInstallment, SaleItem, invoice_number_sequence
 from app.models.stock import Stock
 from app.models.stock_movement import StockMovement
 from app.models.stock_transfer import StockTransfer, StockTransferItem, transfer_number_sequence
@@ -21,8 +20,6 @@ from app.models.user import User
 __all__ = [
     "AuditLog",
     "Base",
-    "CashRegister",
-    "CashTransaction",
     "COMPANY_ID",
     "Category",
     "CompanyInformation",
@@ -36,6 +33,7 @@ __all__ = [
     "Product",
     "Role",
     "Sale",
+    "SaleInstallment",
     "SaleItem",
     "Stock",
     "StockMovement",

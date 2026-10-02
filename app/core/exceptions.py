@@ -110,11 +110,6 @@ class InvalidTransfer(BusinessRuleError):
     default_message = "Transfert invalide"
 
 
-class CashRegisterClosed(BusinessRuleError):
-    code = "CASH_REGISTER_CLOSED"
-    default_message = "Aucune caisse ouverte pour ce magasin"
-
-
 class SaleAlreadyCancelled(BusinessRuleError):
     code = "SALE_ALREADY_CANCELLED"
     default_message = "Cette vente est déjà annulée"
@@ -132,7 +127,7 @@ class InvalidPayment(BusinessRuleError):
 
 class InvalidSellingPrice(BusinessRuleError):
     code = "INVALID_SELLING_PRICE"
-    default_message = "Le prix de vente doit être supérieur ou égal au prix de stock."
+    default_message = "Le prix de vente doit être supérieur ou égal au prix."
 
 
 class InvalidDiscount(BusinessRuleError):

@@ -111,4 +111,8 @@ def test_simultaneous_sales_never_oversell(session_factory):
     assert results == ["ok"] * 3 + ["refused"] * 3
     with session_factory() as session:
         assert session.scalar(select(func.count()).select_from(Sale)) == 3
-        assert session.scalar(select(func.sum(Stock.quantity)).where(Stock.product_id == product.id)) == 0
+        # Tout est vendu : la ligne épuisée est retirée du magasin, le stock total vaut 0.
+        total = session.scalar(
+            select(func.coalesce(func.sum(Stock.quantity), 0)).where(Stock.product_id == product.id)
+        )
+        assert total == 0

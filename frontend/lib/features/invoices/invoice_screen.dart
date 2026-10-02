@@ -185,6 +185,7 @@ class InvoiceView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(Formats.capitalize(line.name)),
+                        if (line.description != null) Text(Formats.capitalize(line.description), style: muted),
                         Text(
                           '${line.reference.toUpperCase()} · ${line.quantity} × ${Formats.money(line.unitPrice)}',
                           style: muted,
@@ -207,16 +208,16 @@ class InvoiceView extends StatelessWidget {
               value: Formats.money(invoice.remainingAmount),
               valueStyle: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
             ),
-            if (invoice.dueDate != null) InfoRow(label: 'Échéance', value: Formats.date(invoice.dueDate)),
+            if (invoice.installments.isNotEmpty)
+              InfoRow(label: 'Échéancier', value: installmentsText(invoice.installments))
+            else if (invoice.dueDate != null)
+              InfoRow(label: 'Échéance', value: Formats.date(invoice.dueDate)),
           ],
           if (invoice.payments.isNotEmpty) ...[
             const SizedBox(height: Gaps.md),
             Text('Paiements', style: theme.textTheme.titleSmall),
             for (final payment in invoice.payments)
-              Text(
-                '${Formats.dateTime(payment.createdAt)} — ${payment.method.label} — ${Formats.money(payment.amount)}',
-                style: muted,
-              ),
+              Text('${Formats.dateTime(payment.createdAt)} — ${Formats.money(payment.amount)}', style: muted),
           ],
           const SizedBox(height: Gaps.xl),
           for (final line in invoice.thankYouMessage)

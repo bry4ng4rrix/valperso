@@ -26,10 +26,17 @@ const desktopSize = Size(1440, 1000);
 
 /// Lance l'application complète avec un faux serveur.
 /// Si [loggedIn] est fourni, une session existe déjà (jetons enregistrés et /auth/me simulé).
-Future<AppDependencies> pumpApp(WidgetTester tester, FakeApi api, {Map<String, Object?>? loggedIn}) async {
+/// [light] : thème clair (le thème sombre est celui par défaut).
+Future<AppDependencies> pumpApp(
+  WidgetTester tester,
+  FakeApi api, {
+  Map<String, Object?>? loggedIn,
+  bool light = false,
+}) async {
   final storage = MemoryKeyValueStore({
     if (loggedIn != null) StorageKeys.accessToken: 'access-0',
     if (loggedIn != null) StorageKeys.refreshToken: 'refresh-0',
+    if (light) StorageKeys.themeMode: 'light',
   });
   if (loggedIn != null) api.on('GET', '/auth/me', (_) => loggedIn);
   final dependencies = AppDependencies(storage: storage, baseUrl: 'http://test.local', adapter: api);

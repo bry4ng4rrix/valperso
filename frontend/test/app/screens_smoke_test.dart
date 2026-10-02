@@ -45,19 +45,24 @@ final _transfer = {
   'created_at': '2026-10-01T10:00:00Z',
   'completed_at': '2026-10-01T10:00:00Z',
 };
-final _register = {
-  'id': 3,
-  'store_id': 2,
-  'opened_by': 1,
-  'closed_by': null,
-  'opening_amount': 50000,
-  'closing_amount': null,
-  'expected_amount': 62000,
-  'difference': null,
-  'status': 'OPEN',
-  'opened_at': '2026-10-02T07:00:00Z',
-  'closed_at': null,
-};
+final _installments = [
+  {
+    'due_date': '2026-09-30',
+    'amount': 1500,
+    'paid_amount': 500,
+    'remaining_amount': 1000,
+    'status': 'PARTIAL',
+    'is_overdue': true,
+  },
+  {
+    'due_date': '2026-10-30',
+    'amount': 1500,
+    'paid_amount': 0,
+    'remaining_amount': 1500,
+    'status': 'UNPAID',
+    'is_overdue': false,
+  },
+];
 final _contact = {
   'id': 7,
   'first_name': 'rasoa',
@@ -73,7 +78,23 @@ final _contact = {
 
 void _stubEverything(FakeApi api) {
   stubAdminBasics(api);
-  final debtSale = saleJson(total: 5000, paid: 2000, store: _h109);
+  // Dette de 3 000 en deux dates de remboursement (la première en retard), article avec description.
+  final debtSale = {
+    ...saleJson(total: 5000, paid: 2000, store: _h109),
+    'items': [
+      {
+        'id': 1,
+        'product_id': 10,
+        'product_reference': 'p-10',
+        'product_name': 'stylo bleu',
+        'description': 'taille m, encre noire et très longue description pour vérifier le retour à la ligne',
+        'quantity': 2,
+        'unit_price': 1000,
+        'total': 2000,
+      },
+    ],
+    'installments': _installments,
+  };
   api.on('GET', '/stores/2', (_) => _h109);
   api.on('GET', '/stores/2/employees', (_) => page([_appUser]));
   api.on('GET', '/products', (_) => page([productJson()]));
@@ -129,6 +150,7 @@ void _stubEverything(FakeApi api) {
           'payment_status': 'PARTIAL',
           'payment_due_date': '2026-09-30',
           'payments': [],
+          'installments': _installments,
         },
       ],
     },
@@ -174,6 +196,7 @@ void _stubEverything(FakeApi api) {
       'remaining_amount': 3000,
       'payment_status': 'PARTIAL',
       'payment_due_date': '2026-10-30',
+      'installments': _installments,
       'status': 'COMPLETED',
       'thank_you_message': ['Merci pour votre achat !', 'À bientôt chez allsafe.'],
     },
@@ -190,40 +213,6 @@ void _stubEverything(FakeApi api) {
         'reference': 'MVOLA-1',
         'creator': _userRef,
         'created_at': '2026-10-02T09:30:00Z',
-      },
-    ]),
-  );
-  api.on('GET', '/cash/registers/current', (_) => _register);
-  api.on(
-    'GET',
-    '/cash/schedule',
-    (_) => {'enabled': true, 'open_time': '06:00', 'close_time': '19:00', 'timezone': 'Indian/Antananarivo'},
-  );
-  api.on('GET', '/cash/registers', (_) => page([_register]));
-  api.on('GET', '/cash/registers/3', (_) => _register);
-  api.on(
-    'GET',
-    '/cash/registers/3/transactions',
-    (_) => page([
-      {
-        'id': 1,
-        'cash_register_id': 3,
-        'type': 'SALE',
-        'amount': 2000,
-        'reason': null,
-        'reference': 'FAC-2026-000500',
-        'created_by': 2,
-        'created_at': '2026-10-02T09:30:00Z',
-      },
-      {
-        'id': 2,
-        'cash_register_id': 3,
-        'type': 'EXPENSE',
-        'amount': -500,
-        'reason': 'taxi',
-        'reference': null,
-        'created_by': 1,
-        'created_at': '2026-10-02T10:00:00Z',
       },
     ]),
   );
@@ -340,7 +329,8 @@ const _routes = [
   '/products/10',
   '/products/new',
   '/products/10/edit',
-  '/stock',
+  '/movements',
+  '/products?state=low',
   '/transfers',
   '/transfers/1',
   '/transfers/new',
@@ -348,8 +338,6 @@ const _routes = [
   '/customers/7',
   '/customers/new',
   '/payments',
-  '/cash',
-  '/cash/3',
   '/stores',
   '/stores/2',
   '/stores/new',
@@ -377,7 +365,8 @@ const _sellerRoutes = [
   '/sales/500/invoice',
   '/products',
   '/products/10',
-  '/stock',
+  '/movements',
+  '/products?state=low',
   '/customers',
   '/customers/7',
   '/customers/new',
@@ -398,8 +387,7 @@ Future<void> _visitAll(WidgetTester tester, {bool seller = false}) async {
     await settle(tester);
     expect(tester.takeException(), isNull, reason: 'écran $route');
     expect(find.byType(ErrorState), findsNothing, reason: 'écran $route : erreur de chargement');
-    final missing = api.requests.where((request) => request.uri.path.endsWith('NOT_FOUND'));
-    expect(missing, isEmpty);
+    expect(api.unmatched, isEmpty, reason: 'écran $route : routes non simulées');
   }
 }
 
@@ -431,12 +419,28 @@ void main() {
     await _visitAll(tester, seller: true);
   });
 
+  testWidgets('détail de vente : échéancier avec état de chaque date, description de l\'article', (tester) async {
+    setScreenSize(tester, desktopSize);
+    final api = FakeApi();
+    _stubEverything(api);
+    await pumpApp(tester, api, loggedIn: meJson(admin: true));
+    GoRouter.of(tester.element(find.byType(Scaffold).first)).go('/sales/500');
+    await settle(tester);
+
+    expect(find.text('Échéancier'), findsOneWidget);
+    expect(find.text('1. 30/09/2026'), findsOneWidget);
+    expect(find.text('En retard'), findsOneWidget, reason: 'première date passée, pas encore soldée');
+    expect(find.text('À payer'), findsOneWidget);
+    expect(find.text('Prochaine échéance'), findsOneWidget);
+    expect(find.textContaining('Taille m, encre noire'), findsOneWidget);
+  });
+
   testWidgets('vendeur : un écran non autorisé renvoie à l\'accueil', (tester) async {
     setScreenSize(tester, mobileSize);
     final api = FakeApi();
     _stubEverything(api);
     await pumpApp(tester, api, loggedIn: meJson(admin: false, id: 2, store: _h109));
-    for (final route in ['/users', '/stores/new', '/cash', '/audit', '/settings/roles', '/products/new']) {
+    for (final route in ['/users', '/stores/new', '/audit', '/settings/roles', '/products/new']) {
       GoRouter.of(tester.element(find.byType(Scaffold).first)).go(route);
       await settle(tester);
       expect(find.text('Bonjour Jean Rakoto'), findsOneWidget, reason: route);

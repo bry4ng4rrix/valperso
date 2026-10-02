@@ -25,7 +25,6 @@ def test_vendeur_default_permissions(client, factory):
         "/api/v1/users",
         "/api/v1/audit",
         "/api/v1/stores",
-        "/api/v1/cash/registers",
         "/api/v1/dashboard/summary",
     ]
     for url in allowed:

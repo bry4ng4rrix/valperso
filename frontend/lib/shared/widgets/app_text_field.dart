@@ -88,6 +88,7 @@ class MoneyField extends StatelessWidget {
     this.required = false,
     this.helper,
     this.onChanged,
+    this.enabled = true,
   });
 
   final String label;
@@ -97,6 +98,7 @@ class MoneyField extends StatelessWidget {
   final bool required;
   final String? helper;
   final ValueChanged<String>? onChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +109,7 @@ class MoneyField extends StatelessWidget {
       helper: helper,
       required: required,
       onChanged: onChanged,
+      enabled: enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 ,.]'))],
       suffix: const Padding(padding: EdgeInsets.all(14), child: Text('Ar')),

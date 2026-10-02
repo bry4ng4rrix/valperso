@@ -6,7 +6,6 @@ import '../../core/utils/formatters.dart';
 import '../../core/widgets/confirmation_dialog.dart';
 import '../../core/widgets/notifications.dart';
 import '../../shared/utils/api_form.dart';
-import '../../shared/utils/validators.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_text_field.dart';
 import 'payment_models.dart';
@@ -44,13 +43,10 @@ class _PaymentDialog extends StatefulWidget {
 class _PaymentDialogState extends State<_PaymentDialog> with ApiFormState {
   final _formKey = GlobalKey<FormState>();
   late final _amount = TextEditingController(text: Formats.amount(widget.remaining));
-  final _reference = TextEditingController();
-  PaymentMethod _method = PaymentMethod.cash;
 
   @override
   void dispose() {
     _amount.dispose();
-    _reference.dispose();
     super.dispose();
   }
 
@@ -72,19 +68,13 @@ class _PaymentDialogState extends State<_PaymentDialog> with ApiFormState {
       message: [
         'Vente ${widget.saleNumber}',
         if (widget.customerName != null) 'Client : ${widget.customerName}',
-        'Mode : ${_method.label}',
       ].join('\n'),
       changes: [FieldChange('Reste à payer', Formats.money(widget.remaining), Formats.money(after))],
       confirmLabel: 'Encaisser',
     );
     if (!confirmed || !mounted) return;
     final payment = await submitToApi(
-      () => context.read<PaymentsRepository>().create(
-        saleId: widget.saleId,
-        method: _method,
-        amount: amount,
-        reference: trimOrNull(_reference.text),
-      ),
+      () => context.read<PaymentsRepository>().create(saleId: widget.saleId, amount: amount),
     );
     if (payment == null || !mounted) return;
     Notify.success(
@@ -115,27 +105,6 @@ class _PaymentDialogState extends State<_PaymentDialog> with ApiFormState {
               required: true,
               validator: _validateAmount,
               errorText: errorFor('amount'),
-            ),
-            const SizedBox(height: Gaps.md),
-            Text('Mode de paiement', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: Gaps.xs),
-            Wrap(
-              spacing: Gaps.sm,
-              runSpacing: Gaps.sm,
-              children: [
-                for (final method in PaymentMethod.collected)
-                  ChoiceChip(
-                    label: Text(method.label),
-                    selected: method == _method,
-                    onSelected: (_) => setState(() => _method = method),
-                  ),
-              ],
-            ),
-            const SizedBox(height: Gaps.md),
-            AppTextField(
-              label: 'Référence (n° de transaction...)',
-              controller: _reference,
-              errorText: errorFor('reference'),
             ),
           ],
         ),

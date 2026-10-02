@@ -2,8 +2,8 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.permissions import PermissionCode, RoleName
-from app.repositories import stock_repository
 from app.models import AuditLog, Stock, StockMovement, StockTransfer
+from app.repositories import stock_repository
 from app.services import audit_service
 
 
@@ -178,8 +178,39 @@ def test_cancel_transfer_moves_stock_back(client, factory, admin_headers, shop, 
     assert response.status_code == 200 and response.json()["status"] == "CANCELLED"
     assert factory.quantity(factory.central_store(), product) == 10
     assert factory.quantity(shop, product) == 0
-    assert stock_repository.get_line(db, shop.id, product.id) is None, "la destination ne garde pas de ligne vide"
+    assert stock_repository.get_line(db, shop.id, product.id) is None, (
+        "la destination ne garde pas de ligne vide"
+    )
     assert again.status_code == 400
+
+
+def test_movements_show_source_and_destination_of_the_transfer(client, factory, admin_headers, shop, product):
+    sent = transfer(client, admin_headers, shop, (product, 4)).json()
+    client.post(f"/api/v1/stock-transfers/{sent['id']}/cancel", headers=admin_headers)
+    factory.add_stock(product, 2)  # entrée simple : ni source ni destination
+
+    movements = client.get("/api/v1/stock/movements", headers=admin_headers, params={"sort": "created_at"})
+
+    central = factory.central_store().id
+
+    def store_id(store: dict | None) -> int | None:
+        return store["id"] if store else None
+
+    rows = [
+        (m["type"], m["quantity"], store_id(m["source_store"]), store_id(m["destination_store"]))
+        for m in movements.json()["items"]
+        if m["reference"] == sent["reference"]
+    ]
+    assert sorted(rows) == sorted(
+        [
+            ("TRANSFER_OUT", -4, central, shop.id),
+            ("TRANSFER_IN", 4, central, shop.id),
+            ("TRANSFER_OUT", -4, shop.id, central),  # annulation : trajet inverse
+            ("TRANSFER_IN", 4, shop.id, central),
+        ]
+    )
+    others = [m for m in movements.json()["items"] if m["reference"] != sent["reference"]]
+    assert all(m["source_store"] is None and m["destination_store"] is None for m in others)
 
 
 def test_cancel_is_refused_when_destination_no_longer_has_the_stock(

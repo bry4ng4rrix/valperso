@@ -5,6 +5,7 @@ from pydantic import Field, computed_field
 from app.models.enums import DiscountType, PaymentStatus, SaleStatus
 from app.schemas.common import DisplayStr, Money, ORMModel
 from app.schemas.customer import CustomerSummary
+from app.schemas.installment import SaleInstallmentRead
 from app.schemas.payment import PaymentRead
 from app.schemas.sale import SaleItemRead
 from app.schemas.user import UserSummary
@@ -55,7 +56,10 @@ class InvoiceRead(ORMModel):
     amount_paid: Money
     remaining_amount: Money
     payment_status: PaymentStatus
-    payment_due_date: dt.date | None = Field(description="Échéance du reste à payer (vente avec dette)")
+    payment_due_date: dt.date | None = Field(description="Prochaine échéance non payée (vente avec dette)")
+    installments: list[SaleInstallmentRead] = Field(
+        validation_alias="installment_schedule", description="Échéancier du reste à payer"
+    )
     status: SaleStatus
 
     @computed_field(description="Message de remerciement, avec le nom de la société de la facture")

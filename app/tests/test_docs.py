@@ -22,7 +22,7 @@ def test_all_modules_are_exposed(client):
     prefixes = {path.split("/")[3] for path in schema["paths"]}
     assert prefixes == {
         "auth", "users", "roles", "permissions", "stores", "categories", "products", "stock",
-        "stock-transfers", "customers", "sales", "payments", "cash", "dashboard", "company", "chat",
+        "stock-transfers", "customers", "sales", "payments", "dashboard", "company", "chat",
         "audit", "health",
     }  # fmt: skip
 

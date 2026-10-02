@@ -26,7 +26,6 @@ const _moduleLabels = {
   'stock': 'Stock',
   'sale': 'Ventes',
   'payment': 'Paiements',
-  'cash': 'Caisse',
   'audit': 'Audit',
   'company': 'Société',
   'chat': 'Messages',

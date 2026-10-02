@@ -13,6 +13,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/periods.dart';
 import '../../shared/widgets/adaptive_page.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/collapsible_grid.dart';
 import '../../shared/widgets/period_selector.dart';
 import '../../shared/widgets/responsive_grid.dart';
 import '../../shared/widgets/stat_card.dart';
@@ -54,7 +55,7 @@ List<Widget> quickActions(BuildContext context, CurrentUser user) => [
     QuickActionCard(
       label: 'Entrée de stock',
       icon: Icons.move_to_inbox_outlined,
-      onTap: () => context.go(Routes.stock),
+      onTap: () => context.go(Routes.movements),
     ),
   if (user.canCreateTransfer)
     QuickActionCard(label: 'Nouveau transfert', icon: Icons.swap_horiz, onTap: () => context.push('/transfers/new')),
@@ -64,8 +65,6 @@ List<Widget> quickActions(BuildContext context, CurrentUser user) => [
       icon: Icons.account_balance_wallet_outlined,
       onTap: () => context.go('${Routes.customers}?debt=1'),
     ),
-  if (user.can(Perm.cashView))
-    QuickActionCard(label: 'Caisse', icon: Icons.point_of_sale, onTap: () => context.go(Routes.cash)),
   if (!user.can(Perm.saleCreate) && user.can(Perm.productView))
     QuickActionCard(label: 'Produits', icon: Icons.inventory_2_outlined, onTap: () => context.go(Routes.products)),
 ];
@@ -192,7 +191,10 @@ class _SummaryContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ResponsiveGrid(
+        // 4 indicateurs affichés, les autres derrière le bouton « ⋯ ».
+        CollapsibleGrid(
+          title: 'Indicateurs',
+          visibleCount: 4,
           minItemWidth: 180,
           children: [
             StatCard(label: 'Chiffre d\'affaires', value: Formats.money(s.revenue), icon: Icons.trending_up),
@@ -223,14 +225,14 @@ class _SummaryContent extends StatelessWidget {
               value: Formats.quantity(s.lowStockCount),
               icon: Icons.trending_down,
               tone: s.lowStockCount > 0 ? AppColors.warning : null,
-              onTap: () => context.go('${Routes.stock}?state=low'),
+              onTap: () => context.go('${Routes.products}?state=low'),
             ),
             StatCard(
               label: 'Ruptures (par magasin)',
               value: Formats.quantity(s.outOfStockCount),
               icon: Icons.block,
               tone: s.outOfStockCount > 0 ? AppColors.danger : null,
-              onTap: () => context.go('${Routes.stock}?state=out'),
+              onTap: () => context.go('${Routes.products}?state=out'),
             ),
             StatCard(
               label: 'Produits indisponibles partout',
@@ -243,9 +245,7 @@ class _SummaryContent extends StatelessWidget {
         ),
         if (actions.isNotEmpty) ...[
           const SizedBox(height: Gaps.xl),
-          Text('Actions rapides', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: Gaps.md),
-          ResponsiveGrid(minItemWidth: 220, children: actions),
+          CollapsibleGrid(title: 'Actions rapides', visibleCount: 3, minItemWidth: 220, children: actions),
         ],
         if (chart != null) ...[
           const SizedBox(height: Gaps.xl),
@@ -369,7 +369,7 @@ class _LowStockSection extends StatelessWidget {
           title: 'Stocks à surveiller (${page.total})',
           icon: Icons.warning_amber_rounded,
           trailing: TextButton(
-            onPressed: () => context.go('${Routes.stock}?state=low'),
+            onPressed: () => context.go('${Routes.products}?state=low'),
             child: const Text('Tout voir'),
           ),
           child: Column(children: [for (final line in page.items) LowStockTile(line: line)]),
@@ -463,9 +463,7 @@ class _SellerHomeViewState extends State<SellerHomeView> {
           if (_todaySales != null) _TodaySummary(future: _todaySales!),
           if (actions.isNotEmpty) ...[
             const SizedBox(height: Gaps.xl),
-            Text('Actions rapides', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: Gaps.md),
-            ResponsiveGrid(minItemWidth: 220, children: actions),
+            CollapsibleGrid(title: 'Actions rapides', visibleCount: 3, minItemWidth: 220, children: actions),
           ],
           if (_alerts != null) ...[const SizedBox(height: Gaps.xl), _LowStockSection(future: _alerts!)],
         ],

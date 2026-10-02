@@ -3,7 +3,6 @@
 - Un paiement est une somme réellement encaissée (montant > 0) ; l'historique n'est jamais écrasé.
 - Le montant payé (`amount_paid`) est toujours recalculé à partir des paiements, jamais reçu du frontend.
 - Le reste à payer est `total - amount_paid` ; un paiement ne peut pas le dépasser.
-- Un paiement en espèces (CASH) entre dans la caisse ouverte du magasin.
 
 Évolution prévue (MIXED) : plusieurs paiements de modes différents enregistrés avec `record_payment()`.
 """
@@ -14,11 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import InvalidPayment, NotFoundError, PaymentAlreadyCompleted
 from app.models import Payment, Sale, User
-from app.models.enums import CashTransactionType, PaymentMethod, PaymentStatus, SaleStatus
+from app.models.enums import PaymentMethod, PaymentStatus, SaleStatus
 from app.repositories import payment_repository, sale_repository
 from app.repositories.base import PageResult
 from app.schemas.payment import PaymentCreate, PaymentFilters, PaymentRead
-from app.services import audit_service, cash_service, store_access
+from app.services import audit_service, store_access
 
 
 def compute_payment_status(total: Decimal, amount_paid: Decimal) -> PaymentStatus:
@@ -38,41 +37,13 @@ def record_payment(
     user_id: int,
     reference: str | None = None,
 ) -> Payment:
-    """Enregistre un encaissement. S'il est en espèces, l'argent entre dans la caisse ouverte du magasin."""
+    """Enregistre un encaissement."""
     payment = Payment(sale=sale, method=method, amount=amount, reference=reference, created_by=user_id)
     db.add(payment)
 
-    if method == PaymentMethod.CASH:
-        register = cash_service.get_open_register_for_update(db, sale.store_id)
-        cash_service.add_transaction(
-            db,
-            register,
-            transaction_type=CashTransactionType.SALE,
-            amount=amount,
-            user_id=user_id,
-            reason=f"PAIEMENT {sale.sale_number}",
-            reference=sale.sale_number,
-        )
     db.flush()
     db.expire(sale, ["amount_paid"])  # le montant payé sera recalculé à la prochaine lecture
     return payment
-
-
-def refund_cash_payments(db: Session, *, sale: Sale, user_id: int) -> Decimal:
-    """Rembourse depuis la caisse les sommes encaissées en espèces (annulation de vente)."""
-    cash_total = sum((p.amount for p in sale.payments if p.method == PaymentMethod.CASH), Decimal("0"))
-    if cash_total > 0:
-        register = cash_service.get_open_register_for_update(db, sale.store_id)
-        cash_service.add_transaction(
-            db,
-            register,
-            transaction_type=CashTransactionType.REFUND,
-            amount=-cash_total,
-            user_id=user_id,
-            reason=f"ANNULATION VENTE {sale.sale_number}",
-            reference=sale.sale_number,
-        )
-    return cash_total
 
 
 def add_payment(db: Session, user: User, data: PaymentCreate, ip_address: str | None = None) -> Payment:
@@ -95,6 +66,8 @@ def add_payment(db: Session, user: User, data: PaymentCreate, ip_address: str | 
         db, sale=sale, method=data.method, amount=data.amount, user_id=user.id, reference=data.reference
     )
     sale.payment_status = compute_payment_status(sale.total, already_paid + data.amount)
+    # Le paiement solde les échéances dans l'ordre des dates : l'échéance affichée devient la suivante.
+    sale.payment_due_date = sale.next_installment_date or sale.payment_due_date
     audit_service.record(
         db,
         user_id=user.id,

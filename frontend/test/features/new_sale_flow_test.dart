@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:valmag/core/widgets/app_dialog.dart';
-import 'package:valmag/features/sales/sale_models.dart';
 
 import '../support/fake_api.dart';
 import '../support/fixtures.dart';
@@ -57,7 +56,7 @@ Finder get _validateButton =>
 
 /// Fait défiler le panneau de droite (grand écran) jusqu'au bouton de validation.
 Future<void> _showValidateButton(WidgetTester tester) async {
-  final panel = find.ancestor(of: find.text('Mode de paiement'), matching: find.byType(Scrollable)).first;
+  final panel = find.ancestor(of: find.text('Paiement').first, matching: find.byType(Scrollable)).first;
   await tester.scrollUntilVisible(find.text('Valider la vente'), 200, scrollable: panel);
   await tester.pumpAndSettle();
 }
@@ -113,8 +112,8 @@ void main() {
       {'product_id': 10, 'quantity': 2},
     ]);
     expect(body['discount_type'], 'NONE');
-    expect(body['payment'], {'method': 'CASH', 'amount': null, 'reference': null});
-    expect(body['payment_due_date'], isNull);
+    expect(body['payment'], {'method': 'CASH', 'amount': null});
+    expect(body.containsKey('installments'), isFalse);
 
     expect(find.text('Vente enregistrée'), findsWidgets);
     expect(find.text('FAC-2026-000500'), findsOneWidget);
@@ -131,12 +130,14 @@ void main() {
     await tester.pumpAndSettle();
     await _fillNewCustomer(tester);
 
-    await tester.ensureVisible(find.text('Avance'));
-    await tester.tap(find.text('Avance'));
+    await tester.ensureVisible(find.text('Dette (avance)'));
+    await tester.tap(find.text('Dette (avance)'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'Montant de l\'avance'), '400');
+    final paid = find.widgetWithText(TextFormField, 'Payé maintenant');
+    expect(tester.widget<TextFormField>(paid).controller!.text, '1\u00A0000', reason: 'pré-rempli avec le total');
+    await tester.enterText(paid, '400');
     await tester.pumpAndSettle();
-    expect(find.text('Reste à payer : 600 Ar'), findsOneWidget);
+    expect(find.text('Avance 400 Ar — reste à payer 600 Ar'), findsOneWidget);
     expect(find.textContaining('Le téléphone du client est obligatoire'), findsWidgets);
 
     await _showValidateButton(tester);
@@ -146,10 +147,10 @@ void main() {
     expect(api.calls('POST', '/sales'), isEmpty);
   });
 
-  testWidgets('caisse fermée : message clair, le panier est conservé', (tester) async {
+  testWidgets('vente refusée : message clair, le panier est conservé', (tester) async {
     setScreenSize(tester, desktopSize);
     final api = _sellerApi();
-    api.onError('POST', '/sales', status: 400, code: 'CASH_REGISTER_CLOSED', detail: 'Aucune caisse ouverte dans H109');
+    api.onError('POST', '/sales', status: 400, code: 'INVALID_PAYMENT', detail: 'Le paiement dépasse le total');
     await pumpApp(tester, api, loggedIn: meJson(admin: false, id: 2, store: _h109));
     await _openNewSale(tester);
     await tester.tap(find.byTooltip('Ajouter au panier').first);
@@ -162,10 +163,7 @@ void main() {
     await settle(tester);
 
     expect(api.calls('POST', '/sales'), hasLength(1));
-    expect(find.text('Caisse fermée'), findsOneWidget);
-    expect(find.textContaining('Aucune caisse ouverte dans H109'), findsOneWidget);
-    await tester.tap(find.text('Compris'));
-    await tester.pumpAndSettle();
+    expect(find.textContaining('Le paiement dépasse le total'), findsOneWidget);
     expect(find.text('Panier (1)'), findsOneWidget);
   });
 
@@ -189,7 +187,10 @@ void main() {
     await _fillNewCustomer(tester, phone: '034 12 345 67');
     await tester.tap(next);
     await tester.pumpAndSettle();
-    expect(find.text('Mode de paiement'), findsOneWidget);
+    expect(find.text('Payé'), findsOneWidget);
+    expect(find.text('Dette (avance)'), findsOneWidget);
+    expect(find.text('Mode de paiement'), findsNothing, reason: 'plus de choix du mode de paiement');
+    expect(find.text('Mobile money'), findsNothing);
     await tester.tap(next);
     await tester.pumpAndSettle();
     expect(find.text('Résumé'), findsWidgets);
@@ -249,40 +250,85 @@ void main() {
     expect(selected, 1);
   });
 
-  testWidgets('remise : uniquement « Aucune » ou un montant (pas de pourcentage)', (tester) async {
+  testWidgets('dette sans avance : champ vidé, rien n\'est encaissé, tout le total reste à payer', (tester) async {
     setScreenSize(tester, desktopSize);
-    final api = FakeApi();
-    stubAdminBasics(api);
-    api.on('GET', '/sales/history', (_) => page([]));
-    api.on('GET', '/stock', (_) => page([stockLineJson(quantity: 5)]));
-    api.on('POST', '/sales', (_) => saleJson(total: 1500, paid: 1500), status: 201);
-    await pumpApp(tester, api, loggedIn: meJson(admin: true));
-    await tester.tap(find.text('Ventes').first); // menu latéral (la carte « Ventes » du tableau de bord suit)
-    await settle(tester);
-
-    final discount = find.byWidgetPredicate((widget) => widget is SegmentedButton<DiscountType>);
-    expect(discount, findsOneWidget);
-    final segments = tester.widget<SegmentedButton<DiscountType>>(discount).segments.map((segment) => segment.value);
-    expect(segments, [DiscountType.none, DiscountType.fixed]);
-    expect(find.descendant(of: discount, matching: find.text('%')), findsNothing);
-
+    final api = _sellerApi();
+    api.on('POST', '/sales', (_) => saleJson(total: 2000, paid: 0, store: _h109), status: 201);
+    await pumpApp(tester, api, loggedIn: meJson(admin: false, id: 2, store: _h109));
+    await _openNewSale(tester);
     await tester.tap(find.byTooltip('Ajouter au panier').first);
     await tester.tap(find.byTooltip('Ajouter au panier').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(of: discount, matching: find.text('Montant')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'Remise (Ar)'), '500');
-    await tester.pumpAndSettle();
-    expect(find.text('Remise appliquée : 500 Ar'), findsOneWidget);
+    await _fillNewCustomer(tester, phone: '034 12 345 67');
 
-    await _fillNewCustomer(tester);
+    expect(find.text('Remise'), findsNothing, reason: 'la carte Remise est remplacée');
+    await tester.ensureVisible(find.text('Dette (avance)'));
+    await tester.tap(find.text('Dette (avance)'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Payé maintenant'), '');
+    await tester.pumpAndSettle();
+    expect(find.text('Dette sans avance : reste à payer 2\u00A0000 Ar'), findsOneWidget);
+
+    expect(find.text('Dates de remboursement'), findsOneWidget);
+    await tester.ensureVisible(find.text('Choisir la date'));
+    await tester.tap(find.text('Choisir la date'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
     await _showValidateButton(tester);
     await tester.tap(_validateButton);
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: find.byType(AppDialog), matching: find.text('Valider la vente')));
     await settle(tester);
     final body = api.calls('POST', '/sales').single.data as Map;
-    expect(body['discount_type'], 'FIXED');
-    expect(body['discount_value'], 500);
+    expect(body['payment'], {'method': 'CREDIT', 'amount': null});
+    final installments = body['installments'] as List;
+    expect(installments.single['amount'], 2000.0, reason: 'une seule date : tout le reste à payer');
+    expect(installments.single['due_date'], isNotNull);
+    expect(body['discount_type'], 'NONE');
+  });
+
+  testWidgets('dette avec avance : description d\'article et deux dates de remboursement', (tester) async {
+    setScreenSize(tester, desktopSize);
+    final api = _sellerApi();
+    api.on('POST', '/sales', (_) => saleJson(total: 2000, paid: 500, store: _h109), status: 201);
+    await pumpApp(tester, api, loggedIn: meJson(admin: false, id: 2, store: _h109));
+    await _openNewSale(tester);
+    await tester.tap(find.byTooltip('Ajouter au panier').first);
+    await tester.tap(find.byTooltip('Ajouter au panier').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Description (taille, couleur...)'), 'Taille M, noir');
+    await _fillNewCustomer(tester, phone: '034 12 345 67');
+
+    await tester.ensureVisible(find.text('Dette (avance)'));
+    await tester.tap(find.text('Dette (avance)'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Payé maintenant'), '500');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Choisir la date'));
+    await tester.tap(find.text('Choisir la date'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Ajouter une date'));
+    await tester.tap(find.text('Ajouter une date'));
+    await tester.pumpAndSettle();
+    expect(find.text('Total prévu : 1\u00A0500 Ar sur 1\u00A0500 Ar'), findsOneWidget, reason: '750 + 750');
+
+    await _showValidateButton(tester);
+    await tester.tap(_validateButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Taille M, noir'), findsWidgets, reason: 'la description figure dans le récapitulatif');
+    await tester.tap(find.descendant(of: find.byType(AppDialog), matching: find.text('Valider la vente')));
+    await settle(tester);
+
+    final body = api.calls('POST', '/sales').single.data as Map;
+    expect((body['items'] as List).first['description'], 'Taille M, noir');
+    expect(body['payment'], {'method': 'CASH', 'amount': 500.0});
+    final installments = (body['installments'] as List).cast<Map>();
+    expect(installments.map((i) => i['amount']), [750.0, 750.0]);
+    final dates = installments.map((i) => DateTime.parse(i['due_date'] as String)).toList();
+    expect(dates.last.isAfter(dates.first), isTrue, reason: 'la seconde date suit la première d\'un mois');
   });
 }

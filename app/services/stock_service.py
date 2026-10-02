@@ -53,7 +53,13 @@ def apply_stock_change(
     reason: str | None = None,
     reference: str | None = None,
 ) -> StockMovement:
-    """Ajoute `delta` (positif ou négatif) à une ligne de stock VERROUILLÉE et trace le mouvement."""
+    """Ajoute `delta` (positif ou négatif) à une ligne de stock VERROUILLÉE et trace le mouvement.
+
+    Une ligne qui tombe à 0 par une sortie (vente, sortie, perte, ajustement, transfert) est retirée
+    du magasin : le produit épuisé n'y apparaît plus. Il reste dans la base (catalogue) et les
+    historiques (ventes, transferts, mouvements) gardent son nom et ses informations. La ligne est
+    recréée automatiquement si le produit revient dans ce magasin (entrée, transfert, annulation).
+    """
     if line.quantity + delta < 0:
         raise insufficient_stock(line.product, line.store, line.quantity, -delta)
 
@@ -68,6 +74,8 @@ def apply_stock_change(
         reference=reference,
     )
     db.add(movement)
+    if delta < 0 and line.quantity == 0:
+        db.delete(line)
     return movement
 
 

@@ -53,8 +53,8 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
       context,
       title: 'Annuler la vente ${sale.number} ?',
       message:
-          'Les produits retournent dans le stock de ${sale.store.label} '
-          'et les paiements en espèces sont remboursés depuis la caisse. Cette action est définitive.',
+          'Les produits retournent dans le stock de ${sale.store.label}. '
+          'Les paiements restent visibles dans l\'historique. Cette action est définitive.',
       fieldLabel: 'Motif de l\'annulation',
       confirmLabel: 'Annuler la vente',
     );
@@ -156,7 +156,10 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(Formats.capitalize(item.name)),
                     subtitle: Text(
-                      '${item.reference.toUpperCase()} · ${item.quantity} × ${Formats.money(item.unitPrice)}',
+                      [
+                        '${item.reference.toUpperCase()} · ${item.quantity} × ${Formats.money(item.unitPrice)}',
+                        if (item.description != null) Formats.capitalize(item.description),
+                      ].join('\n'),
                     ),
                     trailing: Text(Formats.money(item.total), style: theme.textTheme.titleSmall),
                     onTap: () => context.push('/products/${item.productId}'),
@@ -189,7 +192,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                         valueStyle: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
                       ),
                       InfoRow(
-                        label: 'Échéance',
+                        label: sale.installments.isEmpty ? 'Échéance' : 'Prochaine échéance',
                         value: '${Formats.date(sale.paymentDueDate)}${sale.isOverdue ? ' (dépassée)' : ''}',
                         valueStyle: sale.isOverdue ? const TextStyle(color: AppColors.danger) : null,
                       ),
@@ -197,6 +200,14 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                   ],
                 ),
               ),
+              if (sale.installments.isNotEmpty) ...[
+                const SizedBox(height: Gaps.lg),
+                SectionCard(
+                  title: 'Échéancier',
+                  icon: Icons.event_note_outlined,
+                  child: InstallmentList(installments: sale.installments),
+                ),
+              ],
               const SizedBox(height: Gaps.lg),
               SectionCard(
                 title: 'Paiements',
@@ -209,7 +220,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                             ListTile(
                               contentPadding: EdgeInsets.zero,
                               dense: true,
-                              title: Text('${payment.method.label} — ${Formats.money(payment.amount)}'),
+                              title: Text(Formats.money(payment.amount)),
                               subtitle: Text(
                                 [
                                   Formats.dateTime(payment.createdAt),

@@ -28,14 +28,15 @@ def create_sale(
     current_user: Annotated[User, require_permission(P.SALE_CREATE)],
 ):
     """Enregistre une vente complète en une seule transaction (lignes, stock, mouvements, paiement,
-    caisse, audit). En cas d'erreur, rien n'est enregistré.
+    audit). En cas d'erreur, rien n'est enregistré.
 
     - L'utilisateur responsable est **l'utilisateur connecté** ; un VENDEUR vend dans **son** magasin.
     - Client : `customer_id` (client existant) ou `customer` (nom, prénom, téléphone).
     - Prix, sous-total, remise et total sont calculés par le serveur. Remise : permission `sale.discount`.
     - Paiement : absent ou `CREDIT` = vente à crédit ; `amount` absent = paiement complet ;
-      `amount` < total = avance. S'il reste un montant dû : téléphone du client et `payment_due_date`
-      obligatoires. Un paiement `CASH` nécessite une caisse ouverte.
+      `amount` < total = avance. S'il reste un montant dû : téléphone du client obligatoire, et
+      échéancier `installments` (dates et montants, somme = reste à payer) ou échéance unique
+      `payment_due_date`.
     """
     return sale_service.create_sale(db, current_user, data, ip_address)
 
@@ -89,6 +90,6 @@ def cancel_sale(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.SALE_CANCEL)],
 ):
-    """Remet les quantités dans le stock du magasin (mouvements RETURN) et rembourse les espèces
-    depuis la caisse ouverte. Erreur SALE_ALREADY_CANCELLED si la vente est déjà annulée."""
+    """Remet les quantités dans le stock du magasin (mouvements RETURN).
+    Erreur SALE_ALREADY_CANCELLED si la vente est déjà annulée."""
     return sale_service.cancel_sale(db, current_user, sale_id, data, ip_address)

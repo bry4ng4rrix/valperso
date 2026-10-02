@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../shared/models/refs.dart';
 import '../payments/payment_models.dart';
 import '../products/product_models.dart';
@@ -14,9 +15,21 @@ class CartLine {
   final int available;
   int quantity;
 
+  /// Précision pour cet article (taille, couleur...), facultative.
+  String description = '';
+
   double get unitPrice => product.sellingPrice;
   double get total => roundMoney(unitPrice * quantity);
   bool get exceedsStock => quantity > available;
+}
+
+/// Une date de remboursement prévue pour le reste à payer, et son montant.
+class CartInstallment {
+  CartInstallment({required this.id, this.dueDate, this.amount = 0});
+
+  final int id;
+  DateTime? dueDate;
+  double amount;
 }
 
 /// Arrondi à 2 décimales, comme le serveur.
@@ -56,16 +69,16 @@ class CartController extends ChangeNotifier {
   DiscountType discountType = DiscountType.none;
   double discountValue = 0;
 
-  /// null tant que l'utilisateur n'a pas choisi ; [PaymentMethod.credit] = rien n'est encaissé.
-  PaymentMethod paymentMethod = PaymentMethod.cash;
-
-  /// true = paiement complet ; false = avance de [advanceAmount].
+  /// true = « Payé » (paiement complet) ; false = « Dette (avance) » : [advanceAmount] payé maintenant.
   bool payInFull = true;
   double advanceAmount = 0;
-  String? paymentReference;
-  DateTime? dueDate;
+
+  /// Dates de remboursement du reste à payer (dette).
+  final List<CartInstallment> _installments = [];
+  int _nextInstallmentId = 0;
 
   List<CartLine> get lines => List.unmodifiable(_lines.values);
+  List<CartInstallment> get installments => List.unmodifiable(_installments);
   bool get isEmpty => _lines.isEmpty;
   int get itemCount => _lines.values.fold(0, (sum, line) => sum + line.quantity);
   int quantityOf(int productId) => _lines[productId]?.quantity ?? 0;
@@ -83,15 +96,30 @@ class CartController extends ChangeNotifier {
 
   double get total => roundMoney(subtotal - discountAmount);
 
-  /// Montant encaissé maintenant.
+  /// « Dette (avance) » sans montant payé : dette sans avance (tout le total reste à payer).
+  bool get isDebtWithoutAdvance => !payInFull && advanceAmount <= 0;
+
+  /// Code envoyé au serveur : CREDIT (rien payé) pour une dette sans avance, sinon CASH.
+  PaymentMethod get effectiveMethod => isDebtWithoutAdvance ? PaymentMethod.credit : PaymentMethod.cash;
+
   double get amountPaid {
-    if (paymentMethod == PaymentMethod.credit) return 0;
+    if (effectiveMethod == PaymentMethod.credit) return 0;
     if (payInFull) return total;
     return roundMoney(advanceAmount.clamp(0, total));
   }
 
   double get remaining => roundMoney(total - amountPaid);
   bool get hasDebt => remaining > 0;
+
+  /// Somme des remboursements prévus (doit être égale au reste à payer).
+  double get installmentsTotal => roundMoney(_installments.fold(0.0, (sum, i) => sum + i.amount));
+
+  /// Remboursements triés par date (les dates pas encore choisies à la fin).
+  List<CartInstallment> get sortedInstallments => [..._installments]
+    ..sort((a, b) {
+      if (a.dueDate == null || b.dueDate == null) return a.dueDate == null ? (b.dueDate == null ? 0 : 1) : -1;
+      return a.dueDate!.compareTo(b.dueDate!);
+    });
 
   // --- Modifications ------------------------------------------------------------------------
 
@@ -100,7 +128,7 @@ class CartController extends ChangeNotifier {
     store = value;
     // Les quantités disponibles dépendent du magasin : le panier est vidé.
     _lines.clear();
-    notifyListeners();
+    _changed();
   }
 
   /// Ajoute un produit (ou une unité de plus s'il est déjà dans le panier).
@@ -111,7 +139,7 @@ class CartController extends ChangeNotifier {
     } else if (line.quantity < line.available) {
       line.quantity++;
     }
-    notifyListeners();
+    _changed();
   }
 
   void setQuantity(int productId, int quantity) {
@@ -122,12 +150,15 @@ class CartController extends ChangeNotifier {
     } else {
       line.quantity = quantity;
     }
-    notifyListeners();
+    _changed();
   }
 
   void remove(int productId) {
-    if (_lines.remove(productId) != null) notifyListeners();
+    if (_lines.remove(productId) != null) _changed();
   }
+
+  /// Précision de l'article (taille, couleur...). Aucun montant ne change : pas de nouvel affichage.
+  void setDescription(int productId, String text) => _lines[productId]?.description = text.trim();
 
   void setCustomer(CartCustomer? value) {
     customer = value;
@@ -137,23 +168,70 @@ class CartController extends ChangeNotifier {
   void setDiscount(DiscountType type, double value) {
     discountType = type;
     discountValue = type == DiscountType.none ? 0 : value;
+    _changed();
+  }
+
+  void setPayment({bool? inFull, double? advance}) {
+    if (inFull != null) payInFull = inFull;
+    if (advance != null) advanceAmount = advance;
+    if (payInFull) {
+      _installments.clear();
+    } else if (_installments.isEmpty) {
+      _installments.add(CartInstallment(id: _nextInstallmentId++));
+    }
+    _changed();
+  }
+
+  // --- Dates de remboursement (dette) --------------------------------------------------------------
+
+  /// Ajoute une date (un mois après la précédente) et répartit le reste à payer également.
+  void addInstallment() {
+    final last = sortedInstallments.lastOrNull?.dueDate;
+    _installments.add(
+      CartInstallment(
+        id: _nextInstallmentId++,
+        dueDate: last == null ? null : DateTime(last.year, last.month + 1, last.day),
+      ),
+    );
+    _changed();
+  }
+
+  /// Retire une date (il en reste toujours au moins une) et répartit le reste à payer également.
+  void removeInstallment(int id) {
+    if (_installments.length <= 1) return;
+    _installments.removeWhere((installment) => installment.id == id);
+    _changed();
+  }
+
+  void setInstallmentDate(int id, DateTime date) {
+    _installmentById(id)?.dueDate = DateTime(date.year, date.month, date.day);
     notifyListeners();
   }
 
-  void setPayment({
-    PaymentMethod? method,
-    bool? inFull,
-    double? advance,
-    String? reference,
-    DateTime? due,
-    bool clearDueDate = false,
-  }) {
-    if (method != null) paymentMethod = method;
-    if (inFull != null) payInFull = inFull;
-    if (advance != null) advanceAmount = advance;
-    if (reference != null) paymentReference = reference.trim().isEmpty ? null : reference.trim();
-    if (due != null) dueDate = due;
-    if (clearDueDate) dueDate = null;
+  /// Montant saisi à la main : la répartition n'est pas refaite.
+  void setInstallmentAmount(int id, double amount) {
+    _installmentById(id)?.amount = amount;
+    notifyListeners();
+  }
+
+  /// Répartit le reste à payer également entre les dates (montants ronds, le dernier prend le reste).
+  void splitInstallmentsEvenly() => _changed();
+
+  CartInstallment? _installmentById(int id) => _installments.where((i) => i.id == id).firstOrNull;
+
+  void _splitInstallments() {
+    if (_installments.isEmpty) return;
+    final count = _installments.length;
+    final share = (remaining / count).floorToDouble();
+    for (final installment in _installments) {
+      installment.amount = share;
+    }
+    _installments.last.amount = roundMoney(remaining - share * (count - 1));
+  }
+
+  /// Le reste à payer a pu changer : les remboursements sont répartis de nouveau, puis l'écran est prévenu.
+  void _changed() {
+    _splitInstallments();
     notifyListeners();
   }
 
@@ -163,11 +241,9 @@ class CartController extends ChangeNotifier {
     customer = null;
     discountType = DiscountType.none;
     discountValue = 0;
-    paymentMethod = PaymentMethod.cash;
     payInFull = true;
     advanceAmount = 0;
-    paymentReference = null;
-    dueDate = null;
+    _installments.clear();
     notifyListeners();
   }
 
@@ -195,22 +271,30 @@ class CartController extends ChangeNotifier {
     if (discountType == DiscountType.fixed && discountValue > subtotal) 'La remise ne peut pas dépasser le sous-total.',
   ];
 
-  /// Problèmes de paiement (montant, échéance, téléphone du client).
-  List<String> get paymentErrors {
-    final today = DateTime.now();
-    final due = dueDate;
+  /// Problèmes de paiement (montant, dates de remboursement, téléphone du client).
+  List<String> get paymentErrors => [
+    if (!payInFull && advanceAmount > total) 'L\'avance ne peut pas dépasser le total.',
+    ...installmentErrors,
+    if (hasDebt && customer != null && customer!.phoneNumber == null)
+      'Le téléphone du client est obligatoire s\'il reste un montant à payer.',
+  ];
+
+  /// Problèmes des dates de remboursement (seulement s'il reste un montant à payer).
+  List<String> get installmentErrors {
+    if (!hasDebt) return const [];
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dates = [for (final installment in _installments) ?installment.dueDate];
     return [
-      if (paymentMethod != PaymentMethod.credit && !payInFull && advanceAmount <= 0)
-        'Saisissez le montant de l\'avance.',
-      if (paymentMethod != PaymentMethod.credit && !payInFull && advanceAmount > total)
-        'L\'avance ne peut pas dépasser le total.',
-      if (hasDebt && due == null) 'Choisissez la date d\'échéance du reste à payer.',
-      if (hasDebt &&
-          due != null &&
-          DateTime(due.year, due.month, due.day).isBefore(DateTime(today.year, today.month, today.day)))
-        'La date d\'échéance ne peut pas être dans le passé.',
-      if (hasDebt && customer != null && customer!.phoneNumber == null)
-        'Le téléphone du client est obligatoire s\'il reste un montant à payer.',
+      if (_installments.isEmpty) 'Ajoutez au moins une date de remboursement.',
+      if (dates.length < _installments.length) 'Choisissez la date de chaque remboursement.',
+      if (dates.any((date) => date.isBefore(today))) 'Une date de remboursement ne peut pas être dans le passé.',
+      if (dates.toSet().length < dates.length) 'Deux remboursements ne peuvent pas avoir la même date.',
+      if (_installments.any((installment) => installment.amount <= 0))
+        'Chaque remboursement doit avoir un montant supérieur à 0.',
+      if (_installments.isNotEmpty && installmentsTotal != remaining)
+        'Le total des remboursements (${Formats.money(installmentsTotal)}) doit être égal '
+            'au reste à payer (${Formats.money(remaining)}).',
     ];
   }
 
@@ -226,9 +310,14 @@ class CartController extends ChangeNotifier {
   /// Données envoyées à POST /sales (une seule fois, après confirmation).
   NewSale toNewSale({required bool includeStore}) {
     final client = customer!;
-    final collected = paymentMethod != PaymentMethod.credit;
+    final method = effectiveMethod;
+    final collected = method != PaymentMethod.credit;
     return NewSale(
       lines: {for (final line in _lines.values) line.product.id: line.quantity},
+      descriptions: {
+        for (final line in _lines.values)
+          if (line.description.isNotEmpty) line.product.id: line.description,
+      },
       storeId: includeStore ? store?.id : null,
       customerId: client.existing?.id,
       customerFirstName: client.firstName,
@@ -236,10 +325,11 @@ class CartController extends ChangeNotifier {
       customerPhone: client.phone,
       discountType: discountType,
       discountValue: discountValue,
-      paymentMethod: paymentMethod,
+      paymentMethod: method,
       paidAmount: collected && !payInFull ? roundMoney(advanceAmount) : null,
-      paymentReference: collected ? paymentReference : null,
-      dueDate: hasDebt ? dueDate : null,
+      installments: hasDebt
+          ? [for (final i in sortedInstallments) (dueDate: i.dueDate!, amount: roundMoney(i.amount))]
+          : const [],
     );
   }
 }

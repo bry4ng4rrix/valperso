@@ -46,7 +46,6 @@ def get_invoice(client, headers, sale_id) -> dict:
 def test_invoice_contains_everything(client, factory, admin, admin_headers, shop, products):
     """Exemple de la spécification : sous-total 45 000, remise 5 000, total 40 000, payé 20 000."""
     client.put("/api/v1/company", headers=admin_headers, json=COMPANY)
-    factory.open_register(shop, admin)
     sale_id = sell(
         client,
         admin_headers,
@@ -188,3 +187,16 @@ def test_vendeur_reads_invoices_of_his_store_only(client, factory, admin_headers
     other_headers = factory.headers(factory.vendeur(factory.store()))
     assert client.get(f"/api/v1/sales/{sale_id}/invoice", headers=own_headers).status_code == 200
     assert client.get(f"/api/v1/sales/{sale_id}/invoice", headers=other_headers).status_code == 403
+
+
+def test_each_line_keeps_its_description(client, admin_headers, shop, products):
+    """Précision saisie dans le panier (taille, couleur...) : sur la vente et sur la facture."""
+    produit_a, produit_b = products
+    payload = sale_payload((produit_a, 2), (produit_b, 1), store_id=shop.id)
+    payload["items"][0]["description"] = "  Taille M, noir "
+    sale = client.post("/api/v1/sales", headers=admin_headers, json=payload).json()
+
+    invoice = get_invoice(client, admin_headers, sale["id"])
+
+    assert [item["description"] for item in sale["items"]] == ["taille m, noir", None]
+    assert [line["description"] for line in invoice["lines"]] == ["taille m, noir", None]

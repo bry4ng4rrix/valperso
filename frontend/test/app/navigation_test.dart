@@ -20,11 +20,10 @@ void main() {
         'Accueil',
         'Ventes',
         'Produits',
-        'Stock',
+        'Mouvements',
         'Transferts',
         'Magasins',
         'Utilisateurs',
-        'Caisse',
         'Journal d\'audit',
       ]),
     );
@@ -32,11 +31,10 @@ void main() {
 
   test('le vendeur ne voit que ce que ses permissions autorisent', () {
     final items = labels(navItemsFor(vendeur));
-    expect(items, containsAll(['Accueil', 'Ventes', 'Produits', 'Stock', 'Clients', 'Messages']));
+    expect(items, containsAll(['Accueil', 'Ventes', 'Produits', 'Mouvements', 'Clients', 'Messages']));
     expect(items, isNot(contains('Utilisateurs')));
     expect(items, isNot(contains('Magasins')));
     expect(items, isNot(contains('Transferts')));
-    expect(items, isNot(contains('Caisse')));
     expect(items, isNot(contains('Journal d\'audit')));
   });
 
@@ -73,7 +71,7 @@ void main() {
     expect(canOpenLocation('/settings/company', vendeur), isTrue);
     expect(canOpenLocation('/settings/roles', vendeur), isFalse);
     expect(canOpenLocation('/customers/new', vendeur), isTrue);
-    expect(canOpenLocation('/cash', vendeur), isFalse);
+    expect(canOpenLocation('/audit', vendeur), isFalse);
     expect(canOpenLocation('/more', vendeur), isTrue);
   });
 

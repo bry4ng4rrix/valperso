@@ -15,10 +15,8 @@ import '../../shared/widgets/product_avatar.dart';
 import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/states.dart';
 import '../customers/customers_repository.dart';
-import '../payments/payment_models.dart';
 import '../stock/stock_models.dart';
 import 'cart_controller.dart';
-import 'sale_models.dart';
 import '../../core/widgets/app_dialog.dart';
 
 // --- Produits ---------------------------------------------------------------------------------------
@@ -36,7 +34,7 @@ class ProductCatalog extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppSearchField(
-          hint: 'Rechercher un produit (nom, référence)',
+          hint: 'Rechercher un produit (nom, référence, catégorie, prix)',
           initialValue: controller.filter('search') as String?,
           onChanged: (value) => controller.setFilter('search', value),
         ),
@@ -180,67 +178,112 @@ class CartPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartController>();
-    final theme = Theme.of(context);
     if (cart.isEmpty) {
       return const Padding(padding: EdgeInsets.all(Gaps.md), child: Text('Le panier est vide. Ajoutez des produits.'));
     }
     return Column(
       children: [
         for (final line in cart.lines)
-          Padding(
-            padding: const EdgeInsets.only(bottom: Gaps.sm),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        line.product.label,
-                        style: theme.textTheme.bodyMedium,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '${Formats.money(line.unitPrice)} × ${line.quantity} = ${Formats.money(line.total)}',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      if (line.exceedsStock)
-                        Text(
-                          'Stock disponible : ${line.available}',
-                          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.danger),
-                        ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Retirer une unité',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => cart.setQuantity(line.product.id, line.quantity - 1),
-                  icon: Icon(line.quantity == 1 ? Icons.delete_outline : Icons.remove),
-                ),
-                InkWell(
-                  onTap: () => _editQuantity(context, line),
-                  borderRadius: BorderRadius.circular(Radii.sm),
-                  child: Container(
-                    constraints: const BoxConstraints(minWidth: 40),
-                    padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xs),
-                    alignment: Alignment.center,
-                    child: Text('${line.quantity}', style: theme.textTheme.titleMedium),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Ajouter une unité',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: line.quantity < line.available
-                      ? () => cart.setQuantity(line.product.id, line.quantity + 1)
-                      : null,
-                  icon: const Icon(Icons.add),
-                ),
-              ],
-            ),
-          ),
+          _CartLineTile(key: ValueKey(line.product.id), line: line, onEditQuantity: () => _editQuantity(context, line)),
       ],
+    );
+  }
+}
+
+/// Ligne du panier : produit, quantité, et la description de l'article (taille, couleur...).
+class _CartLineTile extends StatefulWidget {
+  const _CartLineTile({super.key, required this.line, required this.onEditQuantity});
+
+  final CartLine line;
+  final VoidCallback onEditQuantity;
+
+  @override
+  State<_CartLineTile> createState() => _CartLineTileState();
+}
+
+class _CartLineTileState extends State<_CartLineTile> {
+  late final TextEditingController _description = TextEditingController(text: widget.line.description);
+
+  @override
+  void dispose() {
+    _description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cart = context.read<CartController>();
+    final theme = Theme.of(context);
+    final line = widget.line;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Gaps.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      line.product.label,
+                      style: theme.textTheme.bodyMedium,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '${Formats.money(line.unitPrice)} × ${line.quantity} = ${Formats.money(line.total)}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    if (line.exceedsStock)
+                      Text(
+                        'Stock disponible : ${line.available}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: AppColors.danger),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Retirer une unité',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => cart.setQuantity(line.product.id, line.quantity - 1),
+                icon: Icon(line.quantity == 1 ? Icons.delete_outline : Icons.remove),
+              ),
+              InkWell(
+                onTap: widget.onEditQuantity,
+                borderRadius: BorderRadius.circular(Radii.sm),
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xs),
+                  alignment: Alignment.center,
+                  child: Text('${line.quantity}', style: theme.textTheme.titleMedium),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Ajouter une unité',
+                visualDensity: VisualDensity.compact,
+                onPressed: line.quantity < line.available
+                    ? () => cart.setQuantity(line.product.id, line.quantity + 1)
+                    : null,
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ),
+          const SizedBox(height: Gaps.xs),
+          TextField(
+            controller: _description,
+            inputFormatters: [LengthLimitingTextInputFormatter(255)],
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              isDense: true,
+              labelText: 'Description (taille, couleur...)',
+              prefixIcon: Icon(Icons.notes, size: 20),
+            ),
+            onChanged: (text) => cart.setDescription(line.product.id, text),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -389,69 +432,12 @@ class _CustomerPanelState extends State<CustomerPanel> {
   }
 }
 
-// --- Remise ---------------------------------------------------------------------------------------------
+// --- Paiement ---------------------------------------------------------------------------------------------
 
-class DiscountPanel extends StatefulWidget {
-  const DiscountPanel({super.key});
-
-  @override
-  State<DiscountPanel> createState() => _DiscountPanelState();
-}
-
-class _DiscountPanelState extends State<DiscountPanel> {
-  late final TextEditingController _value;
-
-  @override
-  void initState() {
-    super.initState();
-    final cart = context.read<CartController>();
-    _value = TextEditingController(text: cart.discountValue > 0 ? Formats.amount(cart.discountValue) : '');
-  }
-
-  @override
-  void dispose() {
-    _value.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cart = context.watch<CartController>();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Remise en montant uniquement (pas de pourcentage).
-        SegmentedButton<DiscountType>(
-          segments: const [
-            ButtonSegment(value: DiscountType.none, label: Text('Aucune')),
-            ButtonSegment(value: DiscountType.fixed, label: Text('Montant')),
-          ],
-          selected: {cart.discountType},
-          onSelectionChanged: (selection) {
-            final type = selection.first;
-            if (type == DiscountType.none) _value.clear();
-            cart.setDiscount(type, parseAmount(_value.text) ?? 0);
-          },
-        ),
-        if (cart.discountType != DiscountType.none) ...[
-          const SizedBox(height: Gaps.md),
-          AppTextField(
-            label: 'Remise (Ar)',
-            controller: _value,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 ,.]'))],
-            errorText: cart.discountErrors.firstOrNull,
-            helper: cart.discountAmount > 0 ? 'Remise appliquée : ${Formats.money(cart.discountAmount)}' : null,
-            onChanged: (text) => cart.setDiscount(cart.discountType, parseAmount(text) ?? 0),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-// --- Paiement -------------------------------------------------------------------------------------------
-
+/// « Payé » (tout est payé maintenant) ou « Dette (avance) ». Il n'y a pas de mode de paiement à choisir.
+///
+/// Dette (avance) : le champ est pré-rempli avec le prix total ; on y laisse ce qui est payé
+/// maintenant (l'avance). Champ vide = dette sans avance : tout le total reste à payer.
 class PaymentPanel extends StatefulWidget {
   const PaymentPanel({super.key});
 
@@ -460,123 +446,275 @@ class PaymentPanel extends StatefulWidget {
 }
 
 class _PaymentPanelState extends State<PaymentPanel> {
-  late final TextEditingController _advance;
-  late final TextEditingController _reference;
+  late final TextEditingController _paid;
 
   @override
   void initState() {
     super.initState();
     final cart = context.read<CartController>();
-    _advance = TextEditingController(text: cart.advanceAmount > 0 ? Formats.amount(cart.advanceAmount) : '');
-    _reference = TextEditingController(text: cart.paymentReference ?? '');
+    _paid = TextEditingController(text: cart.payInFull ? '' : _format(cart.advanceAmount));
   }
 
   @override
   void dispose() {
-    _advance.dispose();
-    _reference.dispose();
+    _paid.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDueDate(CartController cart) async {
-    final today = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      firstDate: DateTime(today.year, today.month, today.day),
-      lastDate: today.add(const Duration(days: 730)),
-      initialDate: cart.dueDate ?? today.add(const Duration(days: 7)),
-      helpText: 'Date d\'échéance du reste à payer',
-    );
-    if (picked != null) cart.setPayment(due: picked);
+  String _format(double amount) => amount > 0 ? Formats.amount(amount) : '';
+
+  void _select(CartController cart, bool withDebt) {
+    if (withDebt) {
+      // Pré-rempli avec le prix total initial : on le remplace par le montant payé maintenant.
+      _paid.text = _format(cart.total);
+      cart.setPayment(inFull: false, advance: cart.total);
+    } else {
+      _paid.clear();
+      cart.setPayment(inFull: true, advance: 0);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartController>();
     final theme = Theme.of(context);
-    final credit = cart.paymentMethod == PaymentMethod.credit;
-    final errors = cart.paymentErrors;
+    final withDebt = !cart.payInFull;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Mode de paiement', style: theme.textTheme.labelMedium),
-        const SizedBox(height: Gaps.xs),
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, icon: Icon(Icons.check_circle_outline), label: Text('Payé')),
+            ButtonSegment(value: true, icon: Icon(Icons.schedule), label: Text('Dette (avance)')),
+          ],
+          selected: {withDebt},
+          onSelectionChanged: (selection) => _select(cart, selection.first),
+        ),
+        if (withDebt) ...[
+          const SizedBox(height: Gaps.md),
+          MoneyField(
+            label: 'Payé maintenant',
+            controller: _paid,
+            helper: cart.isDebtWithoutAdvance
+                ? 'Vide : dette sans avance, tout le total reste à payer.'
+                : 'Total ${Formats.money(cart.total)} · vide = dette sans avance',
+            validator: (value) {
+              final amount = parseAmount(value) ?? 0;
+              return amount > cart.total ? 'Le montant payé ne peut pas dépasser le total.' : null;
+            },
+            onChanged: (text) => cart.setPayment(advance: parseAmount(text) ?? 0),
+          ),
+          if (cart.hasDebt) ...[
+            const SizedBox(height: Gaps.md),
+            Container(
+              padding: const EdgeInsets.all(Gaps.md),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(Radii.sm),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    cart.isDebtWithoutAdvance
+                        ? 'Dette sans avance : reste à payer ${Formats.money(cart.remaining)}'
+                        : 'Avance ${Formats.money(cart.amountPaid)} — reste à payer ${Formats.money(cart.remaining)}',
+                    style: theme.textTheme.titleSmall?.copyWith(color: AppColors.warning),
+                  ),
+                  const SizedBox(height: Gaps.xs),
+                  const Text('Les dates de remboursement et le téléphone du client sont obligatoires.'),
+                ],
+              ),
+            ),
+            const SizedBox(height: Gaps.md),
+            const InstallmentsEditor(),
+          ],
+        ],
+        if (!cart.isEmpty)
+          for (final error in cart.paymentErrors)
+            Padding(
+              padding: const EdgeInsets.only(top: Gaps.xs),
+              child: Text('• $error', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.danger)),
+            ),
+      ],
+    );
+  }
+}
+
+/// Dates de remboursement du reste à payer : une ligne par date, avec son montant.
+/// Ajouter ou retirer une date répartit le reste également ; les montants restent modifiables.
+class InstallmentsEditor extends StatelessWidget {
+  const InstallmentsEditor({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cart = context.watch<CartController>();
+    final theme = Theme.of(context);
+    final installments = cart.installments;
+    final balanced = cart.installmentsTotal == cart.remaining;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Dates de remboursement', style: theme.textTheme.titleSmall),
+        const SizedBox(height: Gaps.sm),
+        for (final (index, installment) in installments.indexed)
+          InstallmentRow(
+            key: ValueKey(installment.id),
+            number: index + 1,
+            installment: installment,
+            // Une seule date : elle couvre tout le reste à payer.
+            amountEditable: installments.length > 1,
+            canRemove: installments.length > 1,
+          ),
         Wrap(
           spacing: Gaps.sm,
-          runSpacing: Gaps.sm,
+          runSpacing: Gaps.xs,
           children: [
-            for (final method in PaymentMethod.values)
-              ChoiceChip(
-                label: Text(method == PaymentMethod.credit ? 'Crédit (rien payé)' : method.label),
-                selected: cart.paymentMethod == method,
-                onSelected: (_) => cart.setPayment(method: method),
+            OutlinedButton.icon(
+              onPressed: installments.length < 36 ? cart.addInstallment : null,
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter une date'),
+            ),
+            if (installments.length > 1)
+              TextButton.icon(
+                onPressed: cart.splitInstallmentsEvenly,
+                icon: const Icon(Icons.balance),
+                label: const Text('Répartir également'),
               ),
           ],
         ),
-        if (!credit) ...[
-          const SizedBox(height: Gaps.md),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true, label: Text('Paiement complet')),
-              ButtonSegment(value: false, label: Text('Avance')),
-            ],
-            selected: {cart.payInFull},
-            onSelectionChanged: (selection) => cart.setPayment(inFull: selection.first),
+        if (installments.length > 1) ...[
+          const SizedBox(height: Gaps.xs),
+          Text(
+            'Total prévu : ${Formats.money(cart.installmentsTotal)} sur ${Formats.money(cart.remaining)}',
+            style: theme.textTheme.bodySmall?.copyWith(color: balanced ? AppColors.success : AppColors.danger),
           ),
-          if (!cart.payInFull) ...[
-            const SizedBox(height: Gaps.md),
-            MoneyField(
-              label: 'Montant de l\'avance',
-              controller: _advance,
-              helper: 'Total : ${Formats.money(cart.total)}',
-              onChanged: (text) => cart.setPayment(advance: parseAmount(text) ?? 0),
-            ),
-          ],
-          if (cart.paymentMethod != PaymentMethod.cash) ...[
-            const SizedBox(height: Gaps.md),
-            AppTextField(
-              label: 'Référence du paiement (facultatif)',
-              controller: _reference,
-              onChanged: (text) => cart.setPayment(reference: text),
-            ),
-          ],
         ],
-        if (cart.hasDebt) ...[
-          const SizedBox(height: Gaps.md),
-          Container(
-            padding: const EdgeInsets.all(Gaps.md),
+      ],
+    );
+  }
+}
+
+/// Une date de remboursement : la date à choisir, le montant, et le bouton pour la retirer.
+class InstallmentRow extends StatefulWidget {
+  const InstallmentRow({
+    super.key,
+    required this.number,
+    required this.installment,
+    required this.amountEditable,
+    required this.canRemove,
+  });
+
+  final int number;
+  final CartInstallment installment;
+  final bool amountEditable;
+  final bool canRemove;
+
+  @override
+  State<InstallmentRow> createState() => _InstallmentRowState();
+}
+
+class _InstallmentRowState extends State<InstallmentRow> {
+  late final TextEditingController _amount = TextEditingController(text: _format(widget.installment.amount));
+
+  String _format(double amount) => amount > 0 ? Formats.amount(amount) : '';
+
+  @override
+  void didUpdateWidget(covariant InstallmentRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Montant changé par la répartition (et non par la saisie) : le champ suit.
+    if ((parseAmount(_amount.text) ?? 0) != widget.installment.amount) {
+      _amount.text = _format(widget.installment.amount);
+    }
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate(CartController cart) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final current = widget.installment.dueDate;
+    final picked = await showDatePicker(
+      context: context,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 1095)),
+      initialDate: current != null && !current.isBefore(today) ? current : today.add(const Duration(days: 7)),
+      helpText: 'Date du remboursement ${widget.number}',
+    );
+    if (picked != null) cart.setInstallmentDate(widget.installment.id, picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cart = context.read<CartController>();
+    final date = widget.installment.dueDate;
+    final dateButton = OutlinedButton.icon(
+      onPressed: () => _pickDate(cart),
+      icon: const Icon(Icons.event),
+      label: Text(date == null ? 'Choisir la date' : Formats.date(date), overflow: TextOverflow.ellipsis),
+    );
+    final amount = MoneyField(
+      label: 'Montant',
+      controller: _amount,
+      enabled: widget.amountEditable,
+      onChanged: (text) => cart.setInstallmentAmount(widget.installment.id, parseAmount(text) ?? 0),
+    );
+    final remove = IconButton(
+      tooltip: 'Retirer cette date',
+      onPressed: widget.canRemove ? () => cart.removeInstallment(widget.installment.id) : null,
+      icon: const Icon(Icons.delete_outline),
+    );
+    final theme = Theme.of(context);
+    final number = Text('${widget.number}.', style: theme.textTheme.titleSmall);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Gaps.sm),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 380) {
+            return Row(
+              children: [
+                number,
+                const SizedBox(width: Gaps.sm),
+                Expanded(flex: 5, child: dateButton),
+                const SizedBox(width: Gaps.sm),
+                Expanded(flex: 6, child: amount),
+                remove,
+              ],
+            );
+          }
+          // Téléphone : chaque remboursement dans son cadre, la date au-dessus du montant.
+          return Container(
+            padding: const EdgeInsets.fromLTRB(Gaps.sm, Gaps.sm, Gaps.xs, Gaps.sm),
             decoration: BoxDecoration(
-              color: AppColors.warning.withValues(alpha: 0.1),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
               borderRadius: BorderRadius.circular(Radii.sm),
-              border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Reste à payer : ${Formats.money(cart.remaining)}',
-                  style: theme.textTheme.titleSmall?.copyWith(color: AppColors.warning),
+                Row(
+                  children: [
+                    number,
+                    const SizedBox(width: Gaps.sm),
+                    Expanded(child: dateButton),
+                    remove,
+                  ],
                 ),
-                const SizedBox(height: Gaps.xs),
-                const Text('Une date d\'échéance et le téléphone du client sont obligatoires.'),
                 const SizedBox(height: Gaps.sm),
-                OutlinedButton.icon(
-                  onPressed: () => _pickDueDate(cart),
-                  icon: const Icon(Icons.event),
-                  label: Text(
-                    cart.dueDate == null ? 'Choisir l\'échéance' : 'Échéance : ${Formats.date(cart.dueDate)}',
-                  ),
+                Padding(
+                  padding: const EdgeInsets.only(right: Gaps.sm),
+                  child: amount,
                 ),
               ],
             ),
-          ),
-        ],
-        if (errors.isNotEmpty && (!cart.isEmpty)) ...[
-          const SizedBox(height: Gaps.sm),
-          for (final error in errors)
-            Text('• $error', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.danger)),
-        ],
-      ],
+          );
+        },
+      ),
     );
   }
 }
@@ -607,7 +745,13 @@ class SaleTotals extends StatelessWidget {
             value: Formats.money(cart.remaining),
             valueStyle: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
           ),
-          InfoRow(label: 'Échéance', value: Formats.date(cart.dueDate)),
+          InfoRow(
+            label: 'Remboursements',
+            value: [
+              for (final installment in cart.sortedInstallments)
+                '${Formats.date(installment.dueDate)} : ${Formats.money(installment.amount)}',
+            ].join('\n'),
+          ),
         ],
       ],
     );
@@ -625,9 +769,11 @@ class SaleConfirmationSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final customer = cart.customer;
-    final payment = cart.paymentMethod == PaymentMethod.credit
-        ? 'Crédit (rien payé maintenant)'
-        : '${cart.paymentMethod.label}${cart.payInFull ? '' : ' — avance'}';
+    final payment = cart.payInFull
+        ? 'Payé'
+        : cart.isDebtWithoutAdvance
+        ? 'Dette sans avance (rien payé maintenant)'
+        : 'Dette avec avance de ${Formats.money(cart.amountPaid)}';
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -658,6 +804,7 @@ class SaleConfirmationSummary extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(line.product.label, style: theme.textTheme.bodyMedium),
+                            if (line.description.isNotEmpty) Text(line.description, style: theme.textTheme.bodySmall),
                             Text(
                               '${line.quantity} × ${Formats.money(line.unitPrice)}',
                               style: theme.textTheme.bodySmall,

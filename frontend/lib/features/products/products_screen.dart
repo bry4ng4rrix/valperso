@@ -16,6 +16,7 @@ import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/store_selector.dart';
 import '../categories/categories_repository.dart';
 import '../stock/stock_repository.dart';
+import '../stock/stock_value_dialog.dart';
 import '../stores/stores_repository.dart';
 import 'product_models.dart';
 import 'product_widgets.dart';
@@ -29,7 +30,13 @@ enum ProductsMode { store, catalogue }
 /// - « Catalogue » : tous les produits, actifs ou non (gestion du catalogue).
 /// Un vendeur voit toujours les produits de son magasin.
 class ProductsScreen extends StatefulWidget {
-  const ProductsScreen({super.key});
+  const ProductsScreen({super.key, this.initialStockState, this.initialStoreId});
+
+  /// Filtre de départ depuis l'accueil : `low` (stock faible) ou `out` (épuisés), tous magasins.
+  final String? initialStockState;
+
+  /// Magasin de départ (ex. depuis la fiche d'un magasin).
+  final int? initialStoreId;
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
@@ -43,8 +50,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
   bool get _showCost => _user.canAny(const [Perm.productCreate, Perm.productUpdate]);
   bool get _canSwitchMode => _user.can(Perm.stockView) && _user.isAdmin;
 
-  Map<String, Object?> _initialFilters() =>
-      _mode == ProductsMode.store ? {'store_id': _user.store?.id} : {'is_active': true};
+  Map<String, Object?> _initialFilters() => _mode == ProductsMode.store
+      ? {
+          'store_id': _user.canChooseStore ? widget.initialStoreId : _user.store?.id,
+          'low_stock': widget.initialStockState == 'low' ? true : null,
+          'out_of_stock': widget.initialStockState == 'out' ? true : null,
+        }
+      : {'is_active': true};
 
   Future<Paged<ProductListItem>> _fetch(PageQuery query) async {
     if (_mode == ProductsMode.store) {
@@ -61,9 +73,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _start();
   }
 
-  /// L'administrateur commence sur le Stock Local.
+  /// L'administrateur commence sur le Stock Local (sauf lien « stock faible / épuisés » : tous les magasins).
   Future<void> _start() async {
-    if (_mode == ProductsMode.store && _user.canChooseStore && _controller.filter('store_id') == null) {
+    final allStores = widget.initialStockState != null;
+    if (_mode == ProductsMode.store && _user.canChooseStore && _controller.filter('store_id') == null && !allStores) {
       final stores = await context.read<StoresRepository>().active();
       final central = stores.where((store) => store.isCentral).firstOrNull;
       if (!mounted) return;
@@ -219,13 +232,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
       controller: _controller,
       countLabel: (total) => '$total produit${total > 1 ? 's' : ''} trouvé${total > 1 ? 's' : ''}',
       search: AppSearchField(
-        hint: 'Nom ou référence',
+        hint: 'Nom, référence, catégorie ou prix',
         initialValue: _controller.filter('search') as String?,
         onChanged: (value) => _controller.setFilter('search', value),
       ),
       onOpenFilters: _openFilters,
       quickFilters: ListenableBuilder(listenable: _controller, builder: (context, _) => _quickFilters()),
       actions: [
+        if (withStock && _user.can(Perm.reportView))
+          IconButton(
+            tooltip: 'Valeur du stock',
+            onPressed: () => showStockValueDialog(context, storeId: _controller.filter('store_id') as int?),
+            icon: const Icon(Icons.account_balance_outlined),
+          ),
         ExportButton<ProductListItem>(
           controller: _controller,
           columns: productExportColumns(showCost: _showCost, withStock: withStock),

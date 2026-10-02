@@ -90,7 +90,7 @@ void main() {
     await pumpApp(tester, api, loggedIn: meJson(admin: true));
 
     expect(find.byType(NavigationBar), findsNothing);
-    for (final label in ['Utilisateurs', 'Magasins', 'Transferts', 'Caisse', 'Journal d\'audit']) {
+    for (final label in ['Utilisateurs', 'Magasins', 'Transferts', 'Journal d\'audit']) {
       expect(find.text(label), findsWidgets);
     }
     expect(find.text('Tableau de bord'), findsOneWidget);

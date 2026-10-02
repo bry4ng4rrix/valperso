@@ -5,7 +5,7 @@ from typing import Any
 from app.schemas.common import ErrorResponse
 
 _DESCRIPTIONS = {
-    400: "Règle métier non respectée (stock insuffisant, caisse fermée...)",
+    400: "Règle métier non respectée (stock insuffisant, paiement invalide...)",
     401: "Non authentifié ou jeton invalide",
     403: "Permission insuffisante ou magasin non autorisé",
     404: "Ressource introuvable",

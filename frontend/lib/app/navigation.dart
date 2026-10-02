@@ -42,11 +42,10 @@ abstract final class Routes {
   static const newSale = '/sales?tab=new';
   static const salesHistory = '/sales?tab=history';
   static const products = '/products';
-  static const stock = '/stock';
+  static const movements = '/movements';
   static const transfers = '/transfers';
   static const customers = '/customers';
   static const payments = '/payments';
-  static const cash = '/cash';
   static const stores = '/stores';
   static const users = '/users';
   static const categories = '/categories';
@@ -91,13 +90,6 @@ final List<NavItem> allNavItems = [
     isVisible: (user) => user.can(Perm.paymentView),
   ),
   NavItem(
-    label: 'Caisse',
-    path: Routes.cash,
-    icon: Icons.point_of_sale_outlined,
-    selectedIcon: Icons.point_of_sale,
-    isVisible: (user) => user.can(Perm.cashView),
-  ),
-  NavItem(
     label: 'Produits',
     path: Routes.products,
     icon: Icons.inventory_2_outlined,
@@ -106,10 +98,10 @@ final List<NavItem> allNavItems = [
     isVisible: (user) => user.can(Perm.productView),
   ),
   NavItem(
-    label: 'Stock',
-    path: Routes.stock,
-    icon: Icons.warehouse_outlined,
-    selectedIcon: Icons.warehouse,
+    label: 'Mouvements',
+    path: Routes.movements,
+    icon: Icons.swap_vert,
+    selectedIcon: Icons.swap_vert_circle,
     section: NavSection.inventory,
     isVisible: (user) => user.can(Perm.stockView),
   ),

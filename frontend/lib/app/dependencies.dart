@@ -9,7 +9,6 @@ import '../core/auth/session_controller.dart';
 import '../core/auth/settings_controller.dart';
 import '../core/storage/key_value_store.dart';
 import '../features/audit/audit_repository.dart';
-import '../features/cash/cash_repository.dart';
 import '../features/categories/categories_repository.dart';
 import '../features/chat/chat_repository.dart';
 import '../features/company/company_repository.dart';
@@ -69,7 +68,6 @@ class AppDependencies {
     Provider(create: (_) => CustomersRepository(api)),
     Provider(create: (_) => SalesRepository(api)),
     Provider(create: (_) => PaymentsRepository(api)),
-    Provider(create: (_) => CashRepository(api)),
     Provider(create: (_) => CompanyRepository(api)),
     Provider(create: (_) => DashboardRepository(api)),
     Provider(create: (_) => AuditRepository(api)),

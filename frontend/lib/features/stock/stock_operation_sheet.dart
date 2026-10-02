@@ -250,7 +250,7 @@ class _ProductLinePickerState extends State<_ProductLinePicker> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppSearchField(
-          hint: 'Rechercher le produit',
+          hint: 'Produit : nom, référence, catégorie ou prix',
           onChanged: (term) => setState(() {
             _results = _search(term);
           }),

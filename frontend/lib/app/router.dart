@@ -5,8 +5,6 @@ import '../core/auth/session_controller.dart';
 import '../features/audit/audit_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/splash_screen.dart';
-import '../features/cash/cash_register_screen.dart';
-import '../features/cash/cash_screen.dart';
 import '../features/categories/categories_screen.dart';
 import '../features/chat/chat_screen.dart';
 import '../features/chat/conversation_screen.dart';
@@ -24,7 +22,7 @@ import '../features/roles/roles_screen.dart';
 import '../features/sales/sale_detail_screen.dart';
 import '../features/sales/sales_screen.dart';
 import '../features/settings/settings_screen.dart';
-import '../features/stock/stock_screen.dart';
+import '../features/stock/movements_screen.dart';
 import '../features/stores/store_detail_screen.dart';
 import '../features/stores/store_form_screen.dart';
 import '../features/stores/stores_screen.dart';
@@ -102,7 +100,10 @@ GoRouter buildRouter(SessionController session) {
           ),
           GoRoute(
             path: Routes.products,
-            builder: (_, _) => const ProductsScreen(),
+            builder: (_, state) => ProductsScreen(
+              initialStockState: state.uri.queryParameters['state'],
+              initialStoreId: int.tryParse(state.uri.queryParameters['store'] ?? ''),
+            ),
             routes: [
               GoRoute(path: 'new', builder: (_, _) => const ProductFormScreen()),
               GoRoute(
@@ -117,10 +118,7 @@ GoRouter buildRouter(SessionController session) {
               ),
             ],
           ),
-          GoRoute(
-            path: Routes.stock,
-            builder: (_, state) => StockScreen(initialState: state.uri.queryParameters['state']),
-          ),
+          GoRoute(path: Routes.movements, builder: (_, _) => const MovementsScreen()),
           GoRoute(
             path: Routes.transfers,
             builder: (_, _) => const TransfersScreen(),
@@ -150,16 +148,6 @@ GoRouter buildRouter(SessionController session) {
             ],
           ),
           GoRoute(path: Routes.payments, builder: (_, _) => const PaymentsScreen()),
-          GoRoute(
-            path: Routes.cash,
-            builder: (_, _) => const CashScreen(),
-            routes: [
-              GoRoute(
-                path: ':id',
-                builder: (_, state) => CashRegisterScreen(registerId: _id(state)),
-              ),
-            ],
-          ),
           GoRoute(
             path: Routes.stores,
             builder: (_, _) => const StoresScreen(),

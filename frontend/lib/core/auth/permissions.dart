@@ -33,10 +33,6 @@ abstract final class Perm {
   static const saleDiscount = 'sale.discount';
   static const paymentView = 'payment.view';
   static const paymentCreate = 'payment.create';
-  static const cashView = 'cash.view';
-  static const cashOpen = 'cash.open';
-  static const cashClose = 'cash.close';
-  static const cashTransaction = 'cash.transaction';
   static const auditView = 'audit.view';
   static const companyView = 'company.view';
   static const companyUpdate = 'company.update';

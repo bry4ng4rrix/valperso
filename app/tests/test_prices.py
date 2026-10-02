@@ -26,10 +26,7 @@ def test_creating_a_product_below_stock_price_is_refused(client, admin_headers):
     response = client.post("/api/v1/products", headers=admin_headers, json=product_payload(5000, 4000))
 
     assert response.status_code == 422
-    assert (
-        "Le prix de vente doit être supérieur ou égal au prix de stock."
-        in response.json()["errors"][0]["message"]
-    )
+    assert "Le prix de vente doit être supérieur ou égal au prix." in response.json()["errors"][0]["message"]
 
 
 def test_updating_both_prices_below_is_refused(client, factory, admin_headers):
@@ -55,7 +52,7 @@ def test_updating_one_price_is_checked_against_the_stored_one(client, factory, a
 
     assert response.status_code == 400
     assert response.json() == {
-        "detail": "Le prix de vente doit être supérieur ou égal au prix de stock.",
+        "detail": "Le prix de vente doit être supérieur ou égal au prix.",
         "code": "INVALID_SELLING_PRICE",
     }
     db.refresh(product)

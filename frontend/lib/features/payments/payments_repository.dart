@@ -12,15 +12,11 @@ class PaymentsRepository {
       Paged.fromJson(await _api.get('/payments', query: query.toQuery()) as Json, Payment.fromJson);
 
   /// Paiement d'une vente qui a un reste à payer (solde d'une avance ou d'une dette).
-  Future<Payment> create({
-    required int saleId,
-    required PaymentMethod method,
-    required double amount,
-    String? reference,
-  }) async {
+  /// Paiement (avance ou solde d'une dette) : il n'y a pas de mode de paiement à choisir.
+  Future<Payment> create({required int saleId, required double amount}) async {
     final data = await _api.post(
       '/payments',
-      data: {'sale_id': saleId, 'method': method.code, 'amount': amount, 'reference': reference},
+      data: {'sale_id': saleId, 'method': PaymentMethod.cash.code, 'amount': amount},
     );
     return Payment.fromJson(data as Json);
   }

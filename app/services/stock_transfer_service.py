@@ -3,8 +3,8 @@
 Un transfert DÉPLACE le stock : la source diminue, la destination augmente, le stock global ne
 change pas. Ce n'est ni une vente, ni une perte. Exemple avec 10 unités au Stock Local :
 - transfert de 5  -> source 5, destination 5 (ligne créée si le magasin n'avait pas le produit) ;
-- transfert de 10 -> le produit est déplacé : il quitte le magasin source (sa ligne est supprimée,
-  il n'y apparaît pas comme « épuisé ») et la destination a 10 ;
+- transfert de 10 -> le produit est déplacé : il quitte le magasin source (sa ligne est retirée,
+  voir stock_service.apply_stock_change) et la destination a 10 ;
 - transfert de 11 -> refusé (InsufficientStock), rien n'est modifié.
 
 Toutes les écritures (lignes de stock, mouvements TRANSFER_OUT / TRANSFER_IN, transfert, audit)
@@ -68,15 +68,6 @@ def _move(
         reason=f"{label} DEPUIS {from_store.name}",
         **common,
     )
-
-
-def _remove_emptied_lines(db: Session, lines: dict, store_id: int, products: list[Product]) -> None:
-    """Un produit transféré en totalité quitte le magasin d'origine : sa ligne à 0 est supprimée.
-    Elle est recréée automatiquement si le produit revient (transfert, entrée de stock)."""
-    for product in products:
-        line = lines.get((store_id, product.id))
-        if line is not None and line.quantity == 0:
-            db.delete(line)
 
 
 def _lock_lines(db: Session, source: Store, destination: Store, product_ids: list[int]) -> dict:
@@ -154,8 +145,8 @@ def create_transfer(
     )
     db.add(transfer)
     _audit(db, user, transfer, "stock_transfer.create", ip_address)
+    # Les lignes vidées par le transfert ont été retirées (stock_service.apply_stock_change).
     result = _result(transfer, lines, products)
-    _remove_emptied_lines(db, lines, source.id, products)
     db.commit()
     return result
 
@@ -192,9 +183,8 @@ def cancel_transfer(
 
     transfer.status = TransferStatus.CANCELLED
     _audit(db, user, transfer, "stock_transfer.cancel", ip_address)
+    # Le stock retourne à la source : la destination ne garde pas de ligne vide.
     result = _result(transfer, lines, products)
-    # Le stock retourne à la source : la destination ne garde pas une ligne vide.
-    _remove_emptied_lines(db, lines, destination.id, products)
     db.commit()
     return result
 

@@ -1,13 +1,15 @@
 """Retire d'un magasin les lignes à 0 des produits qui ont été déplacés ailleurs.
 
 Usage :
-    python -m app.cleanup_stock            # simulation : affiche le nombre de lignes concernées
-    python -m app.cleanup_stock --apply    # supprime ces lignes (Stock Local par défaut)
+    python -m app.cleanup_stock                 # simulation : nombre de lignes concernées
+    python -m app.cleanup_stock --apply         # produits déplacés : lignes à 0 du Stock Local
     python -m app.cleanup_stock --store-id 3 --apply
+    python -m app.cleanup_stock --all --apply   # toutes les lignes à 0 de tous les magasins
 
-Une ligne n'est retirée que si le produit a du stock dans au moins un autre magasin : un produit
-épuisé partout reste visible comme rupture. Les transferts appliquent désormais cette règle
-automatiquement (un produit transféré en totalité quitte le magasin d'origine).
+Sans --all, une ligne n'est retirée que si le produit a du stock dans un autre magasin (produit
+déplacé). Avec --all, toutes les lignes à 0 sont retirées (produits épuisés) : c'est la règle
+appliquée automatiquement aux ventes, sorties et transferts (stock_service.apply_stock_change).
+Les produits restent dans la base et dans les historiques.
 """
 
 import argparse
@@ -32,8 +34,18 @@ def moved_out_lines(db: Session, store_id: int) -> list[Stock]:
     return list(db.scalars(stmt.order_by(Stock.id)))
 
 
+def sold_out_lines(db: Session, store_id: int | None = None) -> list[Stock]:
+    stmt = select(Stock).where(Stock.quantity == 0)
+    if store_id is not None:
+        stmt = stmt.where(Stock.store_id == store_id)
+    return list(db.scalars(stmt.order_by(Stock.id)))
+
+
 def remove_moved_out_lines(db: Session, store_id: int) -> int:
-    lines = moved_out_lines(db, store_id)
+    return remove_lines(db, moved_out_lines(db, store_id), store_id)
+
+
+def remove_lines(db: Session, lines: list[Stock], store_id: int | None) -> int:
     if not lines:
         return 0
     product_ids = [line.product_id for line in lines]
@@ -44,7 +56,10 @@ def remove_moved_out_lines(db: Session, store_id: int) -> int:
         action="stock.cleanup_moved",
         entity_type="store",
         entity_id=store_id,
-        old_data={"product_ids": product_ids},
+        old_data={
+            "lines": [f"{line.store_id}:{line.product_id}" for line in lines],
+            "product_ids": product_ids,
+        },
         new_data={"removed_lines": len(lines)},
     )
     db.commit()
@@ -54,16 +69,22 @@ def remove_moved_out_lines(db: Session, store_id: int) -> int:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--store-id", type=int, help="Magasin (Stock Local par défaut)")
+    parser.add_argument("--store-id", type=int, help="Magasin (Stock Local par défaut, tous avec --all)")
+    parser.add_argument("--all", action="store_true", help="Toutes les lignes à 0 (produits épuisés)")
     parser.add_argument("--apply", action="store_true", help="Supprimer (sinon : simulation)")
     args = parser.parse_args()
     with SessionLocal() as db:
-        store_id = args.store_id or store_access.get_central_store(db).id
-        if args.apply:
-            logger.info("%d ligne(s) à 0 retirée(s) du magasin %s", remove_moved_out_lines(db, store_id), store_id)
+        if args.all:
+            store_id = args.store_id
+            lines = sold_out_lines(db, store_id)
         else:
-            count = len(moved_out_lines(db, store_id))
-            logger.info("Simulation : %d ligne(s) à 0 seraient retirées du magasin %s", count, store_id)
+            store_id = args.store_id or store_access.get_central_store(db).id
+            lines = moved_out_lines(db, store_id)
+        where = f"du magasin {store_id}" if store_id else "de tous les magasins"
+        if args.apply:
+            logger.info("%d ligne(s) à 0 retirée(s) %s", remove_lines(db, lines, store_id), where)
+        else:
+            logger.info("Simulation : %d ligne(s) à 0 seraient retirées %s", len(lines), where)
 
 
 if __name__ == "__main__":

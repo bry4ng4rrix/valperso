@@ -5,9 +5,9 @@ Backend REST d'une application de gestion commerciale. Il couvre :
 - les magasins, dont un stock central appelé **Stock Local** ;
 - le catalogue (catégories, produits) et le stock par magasin, avec ses seuils d'alerte ;
 - les transferts entre magasins ;
-- les clients, les ventes avec remise et les paiements (complets, avances, dettes avec échéance) ;
+- les clients, les ventes avec remise et les paiements (complets, avances, dettes avec échéancier) ;
 - les factures avec les informations de la société ;
-- la caisse, le tableau de bord, l'historique, l'audit et une messagerie interne.
+- le tableau de bord, l'historique, l'audit et une messagerie interne.
 
 Il n'y a pas de frontend. L'API se teste depuis **Swagger** (`/docs`) ou **ReDoc** (`/redoc`).
 
@@ -29,12 +29,11 @@ Stack : Python 3.12+, FastAPI, SQLAlchemy 2, PostgreSQL, Alembic, Pydantic v2, J
 10. [Transferts](#10-transferts)
 11. [Clients, ventes, paiements et dettes](#11-clients-ventes-paiements-et-dettes)
 12. [Société et factures](#12-société-et-factures)
-13. [Caisse](#13-caisse)
-14. [Tableau de bord](#14-tableau-de-bord)
-15. [Audit](#15-audit)
-16. [Tests](#16-tests)
-17. [Documentation de l'API (Swagger, ReDoc)](#17-documentation-de-lapi-swagger-redoc)
-18. [Conventions de code](#18-conventions-de-code)
+13. [Tableau de bord](#13-tableau-de-bord)
+14. [Audit](#14-audit)
+15. [Tests](#15-tests)
+16. [Documentation de l'API (Swagger, ReDoc)](#16-documentation-de-lapi-swagger-redoc)
+17. [Conventions de code](#17-conventions-de-code)
 
 ---
 
@@ -84,7 +83,7 @@ Chemin d'une requête : **route** (`api/v1`) → **service** (règles métier) �
 | `store_service.py`, `category_service.py`, `product_service.py` | magasins et catalogue (règle de prix) |
 | `stock_service.py`, `stock_transfer_service.py` | stock par magasin, mouvements, transferts |
 | `customer_service.py`, `sale_service.py`, `discount_service.py` | clients, ventes, remises, historique |
-| `payment_service.py`, `cash_service.py` | paiements, avances, dettes, caisse |
+| `payment_service.py` | paiements, avances, dettes |
 | `company_service.py` | informations de la société (factures) |
 | `dashboard_service.py`, `audit_service.py`, `chat_service.py` | statistiques, audit, messagerie |
 
@@ -109,9 +108,6 @@ Copiez `.env.example` en `.env`. **Ne versionnez jamais `.env`** : il est ignor�
 | `COMPANY_NAME` | nom initial de la société (modifiable ensuite par l'ADMIN) | `Ma Société` |
 | `DEFAULT_ALERT_THRESHOLD` | seuil d'alerte des nouvelles lignes de stock | `5` |
 | `TIMEZONE` | fuseau des statistiques par jour/mois et de l'année des numéros (ex. `Indian/Antananarivo`) | `UTC` |
-| `CASH_AUTO_SCHEDULE` | ouverture / fermeture automatiques des caisses (voir § 13) | `true` |
-| `CASH_AUTO_OPEN_TIME` / `CASH_AUTO_CLOSE_TIME` | heures d'ouverture et de fermeture automatiques | `06:00` / `19:00` |
-| `CASH_SCHEDULE_TIMEZONE` | fuseau de ces horaires | `Indian/Antananarivo` |
 | `DEMO_PASSWORD` | (développement) mot de passe des comptes créés par `python -m app.seed_demo` | — |
 | `TEST_DATABASE_URL` | (tests) base de test, par défaut `DATABASE_URL` suffixée par `_test` | — |
 | `INSTALL_DEV` | (build Docker) installe pytest dans l'image. Mettre `false` en production | `true` |
@@ -250,11 +246,10 @@ Liste des permissions :
 - `sale.view` / `create` / `cancel` / `discount`
   - `sale.view` et `sale.create` couvrent aussi les clients et les factures.
 - `payment.view` / `create`
-- `cash.view` / `open` / `close` / `transaction`
 - `company.view` / `update`
 - `chat.view` / `send`
 
-**Isolation des magasins (règle critique).** Le magasin d'un VENDEUR vient toujours de `current_user.store_id`. S'il envoie le `store_id` d'un autre magasin, la requête est refusée (`403 INVALID_STORE_ACCESS`) pour les ventes, le stock, les mouvements, la caisse, l'historique, les rapports, les clients et les dettes. Un VENDEUR sans magasin ne peut réaliser aucune opération de magasin. La règle est centralisée dans `services/store_access.py`.
+**Isolation des magasins (règle critique).** Le magasin d'un VENDEUR vient toujours de `current_user.store_id`. S'il envoie le `store_id` d'un autre magasin, la requête est refusée (`403 INVALID_STORE_ACCESS`) pour les ventes, le stock, les mouvements, l'historique, les rapports, les clients et les dettes. Un VENDEUR sans magasin ne peut réaliser aucune opération de magasin. La règle est centralisée dans `services/store_access.py`.
 
 ---
 
@@ -348,7 +343,7 @@ Le répertoire des clients est commun à tous les magasins, mais un VENDEUR ne v
 5. sous-total, remise et total, **calculés par le serveur** ;
 6. Sale et SaleItems ;
 7. déduction du stock et mouvements `SALE` ;
-8. paiement initial, puis caisse si le paiement est en espèces ;
+8. paiement initial éventuel ;
 9. audit, puis COMMIT.
 
 En cas d'erreur, tout est annulé (**ROLLBACK**).
@@ -356,11 +351,14 @@ En cas d'erreur, tout est annulé (**ROLLBACK**).
 ```json
 {
   "customer": {"first_name": "Jean", "last_name": "Rakoto", "phone": "0341234567"},
-  "items": [{"product_id": 1, "quantity": 2}, {"product_id": 2, "quantity": 1}],
+  "items": [{"product_id": 1, "quantity": 2, "description": "Taille M, noir"}, {"product_id": 2, "quantity": 1}],
   "discount_type": "FIXED",
   "discount_value": 5000,
   "payment": {"method": "CASH", "amount": 20000},
-  "payment_due_date": "2026-10-15"
+  "installments": [
+    {"due_date": "2026-10-15", "amount": 10000},
+    {"due_date": "2026-11-15", "amount": 10000}
+  ]
 }
 ```
 
@@ -369,6 +367,7 @@ En cas d'erreur, tout est annulé (**ROLLBACK**).
 - Client : `customer_id` (client existant) ou `customer` (nouveau, réutilisé s'il existe déjà à l'identique).
 - Remise : `NONE`, `PERCENTAGE` (≤ 100) ou `FIXED` (≤ sous-total). Elle nécessite la permission `sale.discount`.
 - `SaleItem` conserve la référence, le nom, le **prix unitaire appliqué** et le prix de stock du moment : la facture et le bénéfice ne changent pas si le produit est modifié ensuite.
+- Chaque article peut avoir une `description` (taille, couleur...), reprise dans la vente et sur la facture.
 - Toutes les vérifications sont faites avant de tirer le numéro de facture : une vente refusée ne consomme pas de numéro.
 
 **Paiements.** Une ligne `Payment` est une somme réellement encaissée (montant > 0). L'historique n'est jamais écrasé.
@@ -380,8 +379,11 @@ En cas d'erreur, tout est annulé (**ROLLBACK**).
 | absent, ou `{"method": "CREDIT"}` | rien n'est encaissé → `UNPAID` |
 
 **Avance et dette :**
-- S'il reste un montant dû, le **téléphone du client** et la **date d'échéance** (`payment_due_date`) sont obligatoires.
-- Pour un paiement complet, l'échéance est ignorée.
+- S'il reste un montant dû, le **téléphone du client** est obligatoire, ainsi que les dates de remboursement :
+  - `installments` : l'**échéancier**, une ou plusieurs dates (différentes, pas dans le passé) avec leur montant ; la somme doit être égale au reste à payer (sinon `INVALID_PAYMENT`) ;
+  - ou, à défaut, `payment_due_date` : une échéance unique pour tout le reste.
+- Pour un paiement complet, les échéances sont ignorées.
+- Les paiements reçus ensuite soldent les échéances **dans l'ordre des dates**. La vente renvoie `installments` avec, pour chaque date, `paid_amount`, `remaining_amount`, `status` (`UNPAID`, `PARTIAL`, `PAID`) et `is_overdue` (date passée, pas soldée). `payment_due_date` indique la **prochaine échéance** non payée.
 - Quand le client revient, `POST /api/v1/payments` (`sale_id`, `method`, `amount`) enregistre le paiement. Le statut passe à `PARTIAL` puis `PAID`.
 - Sont interdits : un **surpaiement**, un paiement sur une vente déjà **PAID** (`PAYMENT_ALREADY_COMPLETED`) et un paiement sur une vente annulée.
 
@@ -397,7 +399,6 @@ Le mode `MIXED` n'est pas implémenté. L'architecture est prête : une vente ac
 
 **Annulation** : `POST /sales/{id}/cancel` (permission `sale.cancel`).
 - Le stock est remis dans le magasin (mouvements `RETURN`).
-- Les espèces sont remboursées depuis la caisse ouverte.
 - L'opération est auditée.
 - Une deuxième annulation renvoie `SALE_ALREADY_CANCELLED`.
 
@@ -414,7 +415,7 @@ Le mode `MIXED` n'est pas implémenté. L'architecture est prête : une vente ac
 - **la facture** : numéro `FAC-AAAA-NNNNNN`, date et heure, magasin, vendeur et son rôle ;
 - **le client** : nom, prénom, téléphone ;
 - **les lignes** : référence, nom, quantité, prix unitaire, total ;
-- **les montants** : sous-total, remise, total, paiements, montant payé, reste dû, statut, échéance ;
+- **les montants** : sous-total, remise, total, paiements, montant payé, reste dû, statut, échéancier ;
 - **un message de remerciement** construit avec le nom de la société de la facture (`["Merci pour votre achat !", "À bientôt chez allsafe."]`).
 
 **Fidélité historique.**
@@ -423,27 +424,7 @@ Le mode `MIXED` n'est pas implémenté. L'architecture est prête : une vente ac
 
 ---
 
-## 13. Caisse
-
-- Une seule caisse ouverte par magasin (`POST /cash/registers/open`, `POST /cash/registers/{id}/close`).
-- Chaque **paiement en espèces** (vente, avance ou solde de dette) crée une opération `SALE` dans la caisse ouverte du magasin. Un paiement en espèces est refusé si aucune caisse n'est ouverte (`CASH_REGISTER_CLOSED`).
-- **Exemple** : une vente de 20 000 payée par une avance de 10 000 le jour 1, puis 10 000 le jour 2. Le chiffre d'affaires est de 20 000 et la caisse reçoit 10 000 puis 10 000.
-- Opérations manuelles : `EXPENSE`, `WITHDRAWAL`, `DEPOSIT`, `ADJUSTMENT`. `REFUND` est créée automatiquement à l'annulation d'une vente.
-- `expected_amount` est mis à jour à chaque opération et ne devient jamais négatif. À la clôture : `difference = closing_amount − expected_amount`.
-- Par défaut, seul l'ADMIN gère la caisse. Il peut donner `cash.*` au rôle VENDEUR.
-
-**Ouverture et fermeture automatiques** (heure de Madagascar, `CASH_SCHEDULE_TIMEZONE`) :
-
-- à **06:00**, une caisse est ouverte dans chaque magasin actif qui n'en a pas. Le fond de caisse reprend le montant de la dernière clôture du magasin (l'argent resté dans la caisse), ou 0 ;
-- à **19:00**, toute caisse ouverte avant cette heure est clôturée. Personne ne compte l'argent : le montant compté est le montant théorique (écart 0). Pour enregistrer un écart réel, clôturer la caisse à la main avant 19:00 ;
-- une caisse clôturée à la main dans la journée n'est pas rouverte automatiquement avant le lendemain ; une caisse ouverte à la main après 19:00 reste ouverte jusqu'au 19:00 suivant ;
-- les caisses automatiques ont `opened_by` / `closed_by` à `null` et `opened_automatically` / `closed_automatically` à `true` ; le journal d'audit contient `cash.auto_open` et `cash.auto_close` (utilisateur : système) ;
-- le traitement tourne dans l'API (vérification chaque minute), rattrape un passage manqué (serveur arrêté à l'heure prévue) et ne s'exécute qu'une fois même avec plusieurs instances (verrou PostgreSQL) ;
-- `GET /api/v1/cash/schedule` renvoie les horaires ; `CASH_AUTO_SCHEDULE=false` désactive le traitement.
-
----
-
-## 14. Tableau de bord
+## 13. Tableau de bord
 
 Il n'y a pas de table Dashboard : tout est calculé à partir des données existantes. Filtres : `store_id`, `date_from`, `date_to`.
 
@@ -459,7 +440,7 @@ Les transferts ne comptent jamais comme vente, perte ou dépense.
 
 ---
 
-## 15. Audit
+## 14. Audit
 
 `GET /api/v1/audit` (permission `audit.view`), filtrable par utilisateur, action, type d'entité et période. Chaque entrée garde l'utilisateur, l'action, l'ancienne et la nouvelle valeur, l'adresse IP et la date.
 
@@ -472,7 +453,6 @@ Sont tracés :
 - les clients ;
 - les ventes, remises et annulations ;
 - les paiements ;
-- la caisse ;
 - les permissions ;
 - la société.
 
@@ -480,7 +460,7 @@ Ne sont **jamais** enregistrés : mots de passe, `password_hash`, jetons JWT, se
 
 ---
 
-## 16. Tests
+## 15. Tests
 
 ```bash
 docker compose up -d postgres && pytest   # en local
@@ -489,7 +469,7 @@ docker compose run --rm api pytest        # dans Docker
 
 - Les tests utilisent une base dédiée (`<base>_test`), **reconstruite par les migrations** à chaque session.
 - Chaque test s'annule à la fin (transaction + savepoints).
-- `app/tests/factories.py` crée rapidement magasins, produits, utilisateurs, clients et caisses.
+- `app/tests/factories.py` crée rapidement magasins, produits, utilisateurs, et clients.
 
 | Fichier | Couverture |
 |---|---|
@@ -499,7 +479,7 @@ docker compose run --rm api pytest        # dans Docker
 | `test_stores.py`, `test_products.py`, `test_prices.py` | magasins, Stock Local, CRUD produits, références et noms identiques autorisés, règle de prix, valeurs du stock |
 | `test_stock.py`, `test_transfers.py` | entrées, sorties, ajustements, seuils, transferts (10→5, 10→10, 10→11, rollback, stock global), annulation |
 | `test_customers.py`, `test_sales.py`, `test_discounts.py` | clients, contacts, dettes, ventes, utilisateur connecté, snapshot, remises, rollback, annulation, historique |
-| `test_payments.py`, `test_cash.py` | paiement complet, avance, dette, échéance, paiements multiples, surpaiement, caisse |
+| `test_payments.py`, `test_installments.py` | paiement complet, avance, dette, échéancier (répartition des paiements, retards), paiements multiples, surpaiement |
 | `test_company.py`, `test_invoices.py` | société, contenu de la facture, fidélité historique (société, produits, prix) |
 | `test_dashboard.py`, `test_audit.py`, `test_chat.py` | statistiques, audit, messagerie |
 | `test_concurrency.py` | ventes et transferts simultanés réels : jamais de survente ni de stock négatif |
@@ -509,7 +489,7 @@ docker compose run --rm api pytest        # dans Docker
 
 ---
 
-## 17. Documentation de l'API (Swagger, ReDoc)
+## 16. Documentation de l'API (Swagger, ReDoc)
 
 - **Swagger UI** : `/docs`. Connectez-vous avec `POST /api/v1/auth/login`, puis utilisez **Authorize**.
 - **ReDoc** : `/redoc`
@@ -523,14 +503,14 @@ Format commun :
 
 ---
 
-## 18. Conventions de code
+## 17. Conventions de code
 
 - **Routes** : HTTP uniquement. **Services** : toute la logique métier. **Modèles** : SQLAlchemy et relations.
 - **Transactions** : chaque service d'écriture se termine par `db.commit()`. Toute exception levée avant entraîne un ROLLBACK (`core/database.py`).
 - **Exceptions métier nommées** (`core/exceptions.py`) :
   - `ProductNotFound`, `StoreNotFound`, `CustomerNotFound`, `UserNotFound` ;
   - `InsufficientStock`, `InactiveProduct`, `InactiveStore`, `InvalidTransfer` ;
-  - `CashRegisterClosed`, `SaleAlreadyCancelled`, `PaymentAlreadyCompleted` ;
+  - `SaleAlreadyCancelled`, `PaymentAlreadyCompleted` ;
   - `InvalidPayment`, `InvalidDiscount`, `InvalidSellingPrice` ;
   - `PermissionDenied`, `InvalidStoreAccess`.
 - **Montants** : `Numeric(14, 2)` en base, `Decimal` en Python, nombre dans le JSON. L'arrondi est commercial, au centime.

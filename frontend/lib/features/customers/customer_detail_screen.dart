@@ -184,7 +184,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                             ),
                                             if (sale.dueDate != null)
                                               Text(
-                                                'Échéance ${Formats.date(sale.dueDate)}${sale.isOverdue ? ' (dépassée)' : ''}',
+                                                'Prochaine échéance ${Formats.date(sale.dueDate)}${sale.isOverdue ? ' (dépassée)' : ''}',
                                                 style: theme.textTheme.bodySmall?.copyWith(
                                                   color: sale.isOverdue ? AppColors.danger : null,
                                                 ),

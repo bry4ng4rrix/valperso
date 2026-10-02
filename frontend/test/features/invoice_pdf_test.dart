@@ -39,6 +39,7 @@ void main() {
         'product_id': 11,
         'product_reference': 'c-1',
         'product_name': 'cahier à spirale',
+        'description': 'grand format',
         'quantity': 1,
         'unit_price': 2500,
         'total': 2500,
@@ -63,6 +64,16 @@ void main() {
     'remaining_amount': 2950,
     'payment_status': 'PARTIAL',
     'payment_due_date': '2026-10-30',
+    'installments': [
+      {
+        'due_date': '2026-10-30',
+        'amount': 2950,
+        'paid_amount': 0,
+        'remaining_amount': 2950,
+        'status': 'UNPAID',
+        'is_overdue': false,
+      },
+    ],
     'status': 'COMPLETED',
     'thank_you_message': ['Merci pour votre achat !', 'À bientôt chez allsafe.'],
   });
@@ -73,6 +84,8 @@ void main() {
     expect(invoice.lines, hasLength(2));
     expect(invoice.discountType, DiscountType.percentage);
     expect(invoice.remainingAmount, 2950);
+    expect(invoice.lines.last.description, 'grand format');
+    expect(installmentsText(invoice.installments), '30/10/2026 : 2\u00A0950 Ar');
     expect(invoice.paymentStatus, PaymentStatus.partial);
     expect(invoice.thankYouMessage.last, 'À bientôt chez allsafe.');
   });

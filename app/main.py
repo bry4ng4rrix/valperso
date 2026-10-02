@@ -12,12 +12,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
-from app.core.scheduler import lifespan
 
 API_DESCRIPTION = """
 API de gestion commerciale multi-magasins : utilisateurs (ADMIN / VENDEUR), magasins et Stock Local,
 produits, stock par magasin, transferts, clients, ventes, remises, paiements (complets, avances,
-dettes), factures, caisse, tableau de bord, audit et messagerie interne.
+dettes), factures, tableau de bord, audit et messagerie interne.
 
 **Authentification** : `POST /api/v1/auth/login`, puis bouton **Authorize** avec l'access token.
 
@@ -45,10 +44,6 @@ OPENAPI_TAGS = [
     {"name": "Ventes", "description": "Vente transactionnelle, remises, historique et annulation."},
     {"name": "Factures", "description": "Facture d'une vente."},
     {"name": "Paiements", "description": "Paiements complets, avances et soldes de dettes."},
-    {
-        "name": "Caisse",
-        "description": "Ouverture, opérations et clôture de caisse ; ouverture et fermeture automatiques.",
-    },
     {"name": "Tableau de bord", "description": "Statistiques calculées à partir des données existantes."},
     {"name": "Société", "description": "Informations de la société affichées sur les factures."},
     {"name": "Chat", "description": "Messagerie interne (module indépendant)."},
@@ -74,7 +69,6 @@ def create_app() -> FastAPI:
         description=API_DESCRIPTION,
         openapi_tags=OPENAPI_TAGS,
         debug=settings.DEBUG,
-        lifespan=lifespan,
     )
     if settings.cors_origins_list:
         app.add_middleware(

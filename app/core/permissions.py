@@ -63,11 +63,6 @@ class PermissionCode(StrEnum):
     PAYMENT_VIEW = "payment.view"
     PAYMENT_CREATE = "payment.create"
 
-    CASH_VIEW = "cash.view"
-    CASH_OPEN = "cash.open"
-    CASH_CLOSE = "cash.close"
-    CASH_TRANSACTION = "cash.transaction"
-
     REPORT_VIEW = "report.view"
     AUDIT_VIEW = "audit.view"
 
@@ -115,10 +110,6 @@ PERMISSION_DESCRIPTIONS: dict[PermissionCode, str] = {
     P.SALE_DISCOUNT: "Appliquer une remise",
     P.PAYMENT_VIEW: "Voir les paiements",
     P.PAYMENT_CREATE: "Enregistrer des paiements",
-    P.CASH_VIEW: "Voir les caisses",
-    P.CASH_OPEN: "Ouvrir une caisse",
-    P.CASH_CLOSE: "Clôturer une caisse",
-    P.CASH_TRANSACTION: "Enregistrer des opérations de caisse",
     P.REPORT_VIEW: "Voir les rapports et statistiques détaillés",
     P.AUDIT_VIEW: "Consulter le journal d'audit",
     P.COMPANY_VIEW: "Voir les informations de la société",

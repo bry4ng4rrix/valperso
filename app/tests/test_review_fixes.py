@@ -138,7 +138,9 @@ def test_refused_sale_does_not_consume_an_invoice_number(client, factory, admin_
     product = factory.product(stock=10)
     first = client.post("/api/v1/sales", headers=admin_headers, json=sale_payload((product, 1))).json()
     refused = client.post(
-        "/api/v1/sales", headers=admin_headers, json=sale_payload((product, 1), payment={"method": "CASH"})
+        "/api/v1/sales",
+        headers=admin_headers,
+        json=sale_payload((product, 1), payment={"method": "CASH", "amount": 999_999_999}),
     )
     second = client.post(
         "/api/v1/sales",
@@ -146,7 +148,7 @@ def test_refused_sale_does_not_consume_an_invoice_number(client, factory, admin_
         json=sale_payload((product, 1), payment=None, payment_due_date=due_date()),
     ).json()
 
-    assert refused.json()["code"] == "CASH_REGISTER_CLOSED"
+    assert refused.json()["code"] == "INVALID_PAYMENT"
     first_number = int(re.search(r"(\d+)$", first["sale_number"]).group(1))
     second_number = int(re.search(r"(\d+)$", second["sale_number"]).group(1))
     assert second_number == first_number + 1

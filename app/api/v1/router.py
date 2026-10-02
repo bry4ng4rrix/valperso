@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from app.api.v1 import (
     audit,
     auth,
-    cash,
     categories,
     chat,
     company,
@@ -37,7 +36,6 @@ for module in (
     sales,
     invoices,
     payments,
-    cash,
     dashboard,
     company,
     chat,

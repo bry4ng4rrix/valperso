@@ -51,20 +51,6 @@ class PaymentMethod(StrEnum):
     CREDIT = "CREDIT"
 
 
-class CashRegisterStatus(StrEnum):
-    OPEN = "OPEN"
-    CLOSED = "CLOSED"
-
-
-class CashTransactionType(StrEnum):
-    SALE = "SALE"
-    EXPENSE = "EXPENSE"
-    WITHDRAWAL = "WITHDRAWAL"
-    DEPOSIT = "DEPOSIT"
-    REFUND = "REFUND"
-    ADJUSTMENT = "ADJUSTMENT"
-
-
 class ConversationType(StrEnum):
     PRIVATE = "PRIVATE"
     GROUP = "GROUP"

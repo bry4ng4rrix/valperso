@@ -20,13 +20,11 @@ import 'package:valmag/core/export/excel_export.dart';
 import 'package:valmag/core/storage/key_value_store.dart';
 import 'package:valmag/core/utils/periods.dart';
 import 'package:valmag/features/audit/audit_repository.dart';
-import 'package:valmag/features/cash/cash_repository.dart';
 import 'package:valmag/features/chat/chat_repository.dart';
 import 'package:valmag/features/company/company_repository.dart';
 import 'package:valmag/features/customers/customers_repository.dart';
 import 'package:valmag/features/dashboard/dashboard_repository.dart';
 import 'package:valmag/features/invoices/invoice_pdf.dart';
-import 'package:valmag/features/payments/payment_models.dart';
 import 'package:valmag/features/payments/payments_repository.dart';
 import 'package:valmag/features/products/products_repository.dart';
 import 'package:valmag/features/roles/roles_repository.dart';
@@ -107,17 +105,13 @@ void main() {
       expect(transfer.reference, startsWith('TRF-'));
       expect(transfer.stockLevels.single.sourceQuantity, line.quantity - 2);
 
-      // Vente au Stock Local : 1 article, avance en Mobile money, nouveau client avec téléphone.
+      // Vente au Stock Local : 1 article, dette avec avance, nouveau client avec téléphone.
       final cart = CartController()..setStore(stores.first.ref);
       cart.add(line.product, available: line.quantity - 2);
       cart.setCustomer(const CartCustomer.create(firstName: 'Client', lastName: 'Test', phone: '034 11 222 33'));
       final advance = (line.product.sellingPrice / 2).floorToDouble();
-      cart.setPayment(
-        method: PaymentMethod.mobileMoney,
-        inFull: false,
-        advance: advance,
-        due: DateTime.now().add(const Duration(days: 10)),
-      );
+      cart.setPayment(inFull: false, advance: advance);
+      cart.setInstallmentDate(cart.installments.single.id, DateTime.now().add(const Duration(days: 10)));
       expect(cart.isReady, isTrue, reason: cart.allErrors.join(', '));
       final sales = SalesRepository(api);
       final sale = await sales.create(cart.toNewSale(includeStore: true));
@@ -140,7 +134,7 @@ void main() {
       expect(debts.items.any((contact) => contact.remainingAmount > 0), isTrue);
 
       // Solde de la dette.
-      await PaymentsRepository(api).create(saleId: sale.id, method: PaymentMethod.card, amount: sale.remainingAmount);
+      await PaymentsRepository(api).create(saleId: sale.id, amount: sale.remainingAmount);
       final paid = await sales.get(sale.id);
       expect(paid.paymentStatus, PaymentStatus.paid);
       expect(paid.payments, hasLength(2));
@@ -161,7 +155,7 @@ void main() {
       expect(movements.items.map((movement) => movement.type.code), containsAll(['TRANSFER_OUT', 'SALE']));
     });
 
-    test('administrateur : écrans de gestion (utilisateurs, rôles, société, caisse, audit, chat)', () async {
+    test('administrateur : écrans de gestion (utilisateurs, rôles, société, audit, chat)', () async {
       final (api, _) = await _login('valenciaraza');
       final users = await UsersRepository(api).list(const PageQuery(pageSize: 100));
       expect(users.items.map((user) => user.username.toLowerCase()), containsAll(['vendeur1', 'vendeur2', 'vendeur3']));
@@ -170,13 +164,6 @@ void main() {
       expect(await RolesRepository(api).permissions(), isNotEmpty);
       final company = await CompanyRepository(api).get();
       expect(company.name, isNotEmpty);
-      final schedule = await CashRepository(api).schedule();
-      expect(schedule?.enabled, isTrue);
-      expect(schedule?.openTime, '06:00');
-      expect(schedule?.closeTime, '19:00');
-      expect(schedule?.timezoneLabel, 'heure de Madagascar');
-      await CashRepository(api).current();
-      await CashRepository(api).registers(const PageQuery());
       final audit = await AuditRepository(api).list(const PageQuery());
       expect(audit.total, greaterThan(0));
       await ChatRepository(api).conversations();

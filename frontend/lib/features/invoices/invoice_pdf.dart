@@ -122,7 +122,10 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice, {Uint8List? logo}) async {
             for (final line in invoice.lines)
               [
                 line.reference.toUpperCase(),
-                Formats.capitalize(line.name),
+                [
+                  Formats.capitalize(line.name),
+                  if (line.description != null) Formats.capitalize(line.description),
+                ].join('\n'),
                 Formats.quantity(line.quantity),
                 Formats.money(line.unitPrice),
                 Formats.money(line.total),
@@ -155,7 +158,11 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice, {Uint8List? logo}) async {
                   row('Payé', Formats.money(invoice.amountPaid)),
                   if (invoice.remainingAmount > 0) ...[
                     row('Reste à payer', Formats.money(invoice.remainingAmount), strong: true, color: PdfColors.red),
-                    if (invoice.dueDate != null) row('Échéance', Formats.date(invoice.dueDate)),
+                    if (invoice.dueDate != null)
+                      row(
+                        invoice.installments.isEmpty ? 'Échéance' : 'Prochaine échéance',
+                        Formats.date(invoice.dueDate),
+                      ),
                   ],
                   row('Statut', invoice.paymentStatus.label),
                 ],
@@ -163,13 +170,19 @@ Future<Uint8List> buildInvoicePdf(Invoice invoice, {Uint8List? logo}) async {
             ),
           ],
         ),
+        if (invoice.installments.isNotEmpty) ...[
+          pw.SizedBox(height: 16),
+          pw.Text('Échéancier', style: bold),
+          pw.SizedBox(height: 4),
+          for (final line in installmentsText(invoice.installments).split('\n')) pw.Text(line, style: small),
+        ],
         if (invoice.payments.isNotEmpty) ...[
           pw.SizedBox(height: 16),
           pw.Text('Paiements', style: bold),
           pw.SizedBox(height: 4),
           for (final payment in invoice.payments)
             pw.Text(
-              '${Formats.dateTime(payment.createdAt)} — ${payment.method.label} — ${Formats.money(payment.amount)}'
+              '${Formats.dateTime(payment.createdAt)} — ${Formats.money(payment.amount)}'
               '${payment.reference == null ? '' : ' (réf. ${payment.reference})'}',
               style: small,
             ),

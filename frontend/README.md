@@ -1,4 +1,4 @@
-# Gestion commerciale — application Flutter
+# Bryan Garrix — application Flutter
 
 Application cliente de l'API FastAPI du dossier parent (gestion commerciale multi-magasins).
 
@@ -57,16 +57,15 @@ lib/
 | Connexion | identifiant ou email, mot de passe, adresse du serveur, message si la session a expiré |
 | Accueil | ADMIN : tableau de bord (périodes Aujourd'hui → Personnalisé, magasin, indicateurs, actions rapides, évolution des ventes, meilleures ventes, dernières ventes, stocks à surveiller). VENDEUR : ventes du jour, actions rapides, alertes de stock de son magasin |
 | Ventes | un seul écran avec deux onglets, « Nouvelle vente » et « Historique » (le panier et la recherche sont conservés d'un onglet à l'autre) |
-| Nouvelle vente | mobile en 4 étapes (Produits → Client → Paiement → Résumé), bureau en deux panneaux ; stock disponible par magasin, client existant ou nouveau, remise (si autorisée), paiement complet / avance / crédit, échéance et téléphone exigés s'il reste un montant ; **confirmation avant l'envoi, un seul envoi** ; écran final : facture, partage, nouvelle vente |
+| Nouvelle vente | mobile en 4 étapes (Produits → Client → Paiement → Résumé), bureau en deux panneaux ; stock disponible par magasin, client existant ou nouveau, paiement « Payé » ou « Dette (avance) » sans choix du mode de paiement (champ pré-rempli avec le total, vide = dette sans avance), échéancier (une ou plusieurs dates de remboursement, reste réparti également, montants modifiables) et téléphone exigés s'il reste un montant, description par article (taille, couleur...) ; **confirmation avant l'envoi, un seul envoi** ; écran final : facture, partage, nouvelle vente |
 | Historique des ventes | période, recherche (n° de facture, client, téléphone), filtres, tri, cartes ou tableau, export |
-| Détail de vente | articles, montants, paiements, encaisser, annuler (motif + double confirmation), facture |
+| Détail de vente | articles (avec description), montants, échéancier (payé, reste, à payer, en retard), paiements, encaisser, annuler (motif + double confirmation), facture |
 | Facture | aperçu, PDF partagé (Android) ou enregistré (Linux) ; informations de la société figées au moment de la vente |
 | Produits | par magasin (quantité, état) ou catalogue, cartes avec prix, marge et état, fiche (stock par magasin, stock global, mouvements), formulaire (prix de vente ≥ prix d'achat), désactivation |
-| Stock | stock par magasin, stock faible / épuisés, opérations (entrée, sortie, perte, ajustement) confirmées avec quantité avant → après, seuil d'alerte, mouvements, valeur du stock |
+| Mouvements | historique des mouvements (type « Transfert » avec magasins d'origine et de destination), opérations (entrée, sortie, perte, ajustement) confirmées avec quantité avant → après ; le stock par magasin se consulte dans Produits |
 | Transferts | liste, nouveau transfert (magasins → produits → quantités → récapitulatif → confirmation → stocks des deux magasins), annulation |
 | Clients | tous / avec dette, fiche avec dettes (encaisser) et achats, création |
 | Paiements et dettes | paiements reçus, ventes avec reste à payer |
-| Caisse | caisse ouverte du magasin, horaires automatiques (ouverture 06:00, fermeture 19:00, heure de Madagascar), ouverture manuelle, opérations, fermeture avec écart confirmé, historique |
 | Magasins, Utilisateurs, Catégories | listes, fiches, formulaires ; changements de rôle, de magasin et de statut confirmés (avant → après) |
 | Paramètres | profil, thème, serveur, société (modification avec liste des changements), rôles et permissions, déconnexion confirmée |
 | Journal d'audit, Messages | journal filtrable avec détail avant / après ; conversations privées et de groupe |
@@ -85,8 +84,8 @@ flutter test         # 87 tests ; les tests « API réelle » sont ignorés sans
 - `test/core`, `test/app`, `test/features/cart_controller_test.dart` : client API (jeton, renouvellement, expiration), erreurs, formats, périodes, liste paginée, export Excel, panier (calculs identiques au serveur), navigation et garde des routes.
 - `test/widgets` : boîte de confirmation (normale, double confirmation, motif obligatoire), bouton anti double envoi.
 - `test/app/login_and_shell_test.dart` : connexion, erreurs, barre du bas / menu latéral selon les permissions, déconnexion, session expirée.
-- `test/features/new_sale_flow_test.dart` : vente complète (aucun envoi avant confirmation, un seul POST), avance sans téléphone bloquée, caisse fermée, étapes mobiles.
-- `test/features/management_flows_test.dart` : règle de prix, modification avec différences, transfert, changement de rôle, fermeture de caisse, entrée de stock.
+- `test/features/new_sale_flow_test.dart` : vente complète (aucun envoi avant confirmation, un seul POST), avance sans téléphone bloquée, vente refusée (panier conservé), dette sans avance, étapes mobiles.
+- `test/features/management_flows_test.dart` : règle de prix, modification avec différences, transfert, changement de rôle, transferts dans les mouvements (source → destination), entrée de stock.
 - `test/app/screens_smoke_test.dart` : les 35 écrans sur ordinateur, tablette, mobile et petit téléphone (360 px), sans erreur ni débordement ; écrans du vendeur ; routes interdites.
 - `test/live/api_live_test.dart` : parcours contre la vraie API, **sur une base dédiée** :
 
