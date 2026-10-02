@@ -1,9 +1,11 @@
 """Catalogue des produits. Ni la référence ni le nom ne sont uniques : seul l'id identifie un produit."""
 
+from decimal import Decimal
+
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import InactiveProduct, ProductNotFound
+from app.core.exceptions import InactiveProduct, InvalidSellingPrice, ProductNotFound
 from app.models import Category, Product, Stock, User
 from app.repositories import product_repository
 from app.repositories.base import PageResult
@@ -31,8 +33,20 @@ def get_active_product(db: Session, product_id: int) -> Product:
     return product
 
 
+def ensure_valid_prices(purchase_price: Decimal, selling_price: Decimal) -> None:
+    """Règle métier : prix de vente >= prix de stock. Vérifiée ici même si le schéma l'a déjà
+    contrôlée, pour que la règle tienne quel que soit l'appelant du service."""
+    if selling_price < purchase_price:
+        raise InvalidSellingPrice()
+
+
 def _audit(
-    db: Session, actor: User, product: Product, action: str, ip_address: str | None, old_data: dict | None = None
+    db: Session,
+    actor: User,
+    product: Product,
+    action: str,
+    ip_address: str | None,
+    old_data: dict | None = None,
 ) -> None:
     db.flush()
     audit_service.record(
@@ -49,6 +63,7 @@ def _audit(
 
 def create_product(db: Session, actor: User, data: ProductCreate, ip_address: str | None = None) -> Product:
     """Crée le produit et sa ligne de stock à 0 dans le Stock Local."""
+    ensure_valid_prices(data.purchase_price, data.selling_price)
     category = get_active_category(db, data.category_id) if data.category_id is not None else None
     central = store_access.get_central_store(db)
 
@@ -67,6 +82,11 @@ def update_product(
 ) -> Product:
     product = get_product(db, product_id)
     changes = data.changes()
+    # Un seul prix peut être envoyé : on compare avec l'autre prix déjà enregistré.
+    ensure_valid_prices(
+        changes.get("purchase_price", product.purchase_price),
+        changes.get("selling_price", product.selling_price),
+    )
     category: Category | None = product.category
     if "category_id" in changes:
         category_id = changes.pop("category_id")

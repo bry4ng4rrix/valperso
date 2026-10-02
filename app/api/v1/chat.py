@@ -49,6 +49,7 @@ def create_conversation(
 def get_conversation(
     conversation_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.CHAT_VIEW)]
 ):
+    """Réservé aux membres de la conversation."""
     return chat_service.get_conversation(db, current_user, conversation_id)
 
 
@@ -81,6 +82,7 @@ def send_message(
     db: DbSession,
     current_user: Annotated[User, require_permission(P.CHAT_SEND)],
 ):
+    """Le message est enregistré tel quel (pas de conversion en majuscules)."""
     return chat_service.send_message(db, current_user, conversation_id, data)
 
 
@@ -93,6 +95,7 @@ def send_message(
 def mark_as_read(
     conversation_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.CHAT_VIEW)]
 ) -> None:
+    """Remet à zéro le compteur de messages non lus de l'utilisateur connecté."""
     chat_service.mark_as_read(db, current_user, conversation_id)
 
 
@@ -105,4 +108,5 @@ def mark_as_read(
 def delete_message(
     message_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.CHAT_SEND)]
 ) -> None:
+    """Suppression logique, réservée à l'auteur du message."""
     chat_service.delete_message(db, current_user, message_id)

@@ -5,7 +5,6 @@ from pydantic import Field, model_validator
 from app.models.enums import PaymentMethod
 from app.schemas.common import (
     DateRangeQuery,
-    DisplayStr,
     InputModel,
     Money,
     OptionalUpperStr,

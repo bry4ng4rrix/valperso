@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.main import app
-from app.seed import seed_central_store, seed_permissions, seed_roles
+from app.seed import seed_central_store, seed_company, seed_permissions, seed_roles
 from app.tests.factories import Factory
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -64,6 +64,7 @@ def engine() -> Iterator[Engine]:
     with Session(engine) as session:
         seed_roles(session, seed_permissions(session))
         seed_central_store(session)
+        seed_company(session)
         session.commit()
     yield engine
     engine.dispose()

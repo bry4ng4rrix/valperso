@@ -2,7 +2,8 @@
 
 Création d'une vente, en une seule transaction :
     magasin -> client -> produits -> verrouillage des stocks -> vérification des stocks
-    -> sous-total -> remise -> total -> Sale + SaleItems -> déduction du stock + mouvements SALE
+    -> sous-total -> remise -> total -> Sale + SaleItems + copie des informations de la société
+    -> déduction du stock + mouvements SALE
     -> paiement initial éventuel (+ caisse si espèces) -> audit -> COMMIT
 Si une étape échoue, une exception est levée avant le COMMIT : tout est annulé (ROLLBACK).
 Il ne peut donc jamais exister de vente sans stock déduit, ni de paiement sans vente.
@@ -20,9 +21,18 @@ from app.models import Customer, Product, Sale, SaleItem, Stock, Store, User
 from app.models.enums import DiscountType, PaymentMethod, SaleStatus, StockMovementType
 from app.repositories import sale_repository, stock_repository
 from app.repositories.base import PageResult
-from app.schemas.sale import SaleCancel, SaleCreate, SaleHistoryFilters, SaleItemCreate, SalePaymentCreate, SaleRead
+from app.schemas.sale import (
+    SaleCancel,
+    SaleCreate,
+    SaleHistoryFilters,
+    SaleItemCreate,
+    SalePaymentCreate,
+    SaleRead,
+)
 from app.services import (
     audit_service,
+    cash_service,
+    company_service,
     customer_service,
     discount_service,
     payment_service,
@@ -58,7 +68,8 @@ def _resolve_customer(db: Session, user: User, data: SaleCreate, ip_address: str
 
 
 def _build_lines(db: Session, store: Store, items: list[SaleItemCreate]) -> list[SaleLine]:
-    """Vérifie les produits et le stock du magasin. Les lignes de stock restent verrouillées jusqu'au COMMIT."""
+    """Vérifie les produits et le stock du magasin.
+    Les lignes de stock restent verrouillées jusqu'au COMMIT."""
     products = [get_active_product(db, item.product_id) for item in items]
     stocks = stock_repository.lock_lines(db, [store.id], [product.id for product in products])
 
@@ -89,7 +100,9 @@ def _debt_due_date(customer: Customer, remaining: Decimal, due_date: date | None
     if not customer.phone:
         raise InvalidPayment("Le téléphone du client est obligatoire pour une vente avec avance ou à crédit")
     if due_date is None:
-        raise InvalidPayment("La date d'échéance (payment_due_date) est obligatoire s'il reste un montant à payer")
+        raise InvalidPayment(
+            "La date d'échéance (payment_due_date) est obligatoire s'il reste un montant à payer"
+        )
     return due_date
 
 
@@ -129,6 +142,9 @@ def create_sale(db: Session, user: User, data: SaleCreate, ip_address: str | Non
     total = subtotal - discount_amount
     paid_now = _initial_payment_amount(data.payment, total)
     due_date = _debt_due_date(customer, total - paid_now, data.payment_due_date)
+    if paid_now > 0 and data.payment and data.payment.method == PaymentMethod.CASH:
+        # Vérifié avant de tirer le numéro de facture : une vente refusée ne consomme pas de numéro.
+        cash_service.get_open_register_for_update(db, store.id)
 
     sale = Sale(
         sale_number=sale_repository.next_invoice_number(db),
@@ -143,6 +159,8 @@ def create_sale(db: Session, user: User, data: SaleCreate, ip_address: str | Non
         payment_status=payment_service.compute_payment_status(total, paid_now),
         payment_due_date=due_date,
         status=SaleStatus.COMPLETED,
+        # Facture : informations de la société figées au moment de la vente.
+        company_snapshot=company_service.snapshot_for_invoice(db, store),
         items=[
             SaleItem(
                 product_id=line.product.id,
@@ -150,6 +168,7 @@ def create_sale(db: Session, user: User, data: SaleCreate, ip_address: str | Non
                 product_name=line.product.name,
                 quantity=line.quantity,
                 unit_price=line.unit_price,
+                unit_purchase_price=line.product.purchase_price,
                 total=line.total,
             )
             for line in lines

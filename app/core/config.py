@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     INITIAL_ADMIN_EMAIL: str | None = None
     INITIAL_ADMIN_PASSWORD: str | None = None
 
+    # Nom de la société créé par le seed ; il se modifie ensuite avec PUT /api/v1/company.
+    COMPANY_NAME: str = "Ma Société"
+
+    # Mot de passe des comptes de démonstration (python -m app.seed_demo). Jamais en production.
+    DEMO_PASSWORD: str | None = None
+
     # Seuil d'alerte appliqué aux nouvelles lignes de stock (modifiable ensuite ligne par ligne).
     DEFAULT_ALERT_THRESHOLD: int = Field(default=5, ge=0)
     # Fuseau horaire des statistiques par jour/mois et de l'année des numéros de facture.

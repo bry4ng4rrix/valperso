@@ -24,8 +24,11 @@ def list_stores(
     return store_service.list_stores(db, filters)
 
 
-@router.get("/{store_id}", response_model=StoreRead, summary="Détail d'un magasin", responses=error_responses(404))
+@router.get(
+    "/{store_id}", response_model=StoreRead, summary="Détail d'un magasin", responses=error_responses(404)
+)
 def get_store(store_id: int, db: DbSession, _: Annotated[User, require_permission(P.STORE_VIEW)]):
+    """Retourne un magasin (y compris le Stock Local)."""
     return store_access.get_store(db, store_id)
 
 
@@ -41,6 +44,7 @@ def list_employees(
     pagination: Annotated[Pagination, Query()],
     _: Annotated[User, require_permission(P.USER_VIEW)],
 ):
+    """Utilisateurs affectés à ce magasin (User.store_id)."""
     return user_service.list_store_employees(db, store_id, pagination)
 
 
@@ -75,7 +79,8 @@ def update_store(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.STORE_UPDATE)],
 ):
-    """Modification partielle : seuls les champs envoyés changent. Le Stock Local ne peut pas être désactivé."""
+    """Modification partielle : seuls les champs envoyés changent.
+    Le Stock Local ne peut pas être désactivé."""
     return store_service.update_store(db, current_user, store_id, data, ip_address)
 
 

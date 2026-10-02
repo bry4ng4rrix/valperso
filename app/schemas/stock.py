@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from app.models.enums import StockMovementType
 from app.schemas.category import CategorySummary
@@ -52,6 +52,21 @@ class StockRead(ORMModel):
     low_stock: bool = Field(description="0 < quantité <= seuil d'alerte")
     out_of_stock: bool = Field(description="Quantité = 0 dans ce magasin")
     updated_at: datetime
+
+    @computed_field(description="Valeur du stock = quantité x prix de stock")
+    @property
+    def purchase_value(self) -> Money:
+        return self.quantity * self.product.purchase_price
+
+    @computed_field(description="Valeur de vente potentielle = quantité x prix de vente")
+    @property
+    def sale_value(self) -> Money:
+        return self.quantity * self.product.selling_price
+
+    @computed_field(description="Bénéfice potentiel = valeur de vente - valeur du stock")
+    @property
+    def potential_profit(self) -> Money:
+        return self.sale_value - self.purchase_value
 
 
 class StockFilters(PageQuery):

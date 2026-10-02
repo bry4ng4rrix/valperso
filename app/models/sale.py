@@ -13,6 +13,7 @@ from app.models.store import Store
 from app.models.user import User
 
 if TYPE_CHECKING:
+    from app.models.company import InvoiceCompanySnapshot
     from app.models.payment import Payment
 
 # Compteur des numéros de facture (FAC-2026-000125), sans doublon même en cas de ventes simultanées.
@@ -62,6 +63,10 @@ class Sale(TimestampMixin, Base):
         back_populates="sale", cascade="all, delete-orphan", order_by="SaleItem.id"
     )
     payments: Mapped[list["Payment"]] = relationship(back_populates="sale", order_by="Payment.id")
+    # Informations de la société figées au moment de la vente (en-tête de la facture).
+    company_snapshot: Mapped["InvoiceCompanySnapshot"] = relationship(
+        back_populates="sale", cascade="all, delete-orphan"
+    )
 
     @hybrid_property
     def remaining_amount(self) -> Decimal:
@@ -86,6 +91,8 @@ class SaleItem(CreatedAtMixin, Base):
     product_name: Mapped[str] = mapped_column(UpperCaseString(200))
     quantity: Mapped[int]
     unit_price: Mapped[Decimal] = mapped_column(MONEY)
+    # Prix de stock au moment de la vente : le bénéfice des ventes passées ne change pas si le prix évolue.
+    unit_purchase_price: Mapped[Decimal] = mapped_column(MONEY)
     total: Mapped[Decimal] = mapped_column(MONEY)
 
     sale: Mapped[Sale] = relationship(back_populates="items")

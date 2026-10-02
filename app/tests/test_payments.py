@@ -37,7 +37,9 @@ def create_sale(client, headers, article, **fields):
 
 
 def pay(client, headers, sale_id, amount, method="CASH"):
-    return client.post("/api/v1/payments", headers=headers, json={"sale_id": sale_id, "method": method, "amount": amount})
+    return client.post(
+        "/api/v1/payments", headers=headers, json={"sale_id": sale_id, "method": method, "amount": amount}
+    )
 
 
 def test_full_payment(client, headers, article, register):
@@ -51,7 +53,11 @@ def test_advance_then_balance(client, db, headers, article, register):
     sale = create_sale(
         client, headers, article, payment={"method": "CASH", "amount": 10000}, payment_due_date=due_date()
     ).json()
-    assert (sale["amount_paid"], sale["remaining_amount"], sale["payment_status"]) == (10000.0, 10000.0, "PARTIAL")
+    assert (sale["amount_paid"], sale["remaining_amount"], sale["payment_status"]) == (
+        10000.0,
+        10000.0,
+        "PARTIAL",
+    )
     assert sale["payment_due_date"] == due_date()
 
     response = pay(client, headers, sale["id"], 10000)
@@ -66,12 +72,18 @@ def test_advance_then_balance(client, db, headers, article, register):
 
 def test_unpaid_sale_on_credit(client, headers, article):
     without_payment = create_sale(client, headers, article, payment=None, payment_due_date=due_date())
-    explicit_credit = create_sale(client, headers, article, payment={"method": "CREDIT"}, payment_due_date=due_date())
+    explicit_credit = create_sale(
+        client, headers, article, payment={"method": "CREDIT"}, payment_due_date=due_date()
+    )
 
     for response in (without_payment, explicit_credit):
         body = response.json()
         assert response.status_code == 201
-        assert (body["payment_status"], body["amount_paid"], body["remaining_amount"]) == ("UNPAID", 0.0, 20000.0)
+        assert (body["payment_status"], body["amount_paid"], body["remaining_amount"]) == (
+            "UNPAID",
+            0.0,
+            20000.0,
+        )
         assert body["payments"] == []
 
 
@@ -99,7 +111,9 @@ def test_due_date_in_the_past_is_refused(client, headers, article):
 
 
 def test_due_date_is_ignored_for_a_full_payment(client, headers, article):
-    body = create_sale(client, headers, article, payment={"method": "CARD"}, payment_due_date=due_date()).json()
+    body = create_sale(
+        client, headers, article, payment={"method": "CARD"}, payment_due_date=due_date()
+    ).json()
     assert body["payment_due_date"] is None
 
 
@@ -114,12 +128,18 @@ def test_several_payments_are_all_kept(client, headers, article, register):
     history = client.get(f"/api/v1/sales/{sale['id']}/payments", headers=headers).json()
 
     assert statuses == ["PARTIAL", "PARTIAL", "PAID"]
-    assert [(p["amount"], p["method"]) for p in history] == [(5000.0, "CASH"), (7000.0, "MOBILE_MONEY"), (8000.0, "CASH")]
+    assert [(p["amount"], p["method"]) for p in history] == [
+        (5000.0, "CASH"),
+        (7000.0, "MOBILE_MONEY"),
+        (8000.0, "CASH"),
+    ]
     assert all(p["creator"]["role"]["name"] == "VENDEUR" for p in history)
 
 
 def test_overpayment_is_refused(client, headers, article):
-    sale = create_sale(client, headers, article, payment={"method": "CARD", "amount": 15000}, payment_due_date=due_date())
+    sale = create_sale(
+        client, headers, article, payment={"method": "CARD", "amount": 15000}, payment_due_date=due_date()
+    )
     response = pay(client, headers, sale.json()["id"], 5001, "CARD")
     assert response.status_code == 400 and response.json()["code"] == "INVALID_PAYMENT"
 
@@ -167,6 +187,8 @@ def test_payment_is_audited(client, db, headers, article):
 def test_vendeur_cannot_pay_a_sale_of_another_store(client, factory, admin_headers, headers):
     other = factory.product(selling_price="20000", stock=5)
     sale = client.post(
-        "/api/v1/sales", headers=admin_headers, json=sale_payload((other, 1), payment=None, payment_due_date=due_date())
+        "/api/v1/sales",
+        headers=admin_headers,
+        json=sale_payload((other, 1), payment=None, payment_due_date=due_date()),
     ).json()
     assert pay(client, headers, sale["id"], 1000, "CARD").status_code == 403

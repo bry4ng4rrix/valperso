@@ -5,6 +5,7 @@ from app.models.base import Base
 from app.models.cash import CashRegister, CashTransaction
 from app.models.category import Category
 from app.models.chat import Conversation, ConversationMember, Message
+from app.models.company import COMPANY_ID, CompanyInformation, InvoiceCompanySnapshot
 from app.models.customer import Customer
 from app.models.payment import Payment
 from app.models.permission import Permission
@@ -22,10 +23,13 @@ __all__ = [
     "Base",
     "CashRegister",
     "CashTransaction",
+    "COMPANY_ID",
     "Category",
+    "CompanyInformation",
     "Conversation",
     "ConversationMember",
     "Customer",
+    "InvoiceCompanySnapshot",
     "Message",
     "Payment",
     "Permission",

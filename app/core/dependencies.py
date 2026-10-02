@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.exceptions import AuthenticationError, PermissionDenied
 from app.core.permissions import PermissionCode, has_permission
-from app.core.security import TokenType, decode_token
+from app.core.security import TokenType, decode_token, ensure_token_is_current
 from app.models import User
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -27,10 +27,11 @@ def get_current_user(
     """L'utilisateur est toujours retrouvé à partir du JWT, jamais à partir d'un champ de la requête."""
     if credentials is None:
         raise AuthenticationError()
-    user_id = decode_token(credentials.credentials, TokenType.ACCESS)
-    user = db.get(User, user_id)
+    token = decode_token(credentials.credentials, TokenType.ACCESS)
+    user = db.get(User, token.user_id)
     if user is None or not user.is_active:
         raise AuthenticationError("Utilisateur introuvable ou désactivé")
+    ensure_token_is_current(token, user.token_version)
     return user
 
 

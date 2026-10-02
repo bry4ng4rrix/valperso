@@ -8,7 +8,9 @@ from app.tests.helpers import due_date, sale_payload
 
 
 def open_register(client, headers, amount=50000, **fields):
-    return client.post("/api/v1/cash/registers/open", headers=headers, json={"opening_amount": amount, **fields})
+    return client.post(
+        "/api/v1/cash/registers/open", headers=headers, json={"opening_amount": amount, **fields}
+    )
 
 
 def add_operation(client, headers, register_id, operation_type, amount, reason="Opération de test"):
@@ -44,14 +46,20 @@ def test_cash_payments_feed_the_register(client, factory, admin_headers):
     sale = client.post(
         "/api/v1/sales",
         headers=admin_headers,
-        json=sale_payload((product, 1), payment={"method": "CASH", "amount": 10000}, payment_due_date=due_date()),
+        json=sale_payload(
+            (product, 1), payment={"method": "CASH", "amount": 10000}, payment_due_date=due_date()
+        ),
     ).json()
     client.post(
-        "/api/v1/payments", headers=admin_headers, json={"sale_id": sale["id"], "method": "CASH", "amount": 10000}
+        "/api/v1/payments",
+        headers=admin_headers,
+        json={"sale_id": sale["id"], "method": "CASH", "amount": 10000},
     )
 
     register = client.get(f"/api/v1/cash/registers/{register_id}", headers=admin_headers).json()
-    operations = client.get(f"/api/v1/cash/registers/{register_id}/transactions", headers=admin_headers).json()
+    operations = client.get(
+        f"/api/v1/cash/registers/{register_id}/transactions", headers=admin_headers
+    ).json()
 
     assert register["expected_amount"] == 20000.0
     assert [(op["type"], op["amount"], op["reference"]) for op in operations["items"]] == [
@@ -65,21 +73,33 @@ def test_manual_operations_are_signed_by_type(client, admin_headers):
 
     amounts = [
         add_operation(client, admin_headers, register_id, kind, amount).json()["amount"]
-        for kind, amount in [("EXPENSE", 5000), ("WITHDRAWAL", 20000), ("DEPOSIT", 1000), ("ADJUSTMENT", -500)]
+        for kind, amount in [
+            ("EXPENSE", 5000),
+            ("WITHDRAWAL", 20000),
+            ("DEPOSIT", 1000),
+            ("ADJUSTMENT", -500),
+        ]
     ]
 
     assert amounts == [-5000.0, -20000.0, 1000.0, -500.0]
-    assert client.get(f"/api/v1/cash/registers/{register_id}", headers=admin_headers).json()["expected_amount"] == 25500.0
+    assert (
+        client.get(f"/api/v1/cash/registers/{register_id}", headers=admin_headers).json()["expected_amount"]
+        == 25500.0
+    )
 
 
 def test_expected_amount_equals_opening_plus_operations(client, factory, admin_headers, db):
     register_id = open_register(client, admin_headers, 10000).json()["id"]
     product = factory.product(selling_price="3000", stock=10)
-    client.post("/api/v1/sales", headers=admin_headers, json=sale_payload((product, 3), payment={"method": "CASH"}))
+    client.post(
+        "/api/v1/sales", headers=admin_headers, json=sale_payload((product, 3), payment={"method": "CASH"})
+    )
     add_operation(client, admin_headers, register_id, "EXPENSE", 2500, "Transport")
 
     register = db.get(CashRegister, register_id)
-    total = db.scalar(select(func.sum(CashTransaction.amount)).where(CashTransaction.cash_register_id == register_id))
+    total = db.scalar(
+        select(func.sum(CashTransaction.amount)).where(CashTransaction.cash_register_id == register_id)
+    )
     assert register.expected_amount == register.opening_amount + total == Decimal("16500")
 
 

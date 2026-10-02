@@ -29,14 +29,20 @@ def test_admin_creates_a_vendeur_assigned_to_a_store(client, factory, admin_head
 
 
 def test_admin_can_create_several_other_admins(client, admin_headers):
-    first = client.post("/api/v1/users", headers=admin_headers, json=user_payload(username="co1", email=None, role="ADMIN"))
-    second = client.post("/api/v1/users", headers=admin_headers, json=user_payload(username="co2", email=None, role="ADMIN"))
+    first = client.post(
+        "/api/v1/users", headers=admin_headers, json=user_payload(username="co1", email=None, role="ADMIN")
+    )
+    second = client.post(
+        "/api/v1/users", headers=admin_headers, json=user_payload(username="co2", email=None, role="ADMIN")
+    )
 
     assert first.status_code == second.status_code == 201
     assert first.json()["role"]["name"] == "ADMIN" and first.json()["store_id"] is None
     co_admin_token = client.post("/api/v1/auth/login", json={"username": "co1", "password": "Password123"})
     headers = {"Authorization": f"Bearer {co_admin_token.json()['access_token']}"}
-    third = client.post("/api/v1/users", headers=headers, json=user_payload(username="co3", email=None, role="ADMIN"))
+    third = client.post(
+        "/api/v1/users", headers=headers, json=user_payload(username="co3", email=None, role="ADMIN")
+    )
     assert third.status_code == 201
 
 
@@ -53,7 +59,9 @@ def test_username_must_be_unique_case_insensitive(client, factory, admin_headers
 
 
 def test_invalid_user_data_returns_clear_errors(client, admin_headers):
-    response = client.post("/api/v1/users", headers=admin_headers, json=user_payload(password="court", email="x"))
+    response = client.post(
+        "/api/v1/users", headers=admin_headers, json=user_payload(password="court", email="x")
+    )
     assert response.status_code == 422
     assert {error["field"] for error in response.json()["errors"]} == {"body.password", "body.email"}
 
@@ -103,7 +111,12 @@ def test_assign_change_and_remove_store(client, factory, admin_headers, db):
 def test_cannot_assign_to_inactive_or_unknown_store(client, factory, admin_headers):
     vendeur = factory.vendeur(None)
     url = f"/api/v1/users/{vendeur.id}/store"
-    assert client.put(url, headers=admin_headers, json={"store_id": factory.store(is_active=False).id}).status_code == 400
+    assert (
+        client.put(
+            url, headers=admin_headers, json={"store_id": factory.store(is_active=False).id}
+        ).status_code
+        == 400
+    )
     assert client.put(url, headers=admin_headers, json={"store_id": 999999}).status_code == 404
 
 
@@ -112,9 +125,15 @@ def test_deactivate_and_reactivate_account(client, factory, admin_headers):
     url = f"/api/v1/users/{vendeur.id}/status"
 
     assert client.put(url, headers=admin_headers, json={"is_active": False}).json()["is_active"] is False
-    assert client.post("/api/v1/auth/login", json={"username": "partant", "password": "Password123"}).status_code == 403
+    assert (
+        client.post("/api/v1/auth/login", json={"username": "partant", "password": "Password123"}).status_code
+        == 403
+    )
     assert client.put(url, headers=admin_headers, json={"is_active": True}).json()["is_active"] is True
-    assert client.post("/api/v1/auth/login", json={"username": "partant", "password": "Password123"}).status_code == 200
+    assert (
+        client.post("/api/v1/auth/login", json={"username": "partant", "password": "Password123"}).status_code
+        == 200
+    )
 
 
 def test_delete_user_deactivates_the_account(client, factory, admin_headers, db):
@@ -125,7 +144,9 @@ def test_delete_user_deactivates_the_account(client, factory, admin_headers, db)
 
 
 def test_admin_cannot_deactivate_himself(client, admin, admin_headers):
-    response = client.put(f"/api/v1/users/{admin.id}/status", headers=admin_headers, json={"is_active": False})
+    response = client.put(
+        f"/api/v1/users/{admin.id}/status", headers=admin_headers, json={"is_active": False}
+    )
     assert response.status_code == 400
 
 
@@ -133,9 +154,16 @@ def test_last_active_admin_cannot_be_demoted_or_deactivated(client, factory, adm
     other_admin = factory.admin()
     other_headers = factory.headers(other_admin)
     # Deux ADMIN : l'un peut rétrograder l'autre.
-    assert client.put(f"/api/v1/users/{admin.id}/role", headers=other_headers, json={"role": "VENDEUR"}).status_code == 200
+    assert (
+        client.put(
+            f"/api/v1/users/{admin.id}/role", headers=other_headers, json={"role": "VENDEUR"}
+        ).status_code
+        == 200
+    )
     # other_admin est maintenant le dernier ADMIN actif : il ne peut pas être rétrogradé.
-    response = client.put(f"/api/v1/users/{other_admin.id}/role", headers=other_headers, json={"role": "VENDEUR"})
+    response = client.put(
+        f"/api/v1/users/{other_admin.id}/role", headers=other_headers, json={"role": "VENDEUR"}
+    )
     assert response.status_code == 400
 
 

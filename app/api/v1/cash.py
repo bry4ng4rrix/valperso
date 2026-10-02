@@ -55,6 +55,7 @@ def get_current_register(
 def get_register(
     register_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.CASH_VIEW)]
 ):
+    """Retourne une caisse et son montant théorique (expected_amount)."""
     return cash_service.get_register(db, current_user, register_id)
 
 

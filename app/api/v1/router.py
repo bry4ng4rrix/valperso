@@ -6,6 +6,7 @@ from app.api.v1 import (
     cash,
     categories,
     chat,
+    company,
     customers,
     dashboard,
     invoices,
@@ -38,6 +39,7 @@ for module in (
     payments,
     cash,
     dashboard,
+    company,
     chat,
     audit,
 ):

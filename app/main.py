@@ -30,7 +30,10 @@ dettes), factures, caisse, tableau de bord, audit et messagerie interne.
 
 OPENAPI_TAGS = [
     {"name": "Authentification", "description": "Connexion, renouvellement des jetons, profil."},
-    {"name": "Utilisateurs", "description": "Comptes, rôle (ADMIN / VENDEUR), affectation au magasin, statut."},
+    {
+        "name": "Utilisateurs",
+        "description": "Comptes, rôle (ADMIN / VENDEUR), affectation au magasin, statut.",
+    },
     {"name": "Rôles et permissions", "description": "Contrôle d'accès basé sur les rôles (RBAC)."},
     {"name": "Magasins", "description": "Magasins, Stock Local (stock central) et employés."},
     {"name": "Catégories", "description": "Catégories de produits."},
@@ -43,6 +46,7 @@ OPENAPI_TAGS = [
     {"name": "Paiements", "description": "Paiements complets, avances et soldes de dettes."},
     {"name": "Caisse", "description": "Ouverture, opérations et clôture de caisse."},
     {"name": "Tableau de bord", "description": "Statistiques calculées à partir des données existantes."},
+    {"name": "Société", "description": "Informations de la société affichées sur les factures."},
     {"name": "Chat", "description": "Messagerie interne (module indépendant)."},
     {"name": "Audit", "description": "Journal des actions sensibles."},
     {"name": "Santé", "description": "Disponibilité de l'API."},
@@ -53,6 +57,7 @@ health_router = APIRouter(tags=["Santé"])
 
 @health_router.get("/health", summary="Vérifier que l'API répond")
 def health() -> dict[str, str]:
+    """Renvoie {"status": "ok"} si l'API répond."""
     return {"status": "ok"}
 
 

@@ -113,6 +113,11 @@ def create_transfer(
 
     products = [get_active_product(db, item.product_id) for item in data.items]
     lines = _lock_lines(db, source, destination, [product.id for product in products])
+    # Tout est vérifié avant de tirer la référence : un transfert refusé ne consomme pas de numéro.
+    for product, item in zip(products, data.items, strict=True):
+        available = lines[(source.id, product.id)].quantity
+        if available < item.quantity:
+            raise stock_service.insufficient_stock(product, source, available, item.quantity)
 
     reference = stock_transfer_repository.next_reference(db)
     for product, item in zip(products, data.items, strict=True):
@@ -151,7 +156,9 @@ def cancel_transfer(
     transfer = stock_transfer_repository.get_for_update(db, transfer_id)
     if transfer is None:
         raise NotFoundError("Transfert introuvable")
+    # L'annulation retire du stock à la destination : il faut l'accès aux deux magasins.
     store_access.ensure_store_access(user, transfer.source_store_id)
+    store_access.ensure_store_access(user, transfer.destination_store_id)
     if transfer.status == TransferStatus.CANCELLED:
         raise InvalidTransfer("Ce transfert est déjà annulé")
 

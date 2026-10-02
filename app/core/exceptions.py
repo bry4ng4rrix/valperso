@@ -130,6 +130,11 @@ class InvalidPayment(BusinessRuleError):
     default_message = "Paiement invalide"
 
 
+class InvalidSellingPrice(BusinessRuleError):
+    code = "INVALID_SELLING_PRICE"
+    default_message = "Le prix de vente doit être supérieur ou égal au prix de stock."
+
+
 class InvalidDiscount(BusinessRuleError):
     code = "INVALID_DISCOUNT"
     default_message = "Remise invalide"

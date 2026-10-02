@@ -22,6 +22,8 @@ class Product(TimestampMixin, Base):
     __table_args__ = (
         sa.CheckConstraint("purchase_price >= 0", name="purchase_price_not_negative"),
         sa.CheckConstraint("selling_price >= 0", name="selling_price_not_negative"),
+        # Règle métier : prix de vente >= prix de stock (garantie aussi par le schéma et le service).
+        sa.CheckConstraint("selling_price >= purchase_price", name="selling_price_not_below_purchase_price"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

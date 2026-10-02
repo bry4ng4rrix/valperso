@@ -9,7 +9,18 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.permissions import PermissionCode, RoleName
 from app.core.security import create_access_token, hash_password
-from app.models import CashRegister, Category, Customer, Product, Role, Stock, Store, User
+from app.models import (
+    COMPANY_ID,
+    CashRegister,
+    Category,
+    CompanyInformation,
+    Customer,
+    Product,
+    Role,
+    Stock,
+    Store,
+    User,
+)
 from app.models.enums import CashRegisterStatus
 from app.repositories import role_repository, stock_repository, store_repository
 
@@ -67,7 +78,9 @@ class Factory:
             **fields,
         )
         product.stocks.append(
-            Stock(store_id=self.central_store().id, quantity=0, alert_threshold=settings.DEFAULT_ALERT_THRESHOLD)
+            Stock(
+                store_id=self.central_store().id, quantity=0, alert_threshold=settings.DEFAULT_ALERT_THRESHOLD
+            )
         )
         self._save(product)
         if stock:
@@ -79,7 +92,10 @@ class Factory:
         line = stock_repository.get_line(self.db, store.id, product.id)
         if line is None:
             line = Stock(
-                store_id=store.id, product_id=product.id, quantity=0, alert_threshold=settings.DEFAULT_ALERT_THRESHOLD
+                store_id=store.id,
+                product_id=product.id,
+                quantity=0,
+                alert_threshold=settings.DEFAULT_ALERT_THRESHOLD,
             )
             self.db.add(line)
         line.quantity += quantity
@@ -106,11 +122,18 @@ class Factory:
 
     def grant(self, name: RoleName, *permissions: PermissionCode) -> None:
         role = self.role(name)
-        role.permissions.extend(role_repository.get_permissions_by_names(self.db, [p.value for p in permissions]))
+        role.permissions.extend(
+            role_repository.get_permissions_by_names(self.db, [p.value for p in permissions])
+        )
         self.db.commit()
 
     def user(
-        self, role: RoleName = RoleName.VENDEUR, store: Store | None = None, *, password: str = DEFAULT_PASSWORD, **fields
+        self,
+        role: RoleName = RoleName.VENDEUR,
+        store: Store | None = None,
+        *,
+        password: str = DEFAULT_PASSWORD,
+        **fields,
     ) -> User:
         number = self._next()
         user = User(
@@ -130,12 +153,24 @@ class Factory:
     def vendeur(self, store: Store | None, **fields) -> User:
         return self.user(RoleName.VENDEUR, store, **fields)
 
-    def customer(self, first_name: str = "Jean", last_name: str = "Rakoto", phone: str | None = "0341234567") -> Customer:
+    def customer(
+        self, first_name: str = "Jean", last_name: str = "Rakoto", phone: str | None = "0341234567"
+    ) -> Customer:
         return self._save(Customer(first_name=first_name, last_name=last_name, phone=phone))
 
     @staticmethod
     def headers(user: User) -> dict[str, str]:
         return {"Authorization": f"Bearer {create_access_token(user.id)}"}
+
+    # --- Société ---------------------------------------------------------------------------------
+
+    def company(self, **fields) -> CompanyInformation:
+        """Configure la société (ligne unique créée par le seed)."""
+        company = self.db.get(CompanyInformation, COMPANY_ID)
+        for field, value in fields.items():
+            setattr(company, field, value)
+        self.db.commit()
+        return company
 
     # --- Caisse ----------------------------------------------------------------------------------
 

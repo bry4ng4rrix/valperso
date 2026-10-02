@@ -60,13 +60,28 @@ def _ensure_can_grant_role(actor: User, role: Role) -> None:
 
 
 def _ensure_can_manage(actor: User, target: User) -> None:
-    if is_admin(target) and not is_admin(actor):
+    """Un ADMIN gère tout le monde. Un non-ADMIN à qui l'on a donné des permissions user.* ne gère
+    que les VENDEURS de son propre magasin (isolation des magasins)."""
+    if is_admin(actor):
+        return
+    if is_admin(target):
         raise PermissionDenied("Seul un ADMIN peut modifier un compte ADMIN")
+    if target.store_id != store_access.own_store_id(actor):
+        raise PermissionDenied("Vous ne pouvez gérer que les utilisateurs de votre magasin")
 
 
 def _ensure_not_last_admin(db: Session, target: User) -> None:
-    if is_admin(target) and target.is_active and user_repository.count_active_admins(db) <= 1:
+    # Les comptes ADMIN actifs sont verrouillés avant le comptage : deux ADMIN qui se désactivent
+    # mutuellement au même moment ne peuvent pas laisser l'application sans ADMIN.
+    if is_admin(target) and target.is_active and user_repository.count_active_admins(db, lock=True) <= 1:
         raise BusinessRuleError("Opération impossible : c'est le dernier ADMIN actif")
+
+
+def _store_for_new_user(db: Session, actor: User, store_id: int | None) -> Store | None:
+    """Un non-ADMIN ne peut créer des comptes que dans son propre magasin."""
+    if not is_admin(actor):
+        store_id = store_access.visible_store_id(actor, store_id)
+    return _get_assignable_store(db, store_id)
 
 
 def _ensure_unique_username(db: Session, username: str) -> None:
@@ -115,7 +130,7 @@ def create_user(db: Session, actor: User, data: UserCreate, ip_address: str | No
     user = User(
         **data.model_dump(exclude={"password", "role", "store_id"}),
         role=role,
-        store=_get_assignable_store(db, data.store_id),
+        store=_store_for_new_user(db, actor, data.store_id),
         password_hash=hash_password(data.password),
     )
     db.add(user)
@@ -133,7 +148,9 @@ def create_user(db: Session, actor: User, data: UserCreate, ip_address: str | No
     return user
 
 
-def update_user(db: Session, actor: User, user_id: int, data: UserUpdate, ip_address: str | None = None) -> User:
+def update_user(
+    db: Session, actor: User, user_id: int, data: UserUpdate, ip_address: str | None = None
+) -> User:
     user = get_user(db, user_id)
     _ensure_can_manage(actor, user)
     if data.username != user.username:
@@ -146,6 +163,7 @@ def update_user(db: Session, actor: User, user_id: int, data: UserUpdate, ip_add
         setattr(user, field, value)
     if data.password is not None:
         user.password_hash = hash_password(data.password)
+        user.token_version += 1  # les sessions ouvertes avec l'ancien mot de passe sont révoquées
     return _save_change(
         db, actor, user, "user.update", old_data, ip_address, password_changed=data.password is not None
     )
@@ -171,8 +189,9 @@ def change_store(
     db: Session, actor: User, user_id: int, data: UserStoreUpdate, ip_address: str | None = None
 ) -> User:
     """Affecte l'utilisateur à un magasin, le change de magasin ou retire l'affectation (null)."""
+    if not is_admin(actor):
+        raise PermissionDenied("Seul un ADMIN peut affecter un utilisateur à un magasin")
     user = get_user(db, user_id)
-    _ensure_can_manage(actor, user)
     store = _get_assignable_store(db, data.store_id)
 
     old_data = audit_service.snapshot(UserRead, user)

@@ -14,8 +14,20 @@ def test_protected_route_requires_authentication(client):
 def test_vendeur_default_permissions(client, factory):
     headers = factory.headers(factory.vendeur(factory.store()))
 
-    allowed = ["/api/v1/products", "/api/v1/stock", "/api/v1/sales/history", "/api/v1/customers", "/api/v1/payments"]
-    forbidden = ["/api/v1/users", "/api/v1/audit", "/api/v1/stores", "/api/v1/cash/registers", "/api/v1/dashboard/summary"]
+    allowed = [
+        "/api/v1/products",
+        "/api/v1/stock",
+        "/api/v1/sales/history",
+        "/api/v1/customers",
+        "/api/v1/payments",
+    ]
+    forbidden = [
+        "/api/v1/users",
+        "/api/v1/audit",
+        "/api/v1/stores",
+        "/api/v1/cash/registers",
+        "/api/v1/dashboard/summary",
+    ]
     for url in allowed:
         assert client.get(url, headers=headers).status_code == 200, url
     for url in forbidden:
@@ -59,17 +71,23 @@ def test_admin_permissions_are_data_driven_but_keep_assignment_rights(client, fa
 
     assert locked_out.status_code == 400
     assert reduced.status_code == 200
-    assert client.get("/api/v1/audit", headers=admin_headers).status_code == 403  # l'ADMIN dépend de ses permissions
+    assert (
+        client.get("/api/v1/audit", headers=admin_headers).status_code == 403
+    )  # l'ADMIN dépend de ses permissions
 
 
 def test_list_permissions(client, admin_headers):
-    names = {permission["name"] for permission in client.get("/api/v1/permissions", headers=admin_headers).json()}
+    names = {
+        permission["name"] for permission in client.get("/api/v1/permissions", headers=admin_headers).json()
+    }
     assert names == {code.value for code in PermissionCode}
 
 
 def test_role_description_can_be_updated(client, factory, admin_headers):
     role = factory.role(RoleName.VENDEUR)
-    response = client.put(f"/api/v1/roles/{role.id}", headers=admin_headers, json={"description": "Vente en boutique"})
+    response = client.put(
+        f"/api/v1/roles/{role.id}", headers=admin_headers, json={"description": "Vente en boutique"}
+    )
     assert response.json()["description"] == "vente en boutique"
 
 
@@ -86,7 +104,9 @@ def test_vendeur_cannot_sell_in_another_store(client, factory, two_stores):
     product = factory.product(stock=5, store=store_2)
     headers = factory.headers(factory.vendeur(store_1))
 
-    response = client.post("/api/v1/sales", headers=headers, json=sale_payload((product, 1), store_id=store_2.id))
+    response = client.post(
+        "/api/v1/sales", headers=headers, json=sale_payload((product, 1), store_id=store_2.id)
+    )
 
     assert response.status_code == 403
     assert response.json()["code"] == "INVALID_STORE_ACCESS"
@@ -99,8 +119,14 @@ def test_vendeur_cannot_read_another_store_stock_or_history(client, factory, two
     assert client.get(f"/api/v1/stock/store/{store_1.id}", headers=headers).status_code == 200
     assert client.get(f"/api/v1/stock/store/{store_2.id}", headers=headers).status_code == 403
     assert client.get("/api/v1/stock", headers=headers, params={"store_id": store_2.id}).status_code == 403
-    assert client.get("/api/v1/sales/history", headers=headers, params={"store_id": store_2.id}).status_code == 403
-    assert client.get("/api/v1/stock/movements", headers=headers, params={"store_id": store_2.id}).status_code == 403
+    assert (
+        client.get("/api/v1/sales/history", headers=headers, params={"store_id": store_2.id}).status_code
+        == 403
+    )
+    assert (
+        client.get("/api/v1/stock/movements", headers=headers, params={"store_id": store_2.id}).status_code
+        == 403
+    )
 
 
 def test_vendeur_lists_are_limited_to_his_store(client, factory, two_stores):

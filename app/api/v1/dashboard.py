@@ -52,6 +52,7 @@ def get_top_products(
     query: Annotated[TopProductsQuery, Query()],
     current_user: Annotated[User, require_permission(P.REPORT_VIEW)],
 ):
+    """Produits les plus vendus sur la période (ventes non annulées)."""
     return dashboard_service.get_top_products(db, current_user, query)
 
 

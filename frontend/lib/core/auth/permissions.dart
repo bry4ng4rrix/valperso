@@ -1,0 +1,45 @@
+/// Codes de permission du backend. L'interface ne montre que ce qui est autorisé,
+/// mais la sécurité reste toujours vérifiée par le backend.
+abstract final class Perm {
+  static const dashboardView = 'dashboard.view';
+  static const reportView = 'report.view';
+  static const userView = 'user.view';
+  static const userCreate = 'user.create';
+  static const userUpdate = 'user.update';
+  static const userDelete = 'user.delete';
+  static const roleView = 'role.view';
+  static const permissionView = 'permission.view';
+  static const permissionAssign = 'permission.assign';
+  static const storeView = 'store.view';
+  static const storeCreate = 'store.create';
+  static const storeUpdate = 'store.update';
+  static const storeDelete = 'store.delete';
+  static const storeStockView = 'store.stock.view';
+  static const transferCreate = 'store.transfer.create';
+  static const transferView = 'store.transfer.view';
+  static const transferCancel = 'store.transfer.cancel';
+  static const stockTransfer = 'stock.transfer';
+  static const productView = 'product.view';
+  static const productCreate = 'product.create';
+  static const productUpdate = 'product.update';
+  static const productDelete = 'product.delete';
+  static const stockView = 'stock.view';
+  static const stockEntry = 'stock.entry';
+  static const stockExit = 'stock.exit';
+  static const stockAdjust = 'stock.adjust';
+  static const saleView = 'sale.view';
+  static const saleCreate = 'sale.create';
+  static const saleCancel = 'sale.cancel';
+  static const saleDiscount = 'sale.discount';
+  static const paymentView = 'payment.view';
+  static const paymentCreate = 'payment.create';
+  static const cashView = 'cash.view';
+  static const cashOpen = 'cash.open';
+  static const cashClose = 'cash.close';
+  static const cashTransaction = 'cash.transaction';
+  static const auditView = 'audit.view';
+  static const companyView = 'company.view';
+  static const companyUpdate = 'company.update';
+  static const chatView = 'chat.view';
+  static const chatSend = 'chat.send';
+}

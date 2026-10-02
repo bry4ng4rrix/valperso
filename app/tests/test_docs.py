@@ -22,7 +22,8 @@ def test_all_modules_are_exposed(client):
     prefixes = {path.split("/")[3] for path in schema["paths"]}
     assert prefixes == {
         "auth", "users", "roles", "permissions", "stores", "categories", "products", "stock",
-        "stock-transfers", "customers", "sales", "payments", "cash", "dashboard", "chat", "audit", "health",
+        "stock-transfers", "customers", "sales", "payments", "cash", "dashboard", "company", "chat",
+        "audit", "health",
     }  # fmt: skip
 
 
@@ -30,3 +31,14 @@ def test_sale_creation_documents_its_errors(client):
     create_sale = client.get("/openapi.json").json()["paths"]["/api/v1/sales"]["post"]
     assert {"201", "400", "401", "403", "404", "422"} <= set(create_sale["responses"])
     assert create_sale["description"]
+
+
+def test_every_route_has_a_description(client):
+    schema = client.get("/openapi.json").json()
+    missing = [
+        f"{method.upper()} {path}"
+        for path, operations in schema["paths"].items()
+        for method, operation in operations.items()
+        if not operation.get("description")
+    ]
+    assert missing == []

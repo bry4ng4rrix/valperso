@@ -58,12 +58,11 @@ def amount_collected(
 def cost_of_goods_sold(
     db: Session, store_id: int | None, date_from: datetime | None, date_to: datetime | None
 ) -> Decimal:
-    """Coût d'achat des articles vendus, au prix d'achat actuel des produits."""
+    """Coût d'achat des articles vendus, au prix de stock enregistré au moment de chaque vente."""
     stmt = (
-        select(func.coalesce(func.sum(SaleItem.quantity * Product.purchase_price), 0))
+        select(func.coalesce(func.sum(SaleItem.quantity * SaleItem.unit_purchase_price), 0))
         .select_from(SaleItem)
         .join(Sale, SaleItem.sale_id == Sale.id)
-        .join(Product, SaleItem.product_id == Product.id)
         .where(*_valid_sales(store_id, date_from, date_to))
     )
     return Decimal(db.scalar(stmt) or 0)

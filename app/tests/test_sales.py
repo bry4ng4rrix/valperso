@@ -44,7 +44,9 @@ def test_sale_is_created_with_backend_computed_amounts(client, factory, shop, se
     assert (body["payment_status"], body["amount_paid"], body["remaining_amount"]) == ("PAID", 18100.0, 0.0)
 
 
-def test_sale_belongs_to_connected_user_and_his_store(client, factory, admin, shop, seller, seller_headers, db):
+def test_sale_belongs_to_connected_user_and_his_store(
+    client, factory, admin, shop, seller, seller_headers, db
+):
     product = factory.product(stock=5, store=shop)
     payload = sale_payload((product, 1), user_id=admin.id)  # tentative de choisir un autre vendeur : ignorée
 
@@ -101,7 +103,12 @@ def test_stock_is_deducted_and_sale_movement_created(client, factory, shop, sell
 
     assert factory.quantity(shop, product) == 7
     movement = db.scalar(select(StockMovement).where(StockMovement.product_id == product.id))
-    assert (movement.type, movement.quantity, movement.store_id, movement.user_id) == ("SALE", -3, shop.id, seller.id)
+    assert (movement.type, movement.quantity, movement.store_id, movement.user_id) == (
+        "SALE",
+        -3,
+        shop.id,
+        seller.id,
+    )
     assert movement.reference == sale["sale_number"]
 
 
@@ -118,7 +125,9 @@ def test_customer_is_created_once_and_reused(client, factory, shop, seller_heade
 def test_existing_customer_by_id(client, factory, shop, seller_headers):
     customer = factory.customer("Rasoa", "Vola")
     product = factory.product(stock=10, store=shop)
-    body = client.post("/api/v1/sales", headers=seller_headers, json=sale_payload((product, 1), customer=customer)).json()
+    body = client.post(
+        "/api/v1/sales", headers=seller_headers, json=sale_payload((product, 1), customer=customer)
+    ).json()
     assert body["customer"]["id"] == customer.id
 
 
@@ -129,7 +138,9 @@ def test_existing_customer_by_id(client, factory, shop, seller_headers):
 )
 def test_customer_first_and_last_names_are_required(client, factory, shop, seller_headers, customer):
     product = factory.product(stock=10, store=shop)
-    response = client.post("/api/v1/sales", headers=seller_headers, json=sale_payload((product, 1), customer=customer))
+    response = client.post(
+        "/api/v1/sales", headers=seller_headers, json=sale_payload((product, 1), customer=customer)
+    )
     assert response.status_code == 422
 
 
@@ -140,7 +151,8 @@ def test_fully_paid_sale_does_not_require_a_phone(client, factory, shop, seller_
 
 
 def test_rollback_when_cash_register_is_closed(client, factory, shop, seller_headers, db):
-    """L'erreur survient à l'étape caisse, après la création de la vente, du client et la déduction du stock."""
+    """L'erreur survient à l'étape caisse, après la création de la vente, du client
+    et la déduction du stock."""
     product = factory.product(stock=10, store=shop)
 
     response = client.post(
@@ -167,15 +179,21 @@ def test_rollback_when_an_unexpected_error_occurs(client, factory, shop, seller_
     assert factory.quantity(shop, product) == 10
 
 
-def test_cancel_sale_restores_stock_and_refunds_cash(client, factory, admin_headers, shop, seller, seller_headers, db):
+def test_cancel_sale_restores_stock_and_refunds_cash(
+    client, factory, admin_headers, shop, seller, seller_headers, db
+):
     register = factory.open_register(shop, seller, "10000")
     product = factory.product(selling_price="2000", stock=10, store=shop)
     sale = client.post(
         "/api/v1/sales", headers=seller_headers, json=sale_payload((product, 4), payment={"method": "CASH"})
     ).json()
 
-    response = client.post(f"/api/v1/sales/{sale['id']}/cancel", headers=admin_headers, json={"reason": "Erreur"})
-    again = client.post(f"/api/v1/sales/{sale['id']}/cancel", headers=admin_headers, json={"reason": "Erreur"})
+    response = client.post(
+        f"/api/v1/sales/{sale['id']}/cancel", headers=admin_headers, json={"reason": "Erreur"}
+    )
+    again = client.post(
+        f"/api/v1/sales/{sale['id']}/cancel", headers=admin_headers, json={"reason": "Erreur"}
+    )
 
     assert response.status_code == 200 and response.json()["status"] == "CANCELLED"
     assert again.status_code == 400 and again.json()["code"] == "SALE_ALREADY_CANCELLED"
@@ -185,19 +203,28 @@ def test_cancel_sale_restores_stock_and_refunds_cash(client, factory, admin_head
     db.refresh(register)
     assert register.expected_amount == 10000  # +8000 encaissés puis -8000 remboursés
     assert db.scalar(select(CashTransaction).where(CashTransaction.type == "REFUND")).amount == -8000
-    assert db.scalar(select(AuditLog).where(AuditLog.action == "sale.cancel")).new_data["cancel_reason"] == "ERREUR"
+    assert (
+        db.scalar(select(AuditLog).where(AuditLog.action == "sale.cancel")).new_data["cancel_reason"]
+        == "ERREUR"
+    )
 
 
 def test_vendeur_cannot_cancel_by_default(client, factory, shop, seller_headers):
     product = factory.product(stock=5, store=shop)
-    sale_id = client.post("/api/v1/sales", headers=seller_headers, json=sale_payload((product, 1))).json()["id"]
+    sale_id = client.post("/api/v1/sales", headers=seller_headers, json=sale_payload((product, 1))).json()[
+        "id"
+    ]
     response = client.post(f"/api/v1/sales/{sale_id}/cancel", headers=seller_headers, json={"reason": "Test"})
     assert response.status_code == 403
 
 
 @pytest.mark.parametrize(
     "items",
-    [[], [{"product_id": 1, "quantity": 0}], [{"product_id": 1, "quantity": 1}, {"product_id": 1, "quantity": 2}]],
+    [
+        [],
+        [{"product_id": 1, "quantity": 0}],
+        [{"product_id": 1, "quantity": 1}, {"product_id": 1, "quantity": 2}],
+    ],
     ids=["sans-ligne", "quantite-nulle", "produit-en-double"],
 )
 def test_invalid_sale_lines_are_rejected(client, seller_headers, items):
@@ -244,9 +271,16 @@ def test_history_search_and_filters(client, admin_headers, history, seller, shop
 
 
 def test_history_row_contains_everything(client, admin_headers, history):
-    rows = client.get("/api/v1/sales/history", headers=admin_headers, params={"has_debt": True}).json()["items"]
+    rows = client.get("/api/v1/sales/history", headers=admin_headers, params={"has_debt": True}).json()[
+        "items"
+    ]
     row = rows[0]
-    assert row["customer"] == {**row["customer"], "first_name": "rasoa", "last_name": "vola", "phone": "0329998877"}
+    assert row["customer"] == {
+        **row["customer"],
+        "first_name": "rasoa",
+        "last_name": "vola",
+        "phone": "0329998877",
+    }
     assert row["user"]["role"]["name"] == "VENDEUR" and row["store"]["name"] == "magasin 1"
     assert (row["total"], row["amount_paid"], row["remaining_amount"]) == (20000.0, 5000.0, 15000.0)
     assert row["payment_due_date"] == "2099-01-31"
@@ -255,7 +289,9 @@ def test_history_row_contains_everything(client, admin_headers, history):
 def test_vendeur_history_is_limited_to_his_store(client, seller_headers, history):
     items = client.get("/api/v1/sales/history", headers=seller_headers).json()["items"]
     assert history["admin_sale"]["id"] not in {item["id"] for item in items}
-    assert client.get(f"/api/v1/sales/{history['admin_sale']['id']}", headers=seller_headers).status_code == 403
+    assert (
+        client.get(f"/api/v1/sales/{history['admin_sale']['id']}", headers=seller_headers).status_code == 403
+    )
 
 
 def test_invoice(client, seller_headers, history):
@@ -267,8 +303,14 @@ def test_invoice(client, seller_headers, history):
     assert invoice["store"]["name"] == "magasin 1"
     assert invoice["user"]["first_name"] == "jean" and invoice["user"]["role"]["name"] == "VENDEUR"
     assert invoice["customer"]["phone"] == "0329998877"
-    assert [(line["quantity"], line["unit_price"], line["total"]) for line in invoice["lines"]] == [(2, 10000.0, 20000.0)]
+    assert [(line["quantity"], line["unit_price"], line["total"]) for line in invoice["lines"]] == [
+        (2, 10000.0, 20000.0)
+    ]
     assert invoice["lines"][0]["product_reference"]
-    assert (invoice["total"], invoice["amount_paid"], invoice["remaining_amount"]) == (20000.0, 5000.0, 15000.0)
+    assert (invoice["total"], invoice["amount_paid"], invoice["remaining_amount"]) == (
+        20000.0,
+        5000.0,
+        15000.0,
+    )
     assert invoice["payment_status"] == "PARTIAL" and invoice["payment_due_date"] == "2099-01-31"
     assert [p["amount"] for p in invoice["payments"]] == [5000.0]

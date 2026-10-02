@@ -17,7 +17,8 @@ def next_reference(db: Session) -> str:
 
 
 def get_for_update(db: Session, transfer_id: int) -> StockTransfer | None:
-    return db.scalar(select(StockTransfer).where(StockTransfer.id == transfer_id).with_for_update())
+    stmt = select(StockTransfer).where(StockTransfer.id == transfer_id).with_for_update()
+    return db.scalar(stmt.execution_options(populate_existing=True))
 
 
 def list_transfers(db: Session, filters: StockTransferFilters) -> PageResult[StockTransfer]:
@@ -36,9 +37,7 @@ def list_transfers(db: Session, filters: StockTransferFilters) -> PageResult[Sto
     if filters.status is not None:
         stmt = stmt.where(StockTransfer.status == filters.status)
     if filters.product_id is not None:
-        stmt = stmt.where(
-            StockTransfer.items.any(StockTransferItem.product_id == filters.product_id)
-        )
+        stmt = stmt.where(StockTransfer.items.any(StockTransferItem.product_id == filters.product_id))
     stmt = stmt.where(*date_range_filter(StockTransfer.created_at, filters.date_from, filters.date_to))
     stmt = apply_sort(stmt, filters.sort, SORT_FIELDS, "-created_at", StockTransfer.id)
     return paginate(db, stmt, filters.page, filters.page_size)

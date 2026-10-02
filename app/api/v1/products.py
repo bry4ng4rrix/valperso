@@ -28,6 +28,7 @@ def list_products(
     "/{product_id}", response_model=ProductRead, summary="Détail d'un produit", responses=error_responses(404)
 )
 def get_product(product_id: int, db: DbSession, _: Annotated[User, require_permission(P.PRODUCT_VIEW)]):
+    """Retourne le produit, sa catégorie et son bénéfice unitaire."""
     return product_service.get_product(db, product_id)
 
 

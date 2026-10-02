@@ -89,9 +89,10 @@ def _stock_value(quantity: int, purchase_value: Decimal, sale_value: Decimal) ->
 
 
 def get_stock_value(db: Session, user: User, query: StockValueQuery) -> StockValueReport:
-    """Valeur du stock par magasin et globale : valeur d'achat, valeur de vente, bénéfice potentiel."""
+    """Valeur du stock par magasin et globale (ou d'un seul produit) : valeur au prix de stock,
+    valeur de vente potentielle et bénéfice potentiel. Un transfert ne change pas le total."""
     store_id = store_access.visible_store_id(user, query.store_id)
-    rows = stock_repository.stock_value_by_store(db, store_id)
+    rows = stock_repository.stock_value_by_store(db, store_id, query.product_id)
     stores = [
         StoreStockValue(
             store=StoreSummary.model_validate(row.Store),

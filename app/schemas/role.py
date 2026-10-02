@@ -26,4 +26,6 @@ class RoleUpdate(InputModel):
 
 
 class RolePermissionsUpdate(InputModel):
-    permission_ids: list[int] = Field(description="Liste complète des permissions du rôle (remplace l'existante)")
+    permission_ids: list[int] = Field(
+        description="Liste complète des permissions du rôle (remplace l'existante)"
+    )

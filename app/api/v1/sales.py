@@ -59,6 +59,7 @@ def list_history(
     responses=error_responses(404),
 )
 def get_sale(sale_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.SALE_VIEW)]):
+    """Vente avec ses lignes, ses paiements, le montant payé et le reste à payer."""
     return sale_service.get_sale(db, current_user, sale_id)
 
 

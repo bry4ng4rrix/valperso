@@ -1,7 +1,5 @@
 import pytest
 
-from app.core.permissions import RoleName
-
 
 @pytest.fixture
 def alice(factory):

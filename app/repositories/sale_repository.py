@@ -24,7 +24,8 @@ def debt_condition() -> ColumnElement[bool]:
 
 
 def get_for_update(db: Session, sale_id: int) -> Sale | None:
-    return db.scalar(select(Sale).where(Sale.id == sale_id).with_for_update(of=Sale))
+    stmt = select(Sale).where(Sale.id == sale_id).with_for_update(of=Sale)
+    return db.scalar(stmt.execution_options(populate_existing=True))
 
 
 def list_history(db: Session, filters: SaleHistoryFilters) -> PageResult[Sale]:

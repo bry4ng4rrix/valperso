@@ -1,5 +1,6 @@
 """Hachage des mots de passe (bcrypt) et jetons JWT (access / refresh)."""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
@@ -16,6 +17,13 @@ JWT_ALGORITHM = "HS256"
 class TokenType(StrEnum):
     ACCESS = "access"
     REFRESH = "refresh"
+
+
+@dataclass(frozen=True)
+class TokenData:
+    user_id: int
+    # Doit être égal à User.token_version : sinon le jeton a été révoqué (mot de passe changé).
+    version: int
 
 
 def hash_password(password: str) -> str:
@@ -40,24 +48,30 @@ def simulate_password_check() -> None:
     verify_password("not-the-password", _dummy_password_hash())
 
 
-def _create_token(user_id: int, token_type: TokenType, lifetime: timedelta) -> str:
+def _create_token(user_id: int, version: int, token_type: TokenType, lifetime: timedelta) -> str:
     now = datetime.now(UTC)
-    payload = {"sub": str(user_id), "type": token_type.value, "iat": now, "exp": now + lifetime}
+    payload = {
+        "sub": str(user_id),
+        "ver": version,
+        "type": token_type.value,
+        "iat": now,
+        "exp": now + lifetime,
+    }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, version: int = 0) -> str:
     lifetime = timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    return _create_token(user_id, TokenType.ACCESS, lifetime)
+    return _create_token(user_id, version, TokenType.ACCESS, lifetime)
 
 
-def create_refresh_token(user_id: int) -> str:
+def create_refresh_token(user_id: int, version: int = 0) -> str:
     lifetime = timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
-    return _create_token(user_id, TokenType.REFRESH, lifetime)
+    return _create_token(user_id, version, TokenType.REFRESH, lifetime)
 
 
-def decode_token(token: str, expected_type: TokenType) -> int:
-    """Vérifie le jeton et retourne l'identifiant de l'utilisateur qu'il contient."""
+def decode_token(token: str, expected_type: TokenType) -> TokenData:
+    """Vérifie le jeton et retourne l'utilisateur et la version qu'il contient."""
     try:
         payload = jwt.decode(
             token,
@@ -73,6 +87,11 @@ def decode_token(token: str, expected_type: TokenType) -> int:
     if payload["type"] != expected_type.value:
         raise AuthenticationError("Type de jeton invalide", code="INVALID_TOKEN")
     try:
-        return int(payload["sub"])
+        return TokenData(user_id=int(payload["sub"]), version=int(payload.get("ver", 0)))
     except (TypeError, ValueError) as exc:
         raise AuthenticationError("Jeton invalide", code="INVALID_TOKEN") from exc
+
+
+def ensure_token_is_current(data: TokenData, current_version: int) -> None:
+    if data.version != current_version:
+        raise AuthenticationError("Session expirée : reconnectez-vous", code="TOKEN_REVOKED")

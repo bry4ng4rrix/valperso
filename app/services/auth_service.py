@@ -8,6 +8,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    ensure_token_is_current,
     simulate_password_check,
     verify_password,
 )
@@ -20,8 +21,8 @@ from app.services import audit_service
 
 def _issue_tokens(user: User) -> TokenResponse:
     return TokenResponse(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
+        access_token=create_access_token(user.id, user.token_version),
+        refresh_token=create_refresh_token(user.id, user.token_version),
         expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
@@ -44,7 +45,7 @@ def _record_failed_login(
 
 
 def login(db: Session, data: LoginRequest, ip_address: str | None = None) -> TokenResponse:
-    user = user_repository.get_by_username(db, data.username)
+    user = user_repository.get_by_login(db, data.username)
     if user is None:
         simulate_password_check()
     if user is None or not verify_password(data.password, user.password_hash):
@@ -62,10 +63,11 @@ def login(db: Session, data: LoginRequest, ip_address: str | None = None) -> Tok
 
 
 def refresh(db: Session, data: RefreshRequest) -> TokenResponse:
-    user_id = decode_token(data.refresh_token, TokenType.REFRESH)
-    user = db.get(User, user_id)
+    token = decode_token(data.refresh_token, TokenType.REFRESH)
+    user = db.get(User, token.user_id)
     if user is None or not user.is_active:
         raise AuthenticationError("Utilisateur introuvable ou désactivé")
+    ensure_token_is_current(token, user.token_version)
     return _issue_tokens(user)
 
 

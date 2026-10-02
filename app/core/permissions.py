@@ -71,6 +71,9 @@ class PermissionCode(StrEnum):
     REPORT_VIEW = "report.view"
     AUDIT_VIEW = "audit.view"
 
+    COMPANY_VIEW = "company.view"
+    COMPANY_UPDATE = "company.update"
+
     CHAT_VIEW = "chat.view"
     CHAT_SEND = "chat.send"
 
@@ -118,6 +121,8 @@ PERMISSION_DESCRIPTIONS: dict[PermissionCode, str] = {
     P.CASH_TRANSACTION: "Enregistrer des opérations de caisse",
     P.REPORT_VIEW: "Voir les rapports et statistiques détaillés",
     P.AUDIT_VIEW: "Consulter le journal d'audit",
+    P.COMPANY_VIEW: "Voir les informations de la société",
+    P.COMPANY_UPDATE: "Modifier les informations de la société (factures)",
     P.CHAT_VIEW: "Lire les conversations",
     P.CHAT_SEND: "Envoyer des messages",
 }
@@ -137,6 +142,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[RoleName, set[PermissionCode]] = {
         P.SALE_CREATE,
         P.PAYMENT_VIEW,
         P.PAYMENT_CREATE,
+        P.COMPANY_VIEW,
         P.CHAT_VIEW,
         P.CHAT_SEND,
     },

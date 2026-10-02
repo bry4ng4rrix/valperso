@@ -15,7 +15,9 @@ def test_models_match_migrations(engine: Engine):
 
 def test_product_reference_and_name_are_not_unique(engine: Engine):
     inspector = inspect(engine)
-    unique_columns = [constraint["column_names"] for constraint in inspector.get_unique_constraints("products")]
+    unique_columns = [
+        constraint["column_names"] for constraint in inspector.get_unique_constraints("products")
+    ]
     unique_indexes = [index["column_names"] for index in inspector.get_indexes("products") if index["unique"]]
     assert unique_columns == [] and unique_indexes == []
 

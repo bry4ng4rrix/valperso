@@ -4,7 +4,7 @@ import jwt
 from sqlalchemy import select
 
 from app.core.config import settings
-from app.core.permissions import RoleName
+from app.core.permissions import PermissionCode, RoleName
 from app.core.security import JWT_ALGORITHM, create_refresh_token
 from app.models import AuditLog
 from app.tests.factories import DEFAULT_PASSWORD
@@ -31,6 +31,12 @@ def test_login_is_case_insensitive(client, factory):
     factory.admin(username="Jean.Dupont")
     assert login(client, "JEAN.DUPONT").status_code == 200
     assert login(client, "jean.dupont").status_code == 200
+
+
+def test_login_with_email(client, factory):
+    factory.admin(username="valencia", email="valencia@local.mg")
+    assert login(client, "Valencia@Local.mg").status_code == 200
+    assert login(client, "inconnu@local.mg").status_code == 401
 
 
 def test_wrong_password_is_rejected_and_audited_without_password(client, factory, db):
@@ -80,7 +86,7 @@ def test_me_returns_profile_role_store_and_permissions(client, factory):
 
 def test_admin_profile_has_every_permission(client, factory):
     body = client.get("/api/v1/auth/me", headers=factory.headers(factory.admin())).json()
-    assert len(body["permissions"]) == 42
+    assert set(body["permissions"]) == {code.value for code in PermissionCode}
     assert body["store_id"] is None
 
 

@@ -55,7 +55,9 @@ def test_transfer_10_of_10_moves_everything(client, factory, admin_headers, shop
     assert response.json()["stock_levels"][0]["source_quantity"] == 0
     assert response.json()["stock_levels"][0]["destination_quantity"] == 10
     assert global_stock(db, product) == 10  # stock déplacé, pas perdu
-    out = client.get("/api/v1/stock/out-of-stock", headers=admin_headers, params={"store_id": factory.central_store().id})
+    out = client.get(
+        "/api/v1/stock/out-of-stock", headers=admin_headers, params={"store_id": factory.central_store().id}
+    )
     assert [line["product"]["id"] for line in out.json()["items"]] == [product.id]
 
 
@@ -108,7 +110,9 @@ def test_transfer_creates_movements_and_audit(client, factory, admin_headers, sh
         ("TRANSFER_IN", 4, shop.id),
         ("TRANSFER_OUT", -4, factory.central_store().id),
     ]
-    assert db.scalar(select(AuditLog).where(AuditLog.action == "stock_transfer.create", AuditLog.entity_id == body["id"]))
+    assert db.scalar(
+        select(AuditLog).where(AuditLog.action == "stock_transfer.create", AuditLog.entity_id == body["id"])
+    )
 
 
 def test_transfer_with_several_products_is_all_or_nothing(client, factory, admin_headers, shop, product, db):
@@ -121,7 +125,9 @@ def test_transfer_with_several_products_is_all_or_nothing(client, factory, admin
     assert factory.quantity(shop, product) == 0
 
 
-def test_rollback_when_an_unexpected_error_occurs(client, factory, admin_headers, shop, product, db, monkeypatch):
+def test_rollback_when_an_unexpected_error_occurs(
+    client, factory, admin_headers, shop, product, db, monkeypatch
+):
     def broken_audit(*args, **kwargs):
         raise RuntimeError("panne simulée")
 
@@ -138,7 +144,10 @@ def test_inactive_product_or_store_cannot_be_transferred(client, factory, admin_
     inactive = factory.product(stock=5, is_active=False)
     product = factory.product(stock=5)
     assert transfer(client, admin_headers, shop, (inactive, 1)).json()["code"] == "INACTIVE_PRODUCT"
-    assert transfer(client, admin_headers, factory.store(is_active=False), (product, 1)).json()["code"] == "INACTIVE_STORE"
+    assert (
+        transfer(client, admin_headers, factory.store(is_active=False), (product, 1)).json()["code"]
+        == "INACTIVE_STORE"
+    )
 
 
 def test_cancel_transfer_moves_stock_back(client, factory, admin_headers, shop, product, db):
@@ -153,10 +162,14 @@ def test_cancel_transfer_moves_stock_back(client, factory, admin_headers, shop, 
     assert again.status_code == 400
 
 
-def test_cancel_is_refused_when_destination_no_longer_has_the_stock(client, factory, admin_headers, shop, product):
+def test_cancel_is_refused_when_destination_no_longer_has_the_stock(
+    client, factory, admin_headers, shop, product
+):
     transfer_id = transfer(client, admin_headers, shop, (product, 4)).json()["id"]
     client.post(
-        "/api/v1/stock/exit", headers=admin_headers, json={"product_id": product.id, "quantity": 2, "store_id": shop.id}
+        "/api/v1/stock/exit",
+        headers=admin_headers,
+        json={"product_id": product.id, "quantity": 2, "store_id": shop.id},
     )
 
     response = client.post(f"/api/v1/stock-transfers/{transfer_id}/cancel", headers=admin_headers)
@@ -168,26 +181,34 @@ def test_list_and_get_transfers(client, factory, admin_headers, shop, product):
     transfer_id = transfer(client, admin_headers, shop, (product, 2)).json()["id"]
     transfer(client, admin_headers, factory.store(), (product, 1))
 
-    listing = client.get("/api/v1/stock-transfers", headers=admin_headers, params={"destination_store_id": shop.id})
+    listing = client.get(
+        "/api/v1/stock-transfers", headers=admin_headers, params={"destination_store_id": shop.id}
+    )
     detail = client.get(f"/api/v1/stock-transfers/{transfer_id}", headers=admin_headers)
 
     assert listing.json()["total"] == 1
     assert detail.json()["items"][0]["quantity"] == 2
 
 
-def test_vendeur_can_only_transfer_from_his_store_and_see_his_transfers(client, factory, admin_headers, shop, product):
+def test_vendeur_can_only_transfer_from_his_store_and_see_his_transfers(
+    client, factory, admin_headers, shop, product
+):
     other_shop = factory.store()
     factory.add_stock(product, 5, shop)
     factory.grant(RoleName.VENDEUR, PermissionCode.STORE_TRANSFER_CREATE, PermissionCode.STORE_TRANSFER_VIEW)
     headers = factory.headers(factory.vendeur(shop))
 
     own = transfer(client, headers, other_shop, (product, 2))
-    forbidden = transfer(client, headers, other_shop, (product, 1), source_store_id=factory.central_store().id)
+    forbidden = transfer(
+        client, headers, other_shop, (product, 1), source_store_id=factory.central_store().id
+    )
     unrelated = transfer(client, admin_headers, other_shop, (product, 1)).json()["id"]
 
     assert own.status_code == 201 and own.json()["source_store"]["id"] == shop.id
     assert forbidden.status_code == 403
-    assert [t["id"] for t in client.get("/api/v1/stock-transfers", headers=headers).json()["items"]] == [own.json()["id"]]
+    assert [t["id"] for t in client.get("/api/v1/stock-transfers", headers=headers).json()["items"]] == [
+        own.json()["id"]
+    ]
     assert client.get(f"/api/v1/stock-transfers/{unrelated}", headers=headers).status_code == 403
 
 

@@ -16,7 +16,7 @@ router = APIRouter(prefix="/auth", tags=["Authentification"])
     responses=error_responses(401, 403, 422),
 )
 def login(data: LoginRequest, db: DbSession, ip_address: ClientIP):
-    """Vérifie l'identifiant et le mot de passe (identifiant insensible à la casse).
+    """Vérifie l'identifiant (nom d'utilisateur ou email, insensible à la casse) et le mot de passe.
 
     Retourne un **access token**, à envoyer dans l'en-tête `Authorization: Bearer <token>`,
     et un **refresh token** pour en obtenir un nouveau sans se reconnecter.

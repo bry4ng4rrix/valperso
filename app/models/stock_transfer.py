@@ -31,7 +31,10 @@ class StockTransfer(CreatedAtMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
     items: Mapped[list["StockTransferItem"]] = relationship(
-        back_populates="transfer", cascade="all, delete-orphan", lazy="selectin", order_by="StockTransferItem.id"
+        back_populates="transfer",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="StockTransferItem.id",
     )
     source_store: Mapped[Store] = relationship(foreign_keys=[source_store_id], lazy="selectin")
     destination_store: Mapped[Store] = relationship(foreign_keys=[destination_store_id], lazy="selectin")

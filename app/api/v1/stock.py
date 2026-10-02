@@ -94,11 +94,18 @@ def list_movements(
 def get_movement(
     movement_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.STOCK_VIEW)]
 ):
+    """Mouvement de stock : utilisateur, magasin, produit, quantité signée, motif, référence."""
     return stock_service.get_movement(db, current_user, movement_id)
 
 
-@router.get("/{stock_id}", response_model=StockRead, summary="Détail d'une ligne de stock", responses=error_responses(404))
+@router.get(
+    "/{stock_id}",
+    response_model=StockRead,
+    summary="Détail d'une ligne de stock",
+    responses=error_responses(404),
+)
 def get_stock(stock_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.STOCK_VIEW)]):
+    """Ligne de stock avec ses états d'alerte et ses valeurs (stock, vente, bénéfice potentiel)."""
     return stock_service.get_stock(db, current_user, stock_id)
 
 
@@ -115,6 +122,7 @@ def update_alert_threshold(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.STOCK_ADJUST)],
 ):
+    """Fixe le seuil d'alerte de cette ligne de stock (un VENDEUR : son magasin uniquement)."""
     return stock_service.update_alert_threshold(db, current_user, stock_id, data, ip_address)
 
 
@@ -149,7 +157,8 @@ def stock_exit(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.STOCK_EXIT)],
 ):
-    """Retire une quantité du stock d'un magasin. Erreur 400 (INSUFFICIENT_STOCK) si le stock est insuffisant."""
+    """Retire une quantité du stock d'un magasin.
+    Erreur 400 (INSUFFICIENT_STOCK) si le stock est insuffisant."""
     return stock_service.record_exit(db, current_user, data, ip_address)
 
 

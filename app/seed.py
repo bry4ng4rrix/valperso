@@ -1,4 +1,4 @@
-"""Données initiales : permissions, rôles ADMIN et VENDEUR, Stock Local et premier ADMIN.
+"""Données initiales : permissions, rôles ADMIN et VENDEUR, Stock Local, société et premier ADMIN.
 
 Usage : python -m app.seed
 
@@ -20,7 +20,7 @@ from app.core.permissions import (
     RoleName,
 )
 from app.core.security import hash_password
-from app.models import Permission, Role, Store, User
+from app.models import COMPANY_ID, CompanyInformation, Permission, Role, Store, User
 from app.repositories import role_repository, store_repository, user_repository
 from app.services.store_service import CENTRAL_STORE_NAME
 
@@ -66,6 +66,17 @@ def seed_central_store(db: Session) -> Store:
     return store
 
 
+def seed_company(db: Session) -> CompanyInformation:
+    """Crée la configuration de la société si elle n'existe pas (jamais écrasée ensuite)."""
+    company = db.get(CompanyInformation, COMPANY_ID)
+    if company is None:
+        company = CompanyInformation(id=COMPANY_ID, name=settings.COMPANY_NAME)
+        db.add(company)
+        db.flush()
+        logger.info("Société « %s » créée", settings.COMPANY_NAME)
+    return company
+
+
 def seed_initial_admin(db: Session, admin_role: Role) -> User | None:
     if user_repository.get_by_username(db, settings.INITIAL_ADMIN_USERNAME) is not None:
         return None
@@ -92,6 +103,7 @@ def run_seed(db: Session) -> None:
     permissions = seed_permissions(db)
     roles = seed_roles(db, permissions)
     seed_central_store(db)
+    seed_company(db)
     seed_initial_admin(db, roles[RoleName.ADMIN.value])
     db.commit()
 

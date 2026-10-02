@@ -55,7 +55,9 @@ def _save_role_change(
     return role
 
 
-def update_role(db: Session, actor: User, role_id: int, data: RoleUpdate, ip_address: str | None = None) -> Role:
+def update_role(
+    db: Session, actor: User, role_id: int, data: RoleUpdate, ip_address: str | None = None
+) -> Role:
     role = get_role(db, role_id)
     old_data = audit_service.snapshot(RoleRead, role)
     role.description = data.description

@@ -20,6 +20,7 @@ def list_roles(db: DbSession, _: Annotated[User, require_permission(P.ROLE_VIEW)
 
 @router.get("/{role_id}", response_model=RoleRead, summary="Détail d'un rôle", responses=error_responses(404))
 def get_role(role_id: int, db: DbSession, _: Annotated[User, require_permission(P.ROLE_VIEW)]):
+    """Retourne le rôle et la liste de ses permissions."""
     return role_service.get_role(db, role_id)
 
 

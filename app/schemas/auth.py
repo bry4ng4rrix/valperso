@@ -4,7 +4,9 @@ from app.schemas.common import InputModel
 
 
 class LoginRequest(InputModel):
-    username: str = Field(min_length=1, max_length=50, examples=["admin"])
+    username: str = Field(
+        min_length=1, max_length=255, description="Nom d'utilisateur ou email", examples=["admin"]
+    )
     password: str = Field(min_length=1, max_length=128, examples=["MotDePasse123"])
 
 

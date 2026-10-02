@@ -25,6 +25,8 @@ class User(TimestampMixin, Base):
     # Magasin d'affectation d'un VENDEUR. Un ADMIN peut ne pas en avoir (NULL).
     store_id: Mapped[int | None] = mapped_column(sa.ForeignKey("stores.id"), index=True)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=sa.true())
+    # Incrémenté à chaque changement de mot de passe : les jetons émis avant deviennent invalides.
+    token_version: Mapped[int] = mapped_column(default=0, server_default="0")
 
     role: Mapped[Role] = relationship(back_populates="users", lazy="selectin")
     store: Mapped["Store | None"] = relationship(back_populates="employees", lazy="selectin")

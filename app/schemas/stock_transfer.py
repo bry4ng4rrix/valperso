@@ -63,7 +63,9 @@ class StockTransferResult(StockTransferRead):
 
 
 class StockTransferFilters(PageQuery, DateRangeQuery):
-    store_id: int | None = Field(None, description="Transferts dont ce magasin est la source ou la destination")
+    store_id: int | None = Field(
+        None, description="Transferts dont ce magasin est la source ou la destination"
+    )
     source_store_id: int | None = None
     destination_store_id: int | None = None
     product_id: int | None = None

@@ -65,7 +65,9 @@ def _contacts_query(filters: CustomerFilters, scope_store_id: int | None) -> sa.
     ).outerjoin(summary, summary.c.customer_id == Customer.id)
 
     if filters.search:
-        stmt = stmt.where(search_filter(filters.search, Customer.first_name, Customer.last_name, Customer.phone))
+        stmt = stmt.where(
+            search_filter(filters.search, Customer.first_name, Customer.last_name, Customer.phone)
+        )
     if filters.phone:
         stmt = stmt.where(search_filter(filters.phone, Customer.phone))
     if filters.store_id is not None:
@@ -88,5 +90,7 @@ def list_customers(db: Session, filters: CustomerFilters, scope_store_id: int | 
     return paginate(db, _contacts_query(filters, scope_store_id), filters.page, filters.page_size)
 
 
-def list_contacts(db: Session, filters: CustomerFilters, scope_store_id: int | None) -> PageResult[sa.Row[Any]]:
+def list_contacts(
+    db: Session, filters: CustomerFilters, scope_store_id: int | None
+) -> PageResult[sa.Row[Any]]:
     return paginate_rows(db, _contacts_query(filters, scope_store_id), filters.page, filters.page_size)

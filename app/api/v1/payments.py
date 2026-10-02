@@ -32,6 +32,7 @@ def list_payments(
 def get_payment(
     payment_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.PAYMENT_VIEW)]
 ):
+    """Retourne un paiement et l'utilisateur qui l'a encaissé."""
     return payment_service.get_payment(db, current_user, payment_id)
 
 

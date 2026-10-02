@@ -27,4 +27,5 @@ def list_logs(
     "/{log_id}", response_model=AuditLogRead, summary="Détail d'une entrée", responses=error_responses(404)
 )
 def get_log(log_id: int, db: DbSession, _: Annotated[User, require_permission(P.AUDIT_VIEW)]):
+    """Entrée d'audit avec l'ancienne et la nouvelle valeur."""
     return audit_service.get_log(db, log_id)

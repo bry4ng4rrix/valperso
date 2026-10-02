@@ -4,13 +4,21 @@ from app.models import AuditLog, Product, Stock
 
 
 def product_payload(**fields):
-    return {"reference": "p-001", "name": "Riz Makalioka 1kg", "purchase_price": 2500, "selling_price": 3200, **fields}
+    return {
+        "reference": "p-001",
+        "name": "Riz Makalioka 1kg",
+        "purchase_price": 2500,
+        "selling_price": 3200,
+        **fields,
+    }
 
 
 def test_create_product_creates_its_stock_local_line(client, factory, admin_headers, db):
     category = factory.category("Épicerie")
 
-    response = client.post("/api/v1/products", headers=admin_headers, json=product_payload(category_id=category.id))
+    response = client.post(
+        "/api/v1/products", headers=admin_headers, json=product_payload(category_id=category.id)
+    )
 
     assert response.status_code == 201
     body = response.json()
@@ -23,7 +31,9 @@ def test_create_product_creates_its_stock_local_line(client, factory, admin_head
 
 def test_same_reference_and_same_name_are_allowed(client, admin_headers):
     first = client.post("/api/v1/products", headers=admin_headers, json=product_payload())
-    same_reference = client.post("/api/v1/products", headers=admin_headers, json=product_payload(name="Autre"))
+    same_reference = client.post(
+        "/api/v1/products", headers=admin_headers, json=product_payload(name="Autre")
+    )
     same_everything = client.post("/api/v1/products", headers=admin_headers, json=product_payload())
 
     assert first.status_code == same_reference.status_code == same_everything.status_code == 201
@@ -38,18 +48,26 @@ def test_negative_price_is_rejected(client, admin_headers):
 
 def test_inactive_category_is_rejected(client, factory, admin_headers):
     category = factory.category(is_active=False)
-    response = client.post("/api/v1/products", headers=admin_headers, json=product_payload(category_id=category.id))
+    response = client.post(
+        "/api/v1/products", headers=admin_headers, json=product_payload(category_id=category.id)
+    )
     assert response.status_code == 400
 
 
 def test_get_update_and_audit_product(client, factory, admin_headers, db):
     product = factory.product(selling_price="1000")
 
-    assert client.get(f"/api/v1/products/{product.id}", headers=admin_headers).json()["selling_price"] == 1000.0
-    response = client.patch(f"/api/v1/products/{product.id}", headers=admin_headers, json={"selling_price": 1500})
+    assert (
+        client.get(f"/api/v1/products/{product.id}", headers=admin_headers).json()["selling_price"] == 1000.0
+    )
+    response = client.patch(
+        f"/api/v1/products/{product.id}", headers=admin_headers, json={"selling_price": 1500}
+    )
 
     assert response.json()["selling_price"] == 1500.0
-    log = db.scalar(select(AuditLog).where(AuditLog.action == "product.update", AuditLog.entity_id == product.id))
+    log = db.scalar(
+        select(AuditLog).where(AuditLog.action == "product.update", AuditLog.entity_id == product.id)
+    )
     assert log.old_data["selling_price"] == 1000.0 and log.new_data["selling_price"] == 1500.0
 
 
@@ -73,7 +91,9 @@ def test_list_products_search_filter_sort_and_pagination(client, factory, admin_
     page = client.get(
         "/api/v1/products", headers=admin_headers, params={"search": "SAVON", "page_size": 2, "sort": "-name"}
     ).json()
-    by_category = client.get("/api/v1/products", headers=admin_headers, params={"category_id": category.id}).json()
+    by_category = client.get(
+        "/api/v1/products", headers=admin_headers, params={"category_id": category.id}
+    ).json()
 
     assert page["total"] == 3 and page["pages"] == 2 and page["page_size"] == 2
     assert [p["name"] for p in page["items"]] == ["savon 2", "savon 1"]
@@ -96,11 +116,15 @@ def test_vendeur_can_view_but_not_manage_products(client, factory):
 
 
 def test_category_crud(client, admin_headers):
-    created = client.post("/api/v1/categories", headers=admin_headers, json={"name": "Boissons", "description": "Sodas"})
+    created = client.post(
+        "/api/v1/categories", headers=admin_headers, json={"name": "Boissons", "description": "Sodas"}
+    )
     category_id = created.json()["id"]
 
     duplicate = client.post("/api/v1/categories", headers=admin_headers, json={"name": "BOISSONS"})
-    updated = client.patch(f"/api/v1/categories/{category_id}", headers=admin_headers, json={"description": "Jus"})
+    updated = client.patch(
+        f"/api/v1/categories/{category_id}", headers=admin_headers, json={"description": "Jus"}
+    )
     deleted = client.delete(f"/api/v1/categories/{category_id}", headers=admin_headers)
 
     assert created.status_code == 201 and created.json()["name"] == "boissons"

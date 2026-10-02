@@ -32,8 +32,11 @@ def list_users(
     return user_service.list_users(db, filters)
 
 
-@router.get("/{user_id}", response_model=UserRead, summary="Détail d'un utilisateur", responses=error_responses(404))
+@router.get(
+    "/{user_id}", response_model=UserRead, summary="Détail d'un utilisateur", responses=error_responses(404)
+)
 def get_user(user_id: int, db: DbSession, _: Annotated[User, require_permission(P.USER_VIEW)]):
+    """Retourne un utilisateur avec son rôle et son magasin d'affectation."""
     return user_service.get_user(db, user_id)
 
 
@@ -68,7 +71,8 @@ def update_user(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.USER_UPDATE)],
 ):
-    """Remplace nom, prénom, username, email et téléphone. Le mot de passe n'est changé que s'il est envoyé."""
+    """Remplace nom, prénom, username, email et téléphone.
+    Le mot de passe n'est changé que s'il est envoyé."""
     return user_service.update_user(db, current_user, user_id, data, ip_address)
 
 

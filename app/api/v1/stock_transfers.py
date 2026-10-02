@@ -24,7 +24,8 @@ def list_transfers(
     filters: Annotated[StockTransferFilters, Query()],
     current_user: Annotated[User, require_permission(P.STORE_TRANSFER_VIEW)],
 ):
-    """Un VENDEUR ne voit que les transferts envoyés ou reçus par son magasin. Tri : `created_at`, `reference`."""
+    """Un VENDEUR ne voit que les transferts envoyés ou reçus par son magasin.
+    Tri : `created_at`, `reference`."""
     return stock_transfer_service.list_transfers(db, current_user, filters)
 
 
@@ -62,6 +63,7 @@ def create_transfer(
 def get_transfer(
     transfer_id: int, db: DbSession, current_user: Annotated[User, require_permission(P.STORE_TRANSFER_VIEW)]
 ):
+    """Un VENDEUR ne peut consulter que les transferts qui concernent son magasin."""
     return stock_transfer_service.get_transfer(db, current_user, transfer_id)
 
 

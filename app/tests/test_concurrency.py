@@ -26,13 +26,18 @@ def session_factory(engine: Engine) -> Iterator[sessionmaker[Session]]:
     yield sessionmaker(bind=engine)
     with engine.begin() as connection:
         # CASCADE vide aussi stocks, ventes, paiements, mouvements, transferts... Le Stock Local est recréé.
-        connection.execute(text("TRUNCATE stores, users, categories, products, customers, audit_logs CASCADE"))
         connection.execute(
-            text("INSERT INTO stores (id, name, is_central) VALUES (:id, 'STOCK LOCAL', true)"), {"id": central_id}
+            text("TRUNCATE stores, users, categories, products, customers, audit_logs CASCADE")
+        )
+        connection.execute(
+            text("INSERT INTO stores (id, name, is_central) VALUES (:id, 'STOCK LOCAL', true)"),
+            {"id": central_id},
         )
 
 
-def run_in_parallel(session_factory, user_ids: list[int], operation: Callable[[Session, User], None]) -> list[str]:
+def run_in_parallel(
+    session_factory, user_ids: list[int], operation: Callable[[Session, User], None]
+) -> list[str]:
     """Lance `operation` en même temps dans plusieurs threads (une session chacun)."""
     barrier = threading.Barrier(len(user_ids))
     results: list[str] = []
@@ -61,21 +66,28 @@ def test_two_simultaneous_transfers_of_4_with_stock_5(session_factory):
         factory = Factory(session)
         destination = factory.store()
         product = factory.product(stock=5)
+        factory.add_stock(product, 1, destination)  # la destination a déjà l'article : seul le verrou protège
         admin_ids = [factory.admin().id, factory.admin().id]
         data = StockTransferCreate(
             destination_store_id=destination.id, items=[{"product_id": product.id, "quantity": 4}]
         )
 
     results = run_in_parallel(
-        session_factory, admin_ids, lambda session, user: stock_transfer_service.create_transfer(session, user, data)
+        session_factory,
+        admin_ids,
+        lambda session, user: stock_transfer_service.create_transfer(session, user, data),
     )
 
     assert results == ["ok", "refused"]
     with session_factory() as session:
         quantities = dict(
-            session.execute(select(Stock.store_id, Stock.quantity).where(Stock.product_id == product.id)).all()
+            session.execute(
+                select(Stock.store_id, Stock.quantity).where(Stock.product_id == product.id)
+            ).all()
         )
-        assert quantities[destination.id] == 4 and sum(quantities.values()) == 5  # jamais négatif, total inchangé
+        assert (
+            quantities[destination.id] == 5 and sum(quantities.values()) == 6
+        )  # jamais négatif, total inchangé
         assert session.scalar(select(func.count()).select_from(StockTransfer)) == 1
 
 

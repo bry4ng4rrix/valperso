@@ -30,6 +30,7 @@ def list_categories(
     responses=error_responses(404),
 )
 def get_category(category_id: int, db: DbSession, _: Annotated[User, require_permission(P.PRODUCT_VIEW)]):
+    """Retourne une catégorie, active ou non."""
     return category_service.get_category(db, category_id)
 
 
@@ -46,6 +47,7 @@ def create_category(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.PRODUCT_CREATE)],
 ):
+    """Le nom de catégorie est unique (insensible à la casse)."""
     return category_service.create_category(db, current_user, data, ip_address)
 
 
@@ -62,6 +64,7 @@ def update_category(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.PRODUCT_UPDATE)],
 ):
+    """Modification partielle : seuls les champs envoyés changent."""
     return category_service.update_category(db, current_user, category_id, data, ip_address)
 
 

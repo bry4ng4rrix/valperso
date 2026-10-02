@@ -91,7 +91,9 @@ def _save_movement(
     return movement
 
 
-def record_entry(db: Session, user: User, data: StockEntryCreate, ip_address: str | None = None) -> StockMovement:
+def record_entry(
+    db: Session, user: User, data: StockEntryCreate, ip_address: str | None = None
+) -> StockMovement:
     """Entrée de stock (réception de marchandise). La ligne est créée si le magasin n'a pas le produit."""
     store = store_access.resolve_operation_store(db, user, data.store_id)
     line = lock_line(db, store, get_product(db, data.product_id))
@@ -107,7 +109,9 @@ def record_entry(db: Session, user: User, data: StockEntryCreate, ip_address: st
     return _save_movement(db, user, movement, "stock.entry", ip_address)
 
 
-def record_exit(db: Session, user: User, data: StockExitCreate, ip_address: str | None = None) -> StockMovement:
+def record_exit(
+    db: Session, user: User, data: StockExitCreate, ip_address: str | None = None
+) -> StockMovement:
     """Sortie (EXIT) ou perte (LOSS) de stock. Refusée si le stock est insuffisant."""
     store = store_access.resolve_operation_store(db, user, data.store_id)
     line = lock_line(db, store, get_product(db, data.product_id))
@@ -132,10 +136,17 @@ def adjust_stock(
     line = lock_line(db, store, get_product(db, data.product_id))
     delta = data.new_quantity - line.quantity
     if delta == 0:
-        raise BusinessRuleError("La quantité saisie est identique au stock actuel : aucun ajustement nécessaire")
+        raise BusinessRuleError(
+            "La quantité saisie est identique au stock actuel : aucun ajustement nécessaire"
+        )
 
     movement = apply_stock_change(
-        db, line=line, delta=delta, movement_type=StockMovementType.ADJUSTMENT, user_id=user.id, reason=data.reason
+        db,
+        line=line,
+        delta=delta,
+        movement_type=StockMovementType.ADJUSTMENT,
+        user_id=user.id,
+        reason=data.reason,
     )
     return _save_movement(db, user, movement, "stock.adjust", ip_address)
 

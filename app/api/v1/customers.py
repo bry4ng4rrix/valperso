@@ -49,13 +49,18 @@ def create_customer(
     ip_address: ClientIP,
     current_user: Annotated[User, require_permission(P.SALE_CREATE)],
 ):
+    """Le téléphone est facultatif, mais il est exigé pour une vente avec avance ou à crédit."""
     return customer_service.create_customer(db, current_user, data, ip_address)
 
 
 @router.get(
-    "/{customer_id}", response_model=CustomerRead, summary="Détail d'un client", responses=error_responses(404)
+    "/{customer_id}",
+    response_model=CustomerRead,
+    summary="Détail d'un client",
+    responses=error_responses(404),
 )
 def get_customer(customer_id: int, db: DbSession, _: Annotated[User, require_permission(P.SALE_VIEW)]):
+    """Retourne la fiche du client."""
     return customer_service.get_customer(db, customer_id)
 
 
@@ -71,6 +76,7 @@ def list_customer_sales(
     pagination: Annotated[Pagination, Query()],
     current_user: Annotated[User, require_permission(P.SALE_VIEW)],
 ):
+    """Ventes du client, les plus récentes d'abord (limitées au magasin d'un VENDEUR)."""
     return customer_service.list_customer_sales(db, current_user, customer_id, pagination)
 
 

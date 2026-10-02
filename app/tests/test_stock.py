@@ -9,7 +9,11 @@ def movements(db, product):
 
 
 def entry(client, headers, product, quantity, **fields):
-    return client.post("/api/v1/stock/entry", headers=headers, json={"product_id": product.id, "quantity": quantity, **fields})
+    return client.post(
+        "/api/v1/stock/entry",
+        headers=headers,
+        json={"product_id": product.id, "quantity": quantity, **fields},
+    )
 
 
 def test_admin_entry_goes_to_stock_local_by_default(client, factory, admin, admin_headers, db):
@@ -36,7 +40,9 @@ def test_entry_creates_the_stock_line_of_a_new_store(client, factory, admin_head
 def test_exit_and_loss(client, factory, admin_headers, db):
     product = factory.product(stock=10)
 
-    exit_ = client.post("/api/v1/stock/exit", headers=admin_headers, json={"product_id": product.id, "quantity": 3})
+    exit_ = client.post(
+        "/api/v1/stock/exit", headers=admin_headers, json={"product_id": product.id, "quantity": 3}
+    )
     loss = client.post(
         "/api/v1/stock/exit",
         headers=admin_headers,
@@ -51,7 +57,9 @@ def test_exit_and_loss(client, factory, admin_headers, db):
 def test_exit_beyond_stock_is_refused_and_stock_never_negative(client, factory, admin_headers, db):
     product = factory.product(stock=3)
 
-    response = client.post("/api/v1/stock/exit", headers=admin_headers, json={"product_id": product.id, "quantity": 5})
+    response = client.post(
+        "/api/v1/stock/exit", headers=admin_headers, json={"product_id": product.id, "quantity": 5}
+    )
 
     assert response.status_code == 400
     assert response.json()["code"] == "INSUFFICIENT_STOCK"

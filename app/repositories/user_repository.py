@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.permissions import RoleName
@@ -23,6 +23,11 @@ def get_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == email.lower()))
 
 
+def get_by_login(db: Session, login: str) -> User | None:
+    """Utilisateur identifié par son nom d'utilisateur ou par son email."""
+    return get_by_email(db, login) if "@" in login else get_by_username(db, login)
+
+
 def list_users(db: Session, filters: UserFilters) -> PageResult[User]:
     stmt = select(User)
     if filters.search:
@@ -44,11 +49,9 @@ def list_store_employees(db: Session, store_id: int, pagination: Pagination) -> 
     return paginate(db, stmt, pagination.page, pagination.page_size)
 
 
-def count_active_admins(db: Session) -> int:
-    stmt = (
-        select(func.count())
-        .select_from(User)
-        .join(User.role)
-        .where(Role.name == RoleName.ADMIN, User.is_active.is_(True))
-    )
-    return db.scalar(stmt) or 0
+def count_active_admins(db: Session, *, lock: bool = False) -> int:
+    """Nombre d'ADMIN actifs. Avec `lock=True`, ces comptes restent verrouillés jusqu'au COMMIT."""
+    stmt = select(User.id).join(User.role).where(Role.name == RoleName.ADMIN, User.is_active.is_(True))
+    if lock:
+        stmt = stmt.order_by(User.id).with_for_update(of=User)
+    return len(db.scalars(stmt).all())

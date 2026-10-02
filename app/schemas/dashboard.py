@@ -26,6 +26,7 @@ class LowStockQuery(Pagination):
 
 class StockValueQuery(BaseModel):
     store_id: int | None = None
+    product_id: int | None = Field(None, description="Valeur du stock d'un seul produit")
 
 
 class TopProduct(BaseModel):

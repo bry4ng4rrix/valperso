@@ -3,7 +3,9 @@ from app.models import Store
 
 def test_create_store_without_any_vendeur(client, admin_headers, db):
     response = client.post(
-        "/api/v1/stores", headers=admin_headers, json={"name": "Magasin 1", "address": "Analakely", "phone": "0201234567"}
+        "/api/v1/stores",
+        headers=admin_headers,
+        json={"name": "Magasin 1", "address": "Analakely", "phone": "0201234567"},
     )
 
     assert response.status_code == 201
@@ -25,7 +27,9 @@ def test_several_stores_with_stock_local_first(client, admin_headers):
 
 def test_store_name_is_unique_case_insensitive(client, factory, admin_headers):
     factory.store("Magasin Tana")
-    assert client.post("/api/v1/stores", headers=admin_headers, json={"name": "magasin tana"}).status_code == 409
+    assert (
+        client.post("/api/v1/stores", headers=admin_headers, json={"name": "magasin tana"}).status_code == 409
+    )
 
 
 def test_update_store(client, factory, admin_headers):
@@ -54,6 +58,8 @@ def test_operations_in_inactive_store_are_refused(client, factory, admin_headers
     store = factory.store(is_active=False)
     product = factory.product()
     response = client.post(
-        "/api/v1/stock/entry", headers=admin_headers, json={"product_id": product.id, "quantity": 1, "store_id": store.id}
+        "/api/v1/stock/entry",
+        headers=admin_headers,
+        json={"product_id": product.id, "quantity": 1, "store_id": store.id},
     )
     assert response.status_code == 400 and response.json()["code"] == "INACTIVE_STORE"

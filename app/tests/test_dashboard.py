@@ -48,7 +48,9 @@ def test_summary(client, admin_headers, activity):
 
 
 def test_summary_by_store(client, admin_headers, activity):
-    body = client.get("/api/v1/dashboard/summary", headers=admin_headers, params={"store_id": activity["shop"].id}).json()
+    body = client.get(
+        "/api/v1/dashboard/summary", headers=admin_headers, params={"store_id": activity["shop"].id}
+    ).json()
     assert body["sales_count"] == 0 and body["revenue"] == 0.0
     assert body["stock_quantity"] == 85 and body["out_of_stock_count"] == 0
 
@@ -73,7 +75,12 @@ def test_stock_value_per_store_and_global(client, factory, admin_headers):
 
     by_store = {line["store"]["id"]: line for line in report["stores"]}
     assert (by_store[shop.id]["quantity"], by_store[shop.id]["purchase_value"]) == (4, 20000.0)
-    assert report["total"] == {"quantity": 10, "purchase_value": 50000.0, "sale_value": 80000.0, "potential_profit": 30000.0}
+    assert report["total"] == {
+        "quantity": 10,
+        "purchase_value": 50000.0,
+        "sale_value": 80000.0,
+        "potential_profit": 30000.0,
+    }
 
 
 def test_sales_by_day_and_top_products(client, admin_headers, activity):
@@ -88,7 +95,11 @@ def test_sales_by_day_and_top_products(client, admin_headers, activity):
 
 def test_low_stock_alerts(client, admin_headers, activity):
     items = client.get("/api/v1/dashboard/low-stock", headers=admin_headers).json()["items"]
-    assert {(line["product"]["name"], line["quantity"]) for line in items} == {("riz", 0), ("sel", 0), ("huile", 2)}
+    assert {(line["product"]["name"], line["quantity"]) for line in items} == {
+        ("riz", 0),
+        ("sel", 0),
+        ("huile", 2),
+    }
 
 
 def test_vendeur_dashboard_is_limited_to_his_store(client, factory, activity):

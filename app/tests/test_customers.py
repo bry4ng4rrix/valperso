@@ -5,7 +5,9 @@ from app.tests.helpers import due_date, sale_payload
 
 def test_create_customer(client, admin_headers):
     response = client.post(
-        "/api/v1/customers", headers=admin_headers, json={"first_name": "Jean", "last_name": "Rakoto", "phone": "0341234567"}
+        "/api/v1/customers",
+        headers=admin_headers,
+        json={"first_name": "Jean", "last_name": "Rakoto", "phone": "0341234567"},
     )
     assert response.status_code == 201
     assert response.json()["first_name"] == "jean" and response.json()["phone"] == "0341234567"
@@ -13,7 +15,9 @@ def test_create_customer(client, admin_headers):
 
 def test_vendeur_can_create_and_view_customers(client, factory):
     headers = factory.headers(factory.vendeur(factory.store()))
-    created = client.post("/api/v1/customers", headers=headers, json={"first_name": "Rasoa", "last_name": "Vola"})
+    created = client.post(
+        "/api/v1/customers", headers=headers, json={"first_name": "Rasoa", "last_name": "Vola"}
+    )
     assert created.status_code == 201
     assert client.get(f"/api/v1/customers/{created.json()['id']}", headers=headers).status_code == 200
 
@@ -42,30 +46,44 @@ def jean_purchases(client, factory, admin_headers):
     client.post(
         "/api/v1/sales",
         headers=admin_headers,
-        json=sale_payload((product, 2), payment={"method": "CARD", "amount": 5000}, payment_due_date=due_date(10), **common),
+        json=sale_payload(
+            (product, 2), payment={"method": "CARD", "amount": 5000}, payment_due_date=due_date(10), **common
+        ),
     )
     client.post(
         "/api/v1/sales",
         headers=admin_headers,
-        json=sale_payload((product, 2), payment={"method": "CARD", "amount": 15000}, payment_due_date=due_date(5), **common),
+        json=sale_payload(
+            (product, 2), payment={"method": "CARD", "amount": 15000}, payment_due_date=due_date(5), **common
+        ),
     )
     return {"customer": customer, "shop": shop}
 
 
 def test_contacts_aggregate_purchases_and_debt(client, admin_headers, jean_purchases):
-    contacts = client.get("/api/v1/customers/contacts", headers=admin_headers, params={"search": "0341234567"}).json()
+    contacts = client.get(
+        "/api/v1/customers/contacts", headers=admin_headers, params={"search": "0341234567"}
+    ).json()
 
     contact = contacts["items"][0]
     assert (contact["first_name"], contact["last_name"], contact["phone"]) == ("jean", "rakoto", "0341234567")
     assert contact["total_purchases"] == 3
-    assert (contact["total_amount"], contact["total_paid"], contact["remaining_amount"]) == (50000.0, 30000.0, 20000.0)
+    assert (contact["total_amount"], contact["total_paid"], contact["remaining_amount"]) == (
+        50000.0,
+        30000.0,
+        20000.0,
+    )
     assert contact["has_debt"] is True and contact["last_sale_date"]
 
 
 def test_has_debt_filter(client, factory, admin_headers, jean_purchases):
     factory.customer("Sans", "Dette", None)
-    with_debt = client.get("/api/v1/customers", headers=admin_headers, params={"has_debt": True}).json()["items"]
-    without_debt = client.get("/api/v1/customers", headers=admin_headers, params={"has_debt": False}).json()["items"]
+    with_debt = client.get("/api/v1/customers", headers=admin_headers, params={"has_debt": True}).json()[
+        "items"
+    ]
+    without_debt = client.get("/api/v1/customers", headers=admin_headers, params={"has_debt": False}).json()[
+        "items"
+    ]
     assert [c["id"] for c in with_debt] == [jean_purchases["customer"].id]
     assert jean_purchases["customer"].id not in {c["id"] for c in without_debt}
 
@@ -91,7 +109,9 @@ def test_customer_sales_history(client, admin_headers, jean_purchases):
 
 def test_store_filter(client, factory, admin_headers, jean_purchases):
     other_store = factory.store()
-    by_shop = client.get("/api/v1/customers", headers=admin_headers, params={"store_id": jean_purchases["shop"].id})
+    by_shop = client.get(
+        "/api/v1/customers", headers=admin_headers, params={"store_id": jean_purchases["shop"].id}
+    )
     by_other = client.get("/api/v1/customers", headers=admin_headers, params={"store_id": other_store.id})
     assert by_shop.json()["total"] == 1 and by_other.json()["total"] == 0
 

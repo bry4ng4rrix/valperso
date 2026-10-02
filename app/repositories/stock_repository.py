@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any
 
 import sqlalchemy as sa
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, and_, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -36,11 +36,13 @@ def create_missing_lines(
     (contrainte UNIQUE(product_id, store_id) + ON CONFLICT DO NOTHING), même en cas d'accès simultanés."""
     rows = [
         {"store_id": store_id, "product_id": product_id, "quantity": 0, "alert_threshold": alert_threshold}
-        for store_id in set(store_ids)
-        for product_id in set(product_ids)
-    ]
+        for store_id in sorted(set(store_ids))
+        for product_id in sorted(set(product_ids))
+    ]  # ordre fixe : deux transactions simultanées ne peuvent pas s'interbloquer
     if rows:
-        db.execute(insert(Stock).values(rows).on_conflict_do_nothing(index_elements=["product_id", "store_id"]))
+        db.execute(
+            insert(Stock).values(rows).on_conflict_do_nothing(index_elements=["product_id", "store_id"])
+        )
 
 
 def lock_lines(db: Session, store_ids: Iterable[int], product_ids: Iterable[int]) -> dict[StockKey, Stock]:
@@ -54,7 +56,7 @@ def lock_lines(db: Session, store_ids: Iterable[int], product_ids: Iterable[int]
         select(Stock)
         .where(Stock.store_id.in_(set(store_ids)), Stock.product_id.in_(set(product_ids)))
         .order_by(Stock.id)
-        # mutation
+        .with_for_update(of=Stock)
         .execution_options(populate_existing=True)
     )
     return {(line.store_id, line.product_id): line for line in db.scalars(stmt)}
@@ -84,7 +86,10 @@ def _stock_query(
 
 def list_stocks(db: Session, filters: StockFilters) -> PageResult[Stock]:
     stmt = _stock_query(
-        filters.store_id, product_id=filters.product_id, category_id=filters.category_id, search=filters.search
+        filters.store_id,
+        product_id=filters.product_id,
+        category_id=filters.category_id,
+        search=filters.search,
     )
     if filters.low_stock is not None:
         stmt = stmt.where(Stock.low_stock if filters.low_stock else ~Stock.low_stock)
@@ -115,7 +120,12 @@ def list_alerts(
 
 
 def _count_active_lines(db: Session, condition: ColumnElement[bool], store_id: int | None) -> int:
-    stmt = select(func.count()).select_from(Stock).join(Stock.product).where(condition, Product.is_active.is_(True))
+    stmt = (
+        select(func.count())
+        .select_from(Stock)
+        .join(Stock.product)
+        .where(condition, Product.is_active.is_(True))
+    )
     if store_id is not None:
         stmt = stmt.where(Stock.store_id == store_id)
     return db.scalar(stmt) or 0
@@ -148,16 +158,24 @@ def count_unavailable_products(db: Session) -> int:
     return db.scalar(stmt) or 0
 
 
-def stock_value_by_store(db: Session, store_id: int | None) -> list[sa.Row[Any]]:
-    """Quantité, valeur d'achat et valeur de vente du stock, magasin par magasin."""
+def stock_value_by_store(
+    db: Session, store_id: int | None, product_id: int | None = None
+) -> list[sa.Row[Any]]:
+    """Quantité, valeur d'achat et valeur de vente du stock, magasin par magasin
+    (éventuellement pour un seul produit)."""
+    stock_join = Stock.store_id == Store.id
+    if product_id is not None:
+        stock_join = and_(stock_join, Stock.product_id == product_id)
     stmt = (
         select(
             Store,
             func.coalesce(func.sum(Stock.quantity), 0).label("quantity"),
-            func.coalesce(func.sum(Stock.quantity * Product.purchase_price), Decimal("0")).label("purchase_value"),
+            func.coalesce(func.sum(Stock.quantity * Product.purchase_price), Decimal("0")).label(
+                "purchase_value"
+            ),
             func.coalesce(func.sum(Stock.quantity * Product.selling_price), Decimal("0")).label("sale_value"),
         )
-        .outerjoin(Stock, Stock.store_id == Store.id)
+        .outerjoin(Stock, stock_join)
         .outerjoin(Product, Product.id == Stock.product_id)
         .group_by(Store.id)
         .order_by(Store.is_central.desc(), Store.name)
