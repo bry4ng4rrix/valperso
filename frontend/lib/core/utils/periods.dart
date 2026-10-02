@@ -22,9 +22,9 @@ class PeriodRange {
 
   /// Paramètres `date_from` / `date_to` de l'API (ISO 8601 avec fuseau horaire).
   Map<String, Object?> toQuery() => {
-        'date_from': start?.toUtc().toIso8601String(),
-        'date_to': end?.toUtc().toIso8601String(),
-      };
+    'date_from': start?.toUtc().toIso8601String(),
+    'date_to': end?.toUtc().toIso8601String(),
+  };
 }
 
 /// Calcule l'intervalle d'une période. Pour [Period.custom], fournir [custom] (jours inclus).

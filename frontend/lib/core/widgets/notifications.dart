@@ -22,7 +22,7 @@ abstract final class Notify {
   static void _show(BuildContext context, String message, NoticeType type) {
     final (icon, color) = switch (type) {
       NoticeType.success => (Icons.check_circle_outline, AppColors.success),
-      NoticeType.info => (Icons.info_outline, AppColors.info),
+      NoticeType.info => (Icons.info_outline, Theme.of(context).colorScheme.primary),
       NoticeType.warning => (Icons.warning_amber_rounded, AppColors.warning),
       NoticeType.error => (Icons.error_outline, AppColors.danger),
     };

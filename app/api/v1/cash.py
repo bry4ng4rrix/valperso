@@ -11,13 +11,25 @@ from app.schemas.cash import (
     CashRegisterFilters,
     CashRegisterOpen,
     CashRegisterRead,
+    CashScheduleRead,
     CashTransactionCreate,
     CashTransactionRead,
 )
 from app.schemas.common import Page, Pagination
-from app.services import cash_service
+from app.services import cash_schedule_service, cash_service
 
 router = APIRouter(prefix="/cash", tags=["Caisse"], responses=PROTECTED)
+
+
+@router.get("/schedule", response_model=CashScheduleRead, summary="Horaires automatiques des caisses")
+def get_schedule(_: Annotated[User, require_permission(P.CASH_VIEW)]):
+    """Heures d'ouverture et de fermeture automatiques de toutes les caisses (heure locale du fuseau indiqué).
+
+    À l'ouverture, le fond de caisse reprend le montant de la dernière clôture du magasin. À la
+    fermeture automatique, le montant compté est le montant théorique : pour enregistrer un écart
+    réel, clôturer la caisse à la main avant l'heure de fermeture.
+    """
+    return cash_schedule_service.schedule()
 
 
 @router.get("/registers", response_model=Page[CashRegisterRead], summary="Lister les caisses")

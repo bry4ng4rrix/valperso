@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
+import 'app_dialog.dart';
 
 enum ConfirmationType { normal, warning, danger }
 
@@ -30,6 +31,7 @@ Future<bool> showConfirmation(
   String cancelLabel = 'Annuler',
   ConfirmationType type = ConfirmationType.normal,
   bool doubleCheck = false,
+  DialogSize? size,
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
@@ -41,6 +43,7 @@ Future<bool> showConfirmation(
       confirmLabel: confirmLabel,
       cancelLabel: cancelLabel,
       type: type,
+      size: size ?? (content != null ? DialogSize.large : DialogSize.medium),
     ),
   );
   if (confirmed != true) return false;
@@ -64,6 +67,7 @@ class ConfirmationDialog extends StatelessWidget {
     this.confirmLabel = 'Confirmer',
     this.cancelLabel = 'Annuler',
     this.type = ConfirmationType.normal,
+    this.size = DialogSize.medium,
   });
 
   final String title;
@@ -73,34 +77,32 @@ class ConfirmationDialog extends StatelessWidget {
   final String confirmLabel;
   final String cancelLabel;
   final ConfirmationType type;
+  final DialogSize size;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final (icon, color) = switch (type) {
-      ConfirmationType.normal => (Icons.help_outline, AppColors.primary),
+      ConfirmationType.normal => (Icons.help_outline, theme.colorScheme.primary),
       ConfirmationType.warning => (Icons.warning_amber_rounded, AppColors.warning),
       ConfirmationType.danger => (Icons.delete_outline, AppColors.danger),
     };
-    return AlertDialog(
-      icon: Icon(icon, color: color, size: 32),
-      title: Text(title, textAlign: TextAlign.center),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (message != null) Text(message!, style: theme.textTheme.bodyMedium),
-              if (message != null && (content != null || changes != null)) const SizedBox(height: Gaps.md),
-              if (changes != null) ChangeList(changes: changes!),
-              ?content,
-            ],
-          ),
-        ),
+    return AppDialog(
+      title: title,
+      icon: icon,
+      iconColor: color,
+      centerTitle: true,
+      size: size,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (message != null) Text(message!, style: theme.textTheme.bodyMedium),
+          if (message != null && (content != null || changes != null)) const SizedBox(height: Gaps.md),
+          if (changes != null) ChangeList(changes: changes!),
+          ?content,
+        ],
       ),
-      actionsAlignment: MainAxisAlignment.end,
       actions: [
         OutlinedButton(onPressed: () => Navigator.of(context).pop(false), child: Text(cancelLabel)),
         FilledButton(
@@ -148,7 +150,7 @@ class ChangeList extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.arrow_forward, size: 16, color: AppColors.primary),
+                    Icon(Icons.arrow_forward, size: 16, color: theme.colorScheme.primary),
                     const SizedBox(width: Gaps.xs),
                     Expanded(
                       child: Text(
@@ -180,27 +182,26 @@ Future<String?> showReasonConfirmation(
   final formKey = GlobalKey<FormState>();
   return showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(message),
-              const SizedBox(height: Gaps.md),
-              TextFormField(
-                controller: controller,
-                autofocus: true,
-                decoration: InputDecoration(labelText: fieldLabel),
-                validator: (value) =>
-                    (value == null || value.trim().length < 3) ? 'Au moins 3 caractères.' : null,
-              ),
-            ],
-          ),
+    builder: (context) => AppDialog(
+      title: title,
+      icon: type == ConfirmationType.danger ? Icons.delete_outline : Icons.warning_amber_rounded,
+      iconColor: type == ConfirmationType.danger ? AppColors.danger : AppColors.warning,
+      centerTitle: true,
+      content: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(message),
+            const SizedBox(height: Gaps.md),
+            TextFormField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(labelText: fieldLabel),
+              validator: (value) => (value == null || value.trim().length < 3) ? 'Au moins 3 caractères.' : null,
+            ),
+          ],
         ),
       ),
       actions: [

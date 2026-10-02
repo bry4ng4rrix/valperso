@@ -1,8 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Accès à l'API. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- usesCleartextTraffic : l'API tourne en HTTP sur le réseau local (ex. http://192.168.1.10:8001).
+         En production, servir l'API en HTTPS et retirer cette option. -->
     <application
-        android:label="valmag"
+        android:label="Gestion commerciale"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

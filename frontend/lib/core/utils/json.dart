@@ -14,5 +14,4 @@ String? toStringOrNull(Object? value) => value?.toString();
 List<T> toList<T>(Object? value, T Function(Json json) parse) =>
     value is List ? value.whereType<Map>().map((item) => parse(Json.from(item))).toList() : <T>[];
 
-T? toObject<T>(Object? value, T Function(Json json) parse) =>
-    value is Map ? parse(Json.from(value)) : null;
+T? toObject<T>(Object? value, T Function(Json json) parse) => value is Map ? parse(Json.from(value)) : null;

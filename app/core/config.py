@@ -1,6 +1,8 @@
 """Configuration centralisée, lue depuis les variables d'environnement et le fichier `.env`."""
 
+from datetime import time
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,9 +42,25 @@ class Settings(BaseSettings):
     # Fuseau horaire des statistiques par jour/mois et de l'année des numéros de facture.
     TIMEZONE: str = "UTC"
 
+    # Caisses : ouverture et fermeture automatiques chaque jour, à l'heure de CASH_SCHEDULE_TIMEZONE.
+    CASH_AUTO_SCHEDULE: bool = True
+    CASH_AUTO_OPEN_TIME: time = time(6, 0)
+    CASH_AUTO_CLOSE_TIME: time = time(19, 0)
+    CASH_SCHEDULE_TIMEZONE: str = "Indian/Antananarivo"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @model_validator(mode="after")
+    def _check_cash_schedule(self) -> "Settings":
+        if self.CASH_AUTO_OPEN_TIME >= self.CASH_AUTO_CLOSE_TIME:
+            raise ValueError("CASH_AUTO_OPEN_TIME doit être avant CASH_AUTO_CLOSE_TIME.")
+        try:
+            ZoneInfo(self.CASH_SCHEDULE_TIMEZONE)
+        except ZoneInfoNotFoundError as error:
+            raise ValueError(f"Fuseau horaire inconnu : {self.CASH_SCHEDULE_TIMEZONE}") from error
+        return self
 
     @model_validator(mode="after")
     def _check_production_secret(self) -> "Settings":

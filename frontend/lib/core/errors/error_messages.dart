@@ -49,8 +49,7 @@ abstract final class ErrorMessages {
       RegExp(r'^String should match pattern'): (_) => 'Format invalide.',
       RegExp(r'not a valid email'): (_) => 'Adresse email invalide.',
       RegExp(r'^Input should be a valid (number|integer)'): (_) => 'Nombre invalide.',
-      RegExp(r'^Decimal input should have no more than (\d+) decimal places?'): (m) =>
-          '${m[1]} décimales maximum.',
+      RegExp(r'^Decimal input should have no more than (\d+) decimal places?'): (m) => '${m[1]} décimales maximum.',
     };
     for (final entry in rules.entries) {
       final match = entry.key.firstMatch(message);

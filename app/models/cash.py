@@ -15,6 +15,9 @@ class CashRegister(Base):
     `expected_amount` est le montant théorique en caisse : il vaut `opening_amount` à
     l'ouverture puis est mis à jour à chaque opération. À la clôture,
     `difference = closing_amount - expected_amount` (négatif = manque en caisse).
+
+    Une caisse peut être ouverte ou clôturée automatiquement par le serveur (horaires
+    CASH_AUTO_OPEN_TIME / CASH_AUTO_CLOSE_TIME) : `opened_by` / `closed_by` valent alors null.
     """
 
     __tablename__ = "cash_registers"
@@ -31,7 +34,7 @@ class CashRegister(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     store_id: Mapped[int] = mapped_column(sa.ForeignKey("stores.id"), index=True)
-    opened_by: Mapped[int] = mapped_column(sa.ForeignKey("users.id"))
+    opened_by: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
     closed_by: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
     opening_amount: Mapped[Decimal] = mapped_column(MONEY)
     closing_amount: Mapped[Decimal | None] = mapped_column(MONEY)
@@ -42,6 +45,8 @@ class CashRegister(Base):
         sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
     )
     closed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    opened_automatically: Mapped[bool] = mapped_column(default=False, server_default=sa.false())
+    closed_automatically: Mapped[bool] = mapped_column(default=False, server_default=sa.false())
 
     store: Mapped[Store] = relationship(lazy="selectin")
     transactions: Mapped[list["CashTransaction"]] = relationship(

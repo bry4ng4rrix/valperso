@@ -17,7 +17,7 @@ class StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (tone) {
       BadgeTone.neutral => Theme.of(context).colorScheme.onSurfaceVariant,
-      BadgeTone.primary => AppColors.info,
+      BadgeTone.primary => Theme.of(context).colorScheme.primary,
       BadgeTone.success => AppColors.success,
       BadgeTone.warning => AppColors.warning,
       BadgeTone.danger => AppColors.danger,
@@ -33,7 +33,14 @@ class StatusBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[Icon(icon, size: 14, color: color), const SizedBox(width: 4)],
-          Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -43,10 +50,10 @@ class StatusBadge extends StatelessWidget {
 /// Badges métier réutilisés dans plusieurs écrans.
 abstract final class Badges {
   static StatusBadge paymentStatus(String status) => switch (status) {
-        'PAID' => const StatusBadge('Payé', tone: BadgeTone.success, icon: Icons.check),
-        'PARTIAL' => const StatusBadge('Partiel', tone: BadgeTone.warning, icon: Icons.timelapse),
-        _ => const StatusBadge('Non payé', tone: BadgeTone.danger, icon: Icons.priority_high),
-      };
+    'PAID' => const StatusBadge('Payé', tone: BadgeTone.success, icon: Icons.check),
+    'PARTIAL' => const StatusBadge('Partiel', tone: BadgeTone.warning, icon: Icons.timelapse),
+    _ => const StatusBadge('Non payé', tone: BadgeTone.danger, icon: Icons.priority_high),
+  };
 
   static StatusBadge stock({required bool outOfStock, required bool lowStock}) {
     if (outOfStock) return const StatusBadge('Épuisé', tone: BadgeTone.danger, icon: Icons.block);

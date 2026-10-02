@@ -34,6 +34,15 @@ abstract final class Formats {
     return value[0].toUpperCase() + value.substring(1);
   }
 
+  static final _codes = RegExp(r'\b(fac|trf)-\d{4}-\d+\b', caseSensitive: false);
+
+  /// Texte libre renvoyé par l'API (motif, raison...) : majuscule au début,
+  /// et numéros de facture / transfert en majuscules (« Paiement FAC-2026-000001 »).
+  static String text(String? value) => capitalize(value).replaceAllMapped(_codes, (match) => match[0]!.toUpperCase());
+
+  /// Majuscule au début de chaque mot (nom de société, adresse...).
+  static String title(String? value) => (value ?? '').split(' ').map((word) => capitalize(word)).join(' ');
+
   /// Le format français utilise l'espace fine insécable (U+202F), absente des polices PDF standard.
   static String _clean(String value) => value.replaceAll(' ', ' ');
 }

@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.models.enums import CashRegisterStatus, CashTransactionType
 from app.schemas.common import (
@@ -40,7 +40,7 @@ class CashRegisterClose(InputModel):
 class CashRegisterRead(ORMModel):
     id: int
     store_id: int
-    opened_by: int
+    opened_by: int | None = Field(description="null si la caisse a été ouverte automatiquement")
     closed_by: int | None
     opening_amount: Money
     closing_amount: Money | None
@@ -49,6 +49,10 @@ class CashRegisterRead(ORMModel):
     status: CashRegisterStatus
     opened_at: datetime
     closed_at: datetime | None
+    opened_automatically: bool = Field(description="Ouverte par le serveur à l'heure d'ouverture")
+    closed_automatically: bool = Field(
+        description="Clôturée par le serveur à l'heure de fermeture (montant compté = montant théorique)"
+    )
 
 
 class CashTransactionCreate(InputModel):
@@ -85,3 +89,12 @@ class CashTransactionRead(ORMModel):
 class CashRegisterFilters(PageQuery, DateRangeQuery):
     store_id: int | None = None
     status: CashRegisterStatus | None = None
+
+
+class CashScheduleRead(BaseModel):
+    """Horaires d'ouverture et de fermeture automatiques des caisses."""
+
+    enabled: bool
+    open_time: str = Field(examples=["06:00"])
+    close_time: str = Field(examples=["19:00"])
+    timezone: str = Field(examples=["Indian/Antananarivo"])

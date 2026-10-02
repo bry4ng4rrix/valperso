@@ -19,10 +19,17 @@ class SessionController extends ChangeNotifier {
 
   SessionStatus _status = SessionStatus.unknown;
   CurrentUser? _user;
+  CurrentUser? _lastUser;
   String? expiredMessage;
 
   SessionStatus get status => _status;
   CurrentUser? get user => _user;
+
+  /// Utilisateur connecté, ou le dernier connu pendant la transition vers l'écran de connexion
+  /// (les écrans encore affichés pendant l'animation de sortie restent ainsi valides).
+  /// À n'utiliser que dans les écrans réservés aux utilisateurs connectés.
+  CurrentUser get requireUser => (_user ?? _lastUser)!;
+  CurrentUser? get lastUser => _user ?? _lastUser;
   bool get isAuthenticated => _status == SessionStatus.authenticated;
 
   bool can(String permission) => _user?.can(permission) ?? false;
@@ -35,7 +42,11 @@ class SessionController extends ChangeNotifier {
       _setUser(await _auth.me());
     } on ApiException catch (error) {
       // Serveur injoignable : on garde les jetons et on laisse l'utilisateur réessayer depuis le login.
-      if (!error.isNetwork) await _api.tokens.clear();
+      if (error.isNetwork) {
+        expiredMessage = 'Serveur injoignable. Vérifiez l\'adresse du serveur puis reconnectez-vous.';
+      } else {
+        await _api.tokens.clear();
+      }
       _setUser(null);
     }
   }
@@ -62,6 +73,7 @@ class SessionController extends ChangeNotifier {
 
   void _setUser(CurrentUser? user) {
     _user = user;
+    if (user != null) _lastUser = user;
     _status = user == null ? SessionStatus.unauthenticated : SessionStatus.authenticated;
     notifyListeners();
   }

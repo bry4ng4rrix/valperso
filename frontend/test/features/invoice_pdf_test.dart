@@ -1,0 +1,92 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:valmag/features/invoices/invoice_actions.dart';
+import 'package:valmag/features/invoices/invoice_pdf.dart';
+import 'package:valmag/features/sales/sale_models.dart';
+
+import '../support/test_app.dart';
+
+void main() {
+  setUpAll(initFrenchDates);
+
+  final invoice = Invoice.fromJson({
+    'company': {
+      'name': 'allsafe',
+      'logo_url': null,
+      'address': 'boutique h101',
+      'city': 'antananarivo',
+      'phone': '034 00 000 00',
+      'email': 'contact@allsafe.mg',
+    },
+    'invoice_number': 'FAC-2026-000125',
+    'date': '2026-10-02T09:30:00Z',
+    'store': {'name': 'h109', 'address': 'behoririka', 'phone': null},
+    'user': {'id': 2, 'username': 'vendeur1', 'first_name': 'jean', 'last_name': 'rakoto'},
+    'customer': {'id': 7, 'first_name': 'rasoa', 'last_name': 'be', 'phone': '0341234567'},
+    'lines': [
+      {
+        'id': 1,
+        'product_id': 10,
+        'product_reference': 'p-10',
+        'product_name': 'stylo bleu',
+        'quantity': 3,
+        'unit_price': 1000,
+        'total': 3000,
+      },
+      {
+        'id': 2,
+        'product_id': 11,
+        'product_reference': 'c-1',
+        'product_name': 'cahier à spirale',
+        'quantity': 1,
+        'unit_price': 2500,
+        'total': 2500,
+      },
+    ],
+    'subtotal': 5500,
+    'discount_type': 'PERCENTAGE',
+    'discount_value': 10,
+    'discount_amount': 550,
+    'total': 4950,
+    'payments': [
+      {
+        'id': 1,
+        'sale_id': 125,
+        'method': 'CASH',
+        'amount': 2000,
+        'reference': null,
+        'created_at': '2026-10-02T09:30:00Z',
+      },
+    ],
+    'amount_paid': 2000,
+    'remaining_amount': 2950,
+    'payment_status': 'PARTIAL',
+    'payment_due_date': '2026-10-30',
+    'status': 'COMPLETED',
+    'thank_you_message': ['Merci pour votre achat !', 'À bientôt chez allsafe.'],
+  });
+
+  test('lecture de la facture renvoyée par l\'API', () {
+    expect(invoice.number, 'FAC-2026-000125');
+    expect(invoice.companyName, 'allsafe');
+    expect(invoice.lines, hasLength(2));
+    expect(invoice.discountType, DiscountType.percentage);
+    expect(invoice.remainingAmount, 2950);
+    expect(invoice.paymentStatus, PaymentStatus.partial);
+    expect(invoice.thankYouMessage.last, 'À bientôt chez allsafe.');
+  });
+
+  test('le PDF est généré (accents, montants, remise, reste à payer)', () async {
+    final bytes = await buildInvoicePdf(invoice);
+    expect(bytes.length, greaterThan(1000));
+    expect(ascii.decode(bytes.sublist(0, 5)), '%PDF-');
+  });
+
+  test('adresse du logo : web ou chemin du serveur', () {
+    expect(resolveLogoUrl(null, 'http://api.local'), isNull);
+    expect(resolveLogoUrl('https://cdn.mg/logo.png', 'http://api.local'), 'https://cdn.mg/logo.png');
+    expect(resolveLogoUrl('/media/logo.png', 'http://api.local'), 'http://api.local/media/logo.png');
+    expect(invoiceFileName(invoice), 'facture_FAC-2026-000125.pdf');
+  });
+}

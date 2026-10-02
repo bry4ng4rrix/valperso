@@ -37,21 +37,15 @@ class RoleRef {
 }
 
 class UserRef {
-  const UserRef({
-    required this.id,
-    required this.username,
-    required this.firstName,
-    required this.lastName,
-    this.role,
-  });
+  const UserRef({required this.id, required this.username, required this.firstName, required this.lastName, this.role});
 
   factory UserRef.fromJson(Json json) => UserRef(
-        id: toInt(json['id']),
-        username: '${json['username']}',
-        firstName: '${json['first_name'] ?? ''}',
-        lastName: '${json['last_name'] ?? ''}',
-        role: toObject(json['role'], RoleRef.fromJson),
-      );
+    id: toInt(json['id']),
+    username: '${json['username']}',
+    firstName: '${json['first_name'] ?? ''}',
+    lastName: '${json['last_name'] ?? ''}',
+    role: toObject(json['role'], RoleRef.fromJson),
+  );
 
   final int id;
   final String username;
@@ -77,11 +71,11 @@ class CustomerRef {
   const CustomerRef({required this.id, required this.firstName, required this.lastName, this.phone});
 
   factory CustomerRef.fromJson(Json json) => CustomerRef(
-        id: toInt(json['id']),
-        firstName: '${json['first_name'] ?? ''}',
-        lastName: '${json['last_name'] ?? ''}',
-        phone: toStringOrNull(json['phone']),
-      );
+    id: toInt(json['id']),
+    firstName: '${json['first_name'] ?? ''}',
+    lastName: '${json['last_name'] ?? ''}',
+    phone: toStringOrNull(json['phone']),
+  );
 
   final int id;
   final String firstName;

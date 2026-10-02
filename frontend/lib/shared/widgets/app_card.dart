@@ -14,7 +14,10 @@ class AppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(padding: padding, child: child),
+      ),
     );
   }
 }
@@ -65,20 +68,26 @@ class InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = valueStyle ??
-        (emphasis
-            ? theme.textTheme.titleMedium
-            : theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500));
+    final style =
+        valueStyle ??
+        (emphasis ? theme.textTheme.titleMedium : theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500));
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Gaps.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(label, style: emphasis ? theme.textTheme.titleMedium : theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            child: Text(
+              label,
+              style: emphasis
+                  ? theme.textTheme.titleMedium
+                  : theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
           ),
           const SizedBox(width: Gaps.md),
-          Flexible(child: Text(value, style: style, textAlign: TextAlign.end)),
+          Flexible(
+            child: Text(value, style: style, textAlign: TextAlign.end),
+          ),
         ],
       ),
     );

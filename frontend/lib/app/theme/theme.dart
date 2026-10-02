@@ -6,25 +6,37 @@ import 'typography.dart';
 
 /// Thèmes Material 3 centralisés. L'application démarre en [AppTheme.dark].
 abstract final class AppTheme {
+  /// Thème sombre : noir et gris neutres, actions en blanc.
   static ThemeData get dark => _build(
-        brightness: Brightness.dark,
-        background: AppColors.background,
-        surface: AppColors.surface,
-        surfaceHigh: AppColors.surfaceHigh,
-        border: AppColors.border,
-        textPrimary: AppColors.textPrimary,
-        textSecondary: AppColors.textSecondary,
-      );
+    brightness: Brightness.dark,
+    background: AppColors.background,
+    surface: AppColors.surface,
+    surfaceHigh: AppColors.surfaceHigh,
+    border: AppColors.border,
+    textPrimary: AppColors.textPrimary,
+    textSecondary: AppColors.textSecondary,
+    accent: AppColors.accent,
+    onAccent: AppColors.onAccent,
+    accentSoft: AppColors.accentSoft,
+    onAccentSoft: AppColors.textPrimary,
+    secondary: AppColors.accentMuted,
+  );
 
+  /// Thème clair : fond clair, actions en bleu.
   static ThemeData get light => _build(
-        brightness: Brightness.light,
-        background: AppColors.lightBackground,
-        surface: AppColors.lightSurface,
-        surfaceHigh: AppColors.lightSurfaceHigh,
-        border: AppColors.lightBorder,
-        textPrimary: AppColors.lightTextPrimary,
-        textSecondary: AppColors.lightTextSecondary,
-      );
+    brightness: Brightness.light,
+    background: AppColors.lightBackground,
+    surface: AppColors.lightSurface,
+    surfaceHigh: AppColors.lightSurfaceHigh,
+    border: AppColors.lightBorder,
+    textPrimary: AppColors.lightTextPrimary,
+    textSecondary: AppColors.lightTextSecondary,
+    accent: AppColors.primary,
+    onAccent: Colors.white,
+    accentSoft: AppColors.primarySoft,
+    onAccentSoft: AppColors.primaryDark,
+    secondary: AppColors.primaryDark,
+  );
 
   static ThemeData _build({
     required Brightness brightness,
@@ -34,15 +46,22 @@ abstract final class AppTheme {
     required Color border,
     required Color textPrimary,
     required Color textSecondary,
+    required Color accent,
+    required Color onAccent,
+    required Color accentSoft,
+    required Color onAccentSoft,
+    required Color secondary,
   }) {
     final scheme = ColorScheme(
       brightness: brightness,
-      primary: AppColors.primary,
-      onPrimary: Colors.white,
-      primaryContainer: brightness == Brightness.dark ? AppColors.primarySoft : const Color(0xFFDCE6FF),
-      onPrimaryContainer: brightness == Brightness.dark ? AppColors.textPrimary : AppColors.primaryDark,
-      secondary: AppColors.primaryDark,
-      onSecondary: Colors.white,
+      primary: accent,
+      onPrimary: onAccent,
+      primaryContainer: accentSoft,
+      onPrimaryContainer: onAccentSoft,
+      secondary: secondary,
+      onSecondary: brightness == Brightness.dark ? textPrimary : Colors.white,
+      secondaryContainer: accentSoft,
+      onSecondaryContainer: onAccentSoft,
       error: AppColors.danger,
       onError: Colors.white,
       surface: surface,
@@ -66,6 +85,13 @@ abstract final class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: background,
       textTheme: textTheme,
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: accent),
+      tabBarTheme: TabBarThemeData(
+        labelColor: textPrimary,
+        unselectedLabelColor: textSecondary,
+        indicatorColor: accent,
+        dividerColor: border,
+      ),
       dividerTheme: DividerThemeData(color: border, space: 1, thickness: 1),
       appBarTheme: AppBarTheme(
         backgroundColor: background,
@@ -118,7 +144,7 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.sm),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: BorderSide(color: accent, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.sm),
@@ -141,10 +167,7 @@ abstract final class AppTheme {
         height: 68,
         labelTextStyle: WidgetStatePropertyAll(textTheme.labelMedium),
       ),
-      navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: surface,
-        indicatorColor: scheme.primaryContainer,
-      ),
+      navigationRailTheme: NavigationRailThemeData(backgroundColor: surface, indicatorColor: scheme.primaryContainer),
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg)),
@@ -152,9 +175,7 @@ abstract final class AppTheme {
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: surface,
         showDragHandle: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.lg)),
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.lg))),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

@@ -87,8 +87,12 @@ class ApiClient {
       _send(() => _dio.get(path, queryParameters: cleanQuery(query ?? const {})));
 
   Future<dynamic> post(String path, {Object? data, bool authenticated = true}) => _send(
-        () => _dio.post(path, data: data, options: Options(extra: {'skipAuth': !authenticated})),
-      );
+    () => _dio.post(
+      path,
+      data: data,
+      options: Options(extra: {'skipAuth': !authenticated}),
+    ),
+  );
 
   Future<dynamic> put(String path, {Object? data}) => _send(() => _dio.put(path, data: data));
 
@@ -102,6 +106,19 @@ class ApiClient {
       () => _plainDio.get<List<int>>(url, options: Options(responseType: ResponseType.bytes)),
     );
     return response as List<int>;
+  }
+
+  /// Vérifie qu'une adresse d'API répond (avant de l'enregistrer dans les paramètres).
+  Future<bool> ping(String url) async {
+    try {
+      await _plainDio.get<dynamic>(
+        '${_withPrefix(url)}/health',
+        options: Options(receiveTimeout: const Duration(seconds: 5)),
+      );
+      return true;
+    } on DioException {
+      return false;
+    }
   }
 
   Future<dynamic> _send(Future<Response<dynamic>> Function() request) async {

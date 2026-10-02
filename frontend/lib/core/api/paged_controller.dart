@@ -10,11 +10,15 @@ typedef PageFetcher<T> = Future<Paged<T>> Function(PageQuery query);
 /// Utilisé par toutes les listes de l'application (ventes, produits, clients...) :
 /// la pagination, les filtres et les états (chargement / vide / erreur) restent identiques partout.
 class PagedController<T> extends ChangeNotifier {
-  PagedController(this._fetch, {Map<String, Object?> filters = const {}, this.pageSize = 20})
-      : _filters = {...filters};
+  PagedController(this._fetch, {Map<String, Object?> filters = const {}, this.pageSize = 20, this.fixedKeys = const {}})
+    : _filters = {...filters};
 
   final PageFetcher<T> _fetch;
   final int pageSize;
+
+  /// Filtres qui définissent la liste elle-même (ex. `has_debt` pour la liste des dettes) :
+  /// jamais comptés comme filtres actifs, jamais retirés, et conservés par « Exporter tout ».
+  final Set<String> fixedKeys;
   final Map<String, Object?> _filters;
 
   List<T> items = const [];
@@ -33,9 +37,19 @@ class PagedController<T> extends ChangeNotifier {
 
   bool get isEmpty => hasLoaded && items.isEmpty && error == null;
 
-  /// Nombre de filtres actifs (hors recherche et clés internes), pour le badge du bouton Filtres.
+  /// Filtres affichés directement à l'écran (recherche, tri, période) : non comptés dans le badge.
+  static const inlineKeys = {'search', 'sort', 'date_from', 'date_to'};
+
+  /// Nombre de filtres actifs (hors filtres affichés à l'écran et clés internes), pour le badge du bouton Filtres.
   int get activeFilterCount => _filters.entries
-      .where((e) => e.key != 'search' && e.key != 'sort' && !e.key.startsWith('_') && e.value != null && e.value != '')
+      .where(
+        (e) =>
+            !inlineKeys.contains(e.key) &&
+            !fixedKeys.contains(e.key) &&
+            !e.key.startsWith('_') &&
+            e.value != null &&
+            e.value != '',
+      )
       .length;
 
   Future<void> load([int targetPage = 1]) async {
@@ -81,18 +95,29 @@ class PagedController<T> extends ChangeNotifier {
 
   Future<void> setFilter(String key, Object? value) => updateFilters({key: value});
 
+  /// Remplace tous les filtres (ex. changement de mode d'affichage) puis recharge la première page.
+  Future<void> replaceFilters(Map<String, Object?> filters) {
+    _filters
+      ..clear()
+      ..addAll(filters);
+    return load(1);
+  }
+
   /// Retire tous les filtres sauf ceux listés dans [keep].
   Future<void> clearFilters({Set<String> keep = const {}}) {
-    _filters.removeWhere((key, _) => !keep.contains(key) && !key.startsWith('_'));
+    _filters.removeWhere((key, _) => !keep.contains(key) && !fixedKeys.contains(key) && !key.startsWith('_'));
     return load(1);
   }
 
   /// Récupère TOUS les résultats (page par page, 100 par 100), pour un export.
-  /// Avec [useFilters] = false, seuls les filtres internes (préfixés par `_`) sont conservés.
+  /// Avec [useFilters] = false, seuls les filtres fixes et internes (préfixés par `_`) sont conservés.
   Future<List<T>> fetchAll({bool useFilters = true, int maxPages = 200}) async {
     final filters = useFilters
         ? Map<String, Object?>.of(_filters)
-        : {for (final e in _filters.entries) if (e.key.startsWith('_')) e.key: e.value};
+        : {
+            for (final e in _filters.entries)
+              if (e.key.startsWith('_') || fixedKeys.contains(e.key)) e.key: e.value,
+          };
     final results = <T>[];
     for (var current = 1; current <= maxPages; current++) {
       final result = await _fetch(PageQuery(page: current, pageSize: PageQuery.maxPageSize, filters: filters));

@@ -75,8 +75,7 @@ class AppTextField extends StatelessWidget {
   }
 }
 
-String? requiredValidator(String? value) =>
-    value == null || value.trim().isEmpty ? 'Champ obligatoire.' : null;
+String? requiredValidator(String? value) => value == null || value.trim().isEmpty ? 'Champ obligatoire.' : null;
 
 /// Champ montant en Ariary (chiffres, espaces et virgule autorisés).
 class MoneyField extends StatelessWidget {

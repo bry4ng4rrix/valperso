@@ -7,12 +7,7 @@ import '../errors/error_messages.dart';
 /// Le backend renvoie toujours `{"detail": "...", "code": "..."}`, et pour une erreur 422
 /// une liste `errors` (champ + message) utilisée pour afficher l'erreur sous chaque champ.
 class ApiException implements Exception {
-  ApiException({
-    required this.message,
-    this.code = 'UNKNOWN',
-    this.statusCode,
-    this.fieldErrors = const {},
-  });
+  ApiException({required this.message, this.code = 'UNKNOWN', this.statusCode, this.fieldErrors = const {}});
 
   factory ApiException.fromDio(DioException error) {
     switch (error.type) {
@@ -53,8 +48,8 @@ class ApiException implements Exception {
     final message = useBackendDetail
         ? detail
         : fields.length == 1
-            ? fields.values.first
-            : ErrorMessages.byCode[code] ?? detail ?? ErrorMessages.unknown;
+        ? fields.values.first
+        : ErrorMessages.byCode[code] ?? detail ?? ErrorMessages.unknown;
     return ApiException(message: message, code: code, statusCode: statusCode, fieldErrors: fields);
   }
 

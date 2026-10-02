@@ -10,8 +10,8 @@ abstract final class ApiConfig {
 
   static String get defaultBaseUrl {
     if (_fromEnvironment.isNotEmpty) return _fromEnvironment;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:8000';
-    return 'http://localhost:8000';
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:8001';
+    return 'http://localhost:8001';
   }
 
   static const apiPrefix = '/api/v1';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
+import '../../core/api/api_exception.dart';
 import '../../core/errors/error_messages.dart';
 
 /// Chargement : silhouettes grises simples (pas d'animation lourde).
@@ -106,17 +107,14 @@ class AsyncContent<T> extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           final error = snapshot.error;
-          return ErrorState(message: error is Exception ? _message(error) : null, onRetry: onRetry);
+          return ErrorState(message: error is ApiException ? error.message : null, onRetry: onRetry);
         }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         return builder(context, snapshot.data as T);
       },
     );
   }
-
-  String? _message(Exception error) {
-    final text = error.toString();
-    final index = text.indexOf('): ');
-    return index >= 0 ? text.substring(index + 3) : null;
-  }
 }
+
+/// Message lisible d'une erreur de chargement (null si l'erreur n'est pas une erreur d'API).
+String? errorMessageOf(Object? error) => error is ApiException ? error.message : null;

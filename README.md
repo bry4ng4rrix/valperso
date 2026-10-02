@@ -109,6 +109,9 @@ Copiez `.env.example` en `.env`. **Ne versionnez jamais `.env`** : il est ignor�
 | `COMPANY_NAME` | nom initial de la société (modifiable ensuite par l'ADMIN) | `Ma Société` |
 | `DEFAULT_ALERT_THRESHOLD` | seuil d'alerte des nouvelles lignes de stock | `5` |
 | `TIMEZONE` | fuseau des statistiques par jour/mois et de l'année des numéros (ex. `Indian/Antananarivo`) | `UTC` |
+| `CASH_AUTO_SCHEDULE` | ouverture / fermeture automatiques des caisses (voir § 13) | `true` |
+| `CASH_AUTO_OPEN_TIME` / `CASH_AUTO_CLOSE_TIME` | heures d'ouverture et de fermeture automatiques | `06:00` / `19:00` |
+| `CASH_SCHEDULE_TIMEZONE` | fuseau de ces horaires | `Indian/Antananarivo` |
 | `DEMO_PASSWORD` | (développement) mot de passe des comptes créés par `python -m app.seed_demo` | — |
 | `TEST_DATABASE_URL` | (tests) base de test, par défaut `DATABASE_URL` suffixée par `_test` | — |
 | `INSTALL_DEV` | (build Docker) installe pytest dans l'image. Mettre `false` en production | `true` |
@@ -428,6 +431,15 @@ Le mode `MIXED` n'est pas implémenté. L'architecture est prête : une vente ac
 - Opérations manuelles : `EXPENSE`, `WITHDRAWAL`, `DEPOSIT`, `ADJUSTMENT`. `REFUND` est créée automatiquement à l'annulation d'une vente.
 - `expected_amount` est mis à jour à chaque opération et ne devient jamais négatif. À la clôture : `difference = closing_amount − expected_amount`.
 - Par défaut, seul l'ADMIN gère la caisse. Il peut donner `cash.*` au rôle VENDEUR.
+
+**Ouverture et fermeture automatiques** (heure de Madagascar, `CASH_SCHEDULE_TIMEZONE`) :
+
+- à **06:00**, une caisse est ouverte dans chaque magasin actif qui n'en a pas. Le fond de caisse reprend le montant de la dernière clôture du magasin (l'argent resté dans la caisse), ou 0 ;
+- à **19:00**, toute caisse ouverte avant cette heure est clôturée. Personne ne compte l'argent : le montant compté est le montant théorique (écart 0). Pour enregistrer un écart réel, clôturer la caisse à la main avant 19:00 ;
+- une caisse clôturée à la main dans la journée n'est pas rouverte automatiquement avant le lendemain ; une caisse ouverte à la main après 19:00 reste ouverte jusqu'au 19:00 suivant ;
+- les caisses automatiques ont `opened_by` / `closed_by` à `null` et `opened_automatically` / `closed_automatically` à `true` ; le journal d'audit contient `cash.auto_open` et `cash.auto_close` (utilisateur : système) ;
+- le traitement tourne dans l'API (vérification chaque minute), rattrape un passage manqué (serveur arrêté à l'heure prévue) et ne s'exécute qu'une fois même avec plusieurs instances (verrou PostgreSQL) ;
+- `GET /api/v1/cash/schedule` renvoie les horaires ; `CASH_AUTO_SCHEDULE=false` désactive le traitement.
 
 ---
 

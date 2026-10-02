@@ -18,16 +18,16 @@ class CurrentUser {
   });
 
   factory CurrentUser.fromJson(Json json) => CurrentUser(
-        id: toInt(json['id']),
-        username: '${json['username']}',
-        firstName: '${json['first_name'] ?? ''}',
-        lastName: '${json['last_name'] ?? ''}',
-        email: toStringOrNull(json['email']),
-        phone: toStringOrNull(json['phone']),
-        role: RoleRef.fromJson(Json.from(json['role'] as Map)),
-        store: toObject(json['store'], StoreRef.fromJson),
-        permissions: {...(json['permissions'] as List? ?? const []).map((p) => '$p')},
-      );
+    id: toInt(json['id']),
+    username: '${json['username']}',
+    firstName: '${json['first_name'] ?? ''}',
+    lastName: '${json['last_name'] ?? ''}',
+    email: toStringOrNull(json['email']),
+    phone: toStringOrNull(json['phone']),
+    role: RoleRef.fromJson(Json.from(json['role'] as Map)),
+    store: toObject(json['store'], StoreRef.fromJson),
+    permissions: {...(json['permissions'] as List? ?? const []).map((p) => '$p')},
+  );
 
   final int id;
   final String username;

@@ -11,19 +11,14 @@ class Paged<T> {
   });
 
   factory Paged.fromJson(Json json, T Function(Json json) parseItem) => Paged(
-        items: toList(json['items'], parseItem),
-        total: toInt(json['total']),
-        page: toInt(json['page']),
-        pageSize: toInt(json['page_size']),
-        pages: toInt(json['pages']),
-      );
+    items: toList(json['items'], parseItem),
+    total: toInt(json['total']),
+    page: toInt(json['page']),
+    pageSize: toInt(json['page_size']),
+    pages: toInt(json['pages']),
+  );
 
-  const Paged.empty()
-      : items = const [],
-        total = 0,
-        page = 1,
-        pageSize = 20,
-        pages = 0;
+  const Paged.empty() : items = const [], total = 0, page = 1, pageSize = 20, pages = 0;
 
   final List<T> items;
   final int total;
@@ -52,6 +47,6 @@ class PageQuery {
 
 /// Retire les paramètres nuls ou vides, et les clés internes (préfixées par `_`).
 Map<String, Object?> cleanQuery(Map<String, Object?> query) => {
-      for (final entry in query.entries)
-        if (entry.value != null && entry.value != '' && !entry.key.startsWith('_')) entry.key: entry.value,
-    };
+  for (final entry in query.entries)
+    if (entry.value != null && entry.value != '' && !entry.key.startsWith('_')) entry.key: entry.value,
+};
