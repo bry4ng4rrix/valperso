@@ -6,9 +6,10 @@ from functools import cache
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.permissions import PermissionCode, RoleName
 from app.core.security import create_access_token, hash_password
-from app.models import CashRegister, Category, Product, Role, Store, StoreStock, User
+from app.models import CashRegister, Category, Customer, Product, Role, Stock, Store, User
 from app.models.enums import CashRegisterStatus
 from app.repositories import role_repository, stock_repository, store_repository
 
@@ -35,8 +36,8 @@ class Factory:
 
     # --- Magasins et catalogue -------------------------------------------------------------------
 
-    def default_store(self) -> Store:
-        store = store_repository.get_default(self.db)
+    def central_store(self) -> Store:
+        store = store_repository.get_central(self.db)
         assert store is not None
         return store
 
@@ -55,68 +56,82 @@ class Factory:
         purchase_price: str = "600",
         **fields,
     ) -> Product:
-        """Produit avec `stock` unités dans `store` (par défaut le STOCK LOCAL)."""
+        """Produit avec sa ligne Stock Local (comme le service) et `stock` unités dans `store`
+        (par défaut le Stock Local)."""
         number = self._next()
         product = Product(
             reference=fields.pop("reference", f"REF-{number:04d}"),
             name=fields.pop("name", f"Produit {number}"),
             selling_price=Decimal(selling_price),
             purchase_price=Decimal(purchase_price),
-            stock=0,
             **fields,
+        )
+        product.stocks.append(
+            Stock(store_id=self.central_store().id, quantity=0, alert_threshold=settings.DEFAULT_ALERT_THRESHOLD)
         )
         self._save(product)
         if stock:
             self.add_stock(product, stock, store)
         return product
 
-    def add_stock(self, product: Product, quantity: int, store: Store | None = None) -> None:
-        store = store or self.default_store()
+    def add_stock(self, product: Product, quantity: int, store: Store | None = None) -> Stock:
+        store = store or self.central_store()
         line = stock_repository.get_line(self.db, store.id, product.id)
         if line is None:
-            line = StoreStock(store_id=store.id, product_id=product.id, quantity=0)
+            line = Stock(
+                store_id=store.id, product_id=product.id, quantity=0, alert_threshold=settings.DEFAULT_ALERT_THRESHOLD
+            )
             self.db.add(line)
         line.quantity += quantity
-        product.stock += quantity
         self.db.commit()
+        return line
 
-    def store_quantity(self, store: Store, product: Product) -> int:
+    def quantity(self, store: Store, product: Product) -> int:
+        self.db.expire_all()
         line = stock_repository.get_line(self.db, store.id, product.id)
         return line.quantity if line else 0
 
-    # --- Utilisateurs et rôles -------------------------------------------------------------------
+    # --- Utilisateurs, rôles et clients ----------------------------------------------------------
 
-    def role(self, *permissions: PermissionCode, name: str | None = None) -> Role:
-        role = Role(
-            name=name or f"ROLE_{self._next()}",
-            permissions=role_repository.get_permissions_by_names(self.db, [p.value for p in permissions]),
+    def role(self, name: RoleName) -> Role:
+        role = role_repository.get_by_name(self.db, name)
+        assert role is not None
+        return role
+
+    def set_role_permissions(self, name: RoleName, *permissions: PermissionCode) -> None:
+        self.role(name).permissions = role_repository.get_permissions_by_names(
+            self.db, [code.value for code in permissions]
         )
-        return self._save(role)
+        self.db.commit()
+
+    def grant(self, name: RoleName, *permissions: PermissionCode) -> None:
+        role = self.role(name)
+        role.permissions.extend(role_repository.get_permissions_by_names(self.db, [p.value for p in permissions]))
+        self.db.commit()
 
     def user(
-        self,
-        role: RoleName | Role = RoleName.VENDEUR,
-        store: Store | None = None,
-        *,
-        password: str = DEFAULT_PASSWORD,
-        **fields,
+        self, role: RoleName = RoleName.VENDEUR, store: Store | None = None, *, password: str = DEFAULT_PASSWORD, **fields
     ) -> User:
-        if isinstance(role, RoleName):
-            role = role_repository.get_by_name(self.db, role.value)
         number = self._next()
         user = User(
             first_name=fields.pop("first_name", "Prénom"),
             last_name=fields.pop("last_name", f"Nom {number}"),
             username=fields.pop("username", f"user{number}"),
             password_hash=_password_hash(password),
-            role=role,
+            role=self.role(role),
             store_id=store.id if store else None,
             **fields,
         )
         return self._save(user)
 
-    def admin(self) -> User:
-        return self.user(RoleName.ADMIN)
+    def admin(self, **fields) -> User:
+        return self.user(RoleName.ADMIN, **fields)
+
+    def vendeur(self, store: Store | None, **fields) -> User:
+        return self.user(RoleName.VENDEUR, store, **fields)
+
+    def customer(self, first_name: str = "Jean", last_name: str = "Rakoto", phone: str | None = "0341234567") -> Customer:
+        return self._save(Customer(first_name=first_name, last_name=last_name, phone=phone))
 
     @staticmethod
     def headers(user: User) -> dict[str, str]:

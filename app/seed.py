@@ -1,4 +1,4 @@
-"""Données initiales : permissions, rôles système, STOCK LOCAL et premier administrateur.
+"""Données initiales : permissions, rôles ADMIN et VENDEUR, Stock Local et premier ADMIN.
 
 Usage : python -m app.seed
 
@@ -22,13 +22,13 @@ from app.core.permissions import (
 from app.core.security import hash_password
 from app.models import Permission, Role, Store, User
 from app.repositories import role_repository, store_repository, user_repository
-from app.services.store_service import DEFAULT_STORE_NAME
+from app.services.store_service import CENTRAL_STORE_NAME
 
 logger = logging.getLogger("seed")
 
 
 def seed_permissions(db: Session) -> dict[str, Permission]:
-    existing = {p.name: p for p in role_repository.list_permissions(db)}
+    existing = {permission.name: permission for permission in role_repository.list_permissions(db)}
     for code in PermissionCode:
         permission = existing.get(code.value)
         if permission is None:
@@ -56,43 +56,43 @@ def seed_roles(db: Session, permissions: dict[str, Permission]) -> dict[str, Rol
     return roles
 
 
-def seed_default_store(db: Session) -> Store:
-    store = store_repository.get_default(db)
+def seed_central_store(db: Session) -> Store:
+    store = store_repository.get_central(db)
     if store is None:
-        store = Store(name=DEFAULT_STORE_NAME, is_default=True, is_active=True)
+        store = Store(name=CENTRAL_STORE_NAME, is_central=True, is_active=True)
         db.add(store)
         db.flush()
-        logger.info("Magasin par défaut « %s » créé", DEFAULT_STORE_NAME)
+        logger.info("Stock Local créé")
     return store
 
 
-def seed_admin(db: Session, admin_role: Role) -> User | None:
-    if user_repository.get_by_username(db, settings.FIRST_ADMIN_USERNAME) is not None:
+def seed_initial_admin(db: Session, admin_role: Role) -> User | None:
+    if user_repository.get_by_username(db, settings.INITIAL_ADMIN_USERNAME) is not None:
         return None
-    if not settings.FIRST_ADMIN_PASSWORD:
-        logger.warning("FIRST_ADMIN_PASSWORD non défini : aucun administrateur créé")
+    if not settings.INITIAL_ADMIN_PASSWORD:
+        logger.warning("INITIAL_ADMIN_PASSWORD non défini : aucun ADMIN créé")
         return None
 
     admin = User(
         first_name="Administrateur",
         last_name="Principal",
-        username=settings.FIRST_ADMIN_USERNAME.upper(),
-        email=settings.FIRST_ADMIN_EMAIL.lower() if settings.FIRST_ADMIN_EMAIL else None,
-        password_hash=hash_password(settings.FIRST_ADMIN_PASSWORD),
+        username=settings.INITIAL_ADMIN_USERNAME.upper(),
+        email=settings.INITIAL_ADMIN_EMAIL.lower() if settings.INITIAL_ADMIN_EMAIL else None,
+        password_hash=hash_password(settings.INITIAL_ADMIN_PASSWORD),
         role=admin_role,
-        store_id=None,  # non rattaché : accès à tous les magasins
+        store_id=None,  # un ADMIN n'a pas besoin de magasin : il les gère tous
     )
     db.add(admin)
     db.flush()
-    logger.info("Administrateur « %s » créé", settings.FIRST_ADMIN_USERNAME)
+    logger.info("Premier ADMIN « %s » créé", settings.INITIAL_ADMIN_USERNAME)
     return admin
 
 
 def run_seed(db: Session) -> None:
     permissions = seed_permissions(db)
     roles = seed_roles(db, permissions)
-    seed_default_store(db)
-    seed_admin(db, roles[RoleName.ADMIN.value])
+    seed_central_store(db)
+    seed_initial_admin(db, roles[RoleName.ADMIN.value])
     db.commit()
 
 

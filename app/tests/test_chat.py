@@ -5,12 +5,12 @@ from app.core.permissions import RoleName
 
 @pytest.fixture
 def alice(factory):
-    return factory.user(RoleName.VENDEUR, username="alice")
+    return factory.vendeur(factory.store(), username="alice")
 
 
 @pytest.fixture
 def bob(factory):
-    return factory.user(RoleName.CAISSIER, username="bob")
+    return factory.admin(username="bob")
 
 
 def start_private(client, factory, sender, recipient):
@@ -58,7 +58,7 @@ def test_messages_and_unread_count(client, factory, alice, bob):
 
 def test_non_member_cannot_read_conversation(client, factory, alice, bob):
     conversation_id = start_private(client, factory, alice, bob).json()["id"]
-    intruder = factory.user(RoleName.VENDEUR)
+    intruder = factory.vendeur(factory.store())
 
     response = client.get(
         f"/api/v1/chat/conversations/{conversation_id}/messages", headers=factory.headers(intruder)

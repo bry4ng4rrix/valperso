@@ -21,10 +21,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.main import app
-from app.seed import seed_default_store, seed_permissions, seed_roles
-from tests.factories import Factory
+from app.seed import seed_central_store, seed_permissions, seed_roles
+from app.tests.factories import Factory
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _test_database_url() -> URL:
@@ -63,7 +63,7 @@ def engine() -> Iterator[Engine]:
     _run_migrations(engine)
     with Session(engine) as session:
         seed_roles(session, seed_permissions(session))
-        seed_default_store(session)
+        seed_central_store(session)
         session.commit()
     yield engine
     engine.dispose()
@@ -98,3 +98,13 @@ def client(db: Session) -> Iterator[TestClient]:
 @pytest.fixture
 def factory(db: Session) -> Factory:
     return Factory(db)
+
+
+@pytest.fixture
+def admin(factory: Factory):
+    return factory.admin()
+
+
+@pytest.fixture
+def admin_headers(factory: Factory, admin) -> dict[str, str]:
+    return factory.headers(admin)

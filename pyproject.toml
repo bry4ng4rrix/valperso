@@ -2,7 +2,7 @@
 # Ce fichier ne contient que la configuration des outils.
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["app/tests"]
 addopts = "-ra"
 
 [tool.ruff]
@@ -14,5 +14,5 @@ extend-exclude = ["alembic/versions"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "tests"]
+known-first-party = ["app"]
 known-third-party = ["alembic"]

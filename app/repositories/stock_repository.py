@@ -54,7 +54,7 @@ def lock_lines(db: Session, store_ids: Iterable[int], product_ids: Iterable[int]
         select(Stock)
         .where(Stock.store_id.in_(set(store_ids)), Stock.product_id.in_(set(product_ids)))
         .order_by(Stock.id)
-        .with_for_update(of=Stock)
+        # mutation
         .execution_options(populate_existing=True)
     )
     return {(line.store_id, line.product_id): line for line in db.scalars(stmt)}

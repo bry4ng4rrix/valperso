@@ -10,8 +10,6 @@ Toutes les écritures (lignes de stock, mouvements TRANSFER_OUT / TRANSFER_IN, t
 sont faites dans une seule transaction : tout est validé, ou rien.
 """
 
-from dataclasses import dataclass
-
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -27,18 +25,11 @@ from app.schemas.stock_transfer import (
     StockTransferCreate,
     StockTransferFilters,
     StockTransferRead,
+    StockTransferResult,
     TransferStockLevel,
 )
 from app.services import audit_service, stock_service, store_access
 from app.services.product_service import get_active_product
-
-
-@dataclass
-class TransferOutcome:
-    """Transfert créé + stock de chaque produit dans les deux magasins après l'opération."""
-
-    transfer: StockTransfer
-    stock_levels: list[TransferStockLevel]
 
 
 def _move(
@@ -86,17 +77,17 @@ def _lock_lines(db: Session, source: Store, destination: Store, product_ids: lis
     return stock_repository.lock_lines(db, store_ids, product_ids)
 
 
-def _stock_levels(
-    lines: dict, source: Store, destination: Store, products: list[Product]
-) -> list[TransferStockLevel]:
-    return [
+def _result(transfer: StockTransfer, lines: dict, products: list[Product]) -> StockTransferResult:
+    """Le transfert + le stock de chaque produit dans les deux magasins après l'opération."""
+    levels = [
         TransferStockLevel(
             product=ProductSummary.model_validate(product),
-            source_quantity=lines[(source.id, product.id)].quantity,
-            destination_quantity=lines[(destination.id, product.id)].quantity,
+            source_quantity=lines[(transfer.source_store_id, product.id)].quantity,
+            destination_quantity=lines[(transfer.destination_store_id, product.id)].quantity,
         )
         for product in products
     ]
+    return StockTransferResult(**StockTransferRead.model_validate(transfer).model_dump(), stock_levels=levels)
 
 
 def _audit(db: Session, user: User, transfer: StockTransfer, action: str, ip_address: str | None) -> None:
@@ -114,7 +105,7 @@ def _audit(db: Session, user: User, transfer: StockTransfer, action: str, ip_add
 
 def create_transfer(
     db: Session, user: User, data: StockTransferCreate, ip_address: str | None = None
-) -> TransferOutcome:
+) -> StockTransferResult:
     source = store_access.resolve_operation_store(db, user, data.source_store_id)
     destination = store_access.get_active_store(db, data.destination_store_id)
     if source.id == destination.id:
@@ -149,10 +140,12 @@ def create_transfer(
     db.add(transfer)
     _audit(db, user, transfer, "stock_transfer.create", ip_address)
     db.commit()
-    return TransferOutcome(transfer, _stock_levels(lines, source, destination, products))
+    return _result(transfer, lines, products)
 
 
-def cancel_transfer(db: Session, user: User, transfer_id: int, ip_address: str | None = None) -> TransferOutcome:
+def cancel_transfer(
+    db: Session, user: User, transfer_id: int, ip_address: str | None = None
+) -> StockTransferResult:
     """Annule un transfert : les quantités repartent de la destination vers la source.
     Impossible si la destination n'a plus assez de stock (déjà vendu ou transféré ailleurs)."""
     transfer = stock_transfer_repository.get_for_update(db, transfer_id)
@@ -181,7 +174,7 @@ def cancel_transfer(db: Session, user: User, transfer_id: int, ip_address: str |
     transfer.status = TransferStatus.CANCELLED
     _audit(db, user, transfer, "stock_transfer.cancel", ip_address)
     db.commit()
-    return TransferOutcome(transfer, _stock_levels(lines, source, destination, products))
+    return _result(transfer, lines, products)
 
 
 def list_transfers(db: Session, user: User, filters: StockTransferFilters) -> PageResult[StockTransfer]:

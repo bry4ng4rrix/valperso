@@ -77,7 +77,7 @@ class CashTransactionRead(ORMModel):
     type: CashTransactionType
     amount: SignedMoney = Field(description="Positif = entrée d'argent, négatif = sortie")
     reason: DisplayStr | None
-    reference: DisplayStr | None
+    reference: str | None
     created_by: int
     created_at: datetime
 

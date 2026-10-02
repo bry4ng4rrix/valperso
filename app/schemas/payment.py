@@ -20,7 +20,7 @@ class PaymentRead(ORMModel):
     sale_id: int
     method: PaymentMethod
     amount: Money
-    reference: DisplayStr | None
+    reference: str | None = Field(description="Référence de la transaction (affichée telle quelle)")
     creator: UserSummary = Field(description="Utilisateur qui a encaissé")
     created_at: datetime
 
