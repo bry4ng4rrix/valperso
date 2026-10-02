@@ -57,7 +57,6 @@ class _RolesScreenState extends State<RolesScreen> {
     final user = context.watch<SessionController>().requireUser;
     return DetailPage(
       title: 'Rôles et permissions',
-      maxWidth: 900,
       child: FutureBuilder<(List<Role>, List<PermissionItem>)>(
         future: _future,
         builder: (context, snapshot) {

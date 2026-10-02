@@ -67,12 +67,11 @@ class AdaptivePage extends StatelessWidget {
   }
 }
 
-/// Contenu défilant centré et limité en largeur, avec les marges adaptées à l'écran.
+/// Contenu défilant sur toute la largeur de l'écran, avec les marges adaptées à l'écran.
 class PageBody extends StatelessWidget {
-  const PageBody({super.key, required this.children, this.maxWidth = Sizes.contentMaxWidth, this.onRefresh});
+  const PageBody({super.key, required this.children, this.onRefresh});
 
   final List<Widget> children;
-  final double maxWidth;
   final Future<void> Function()? onRefresh;
 
   @override
@@ -81,14 +80,7 @@ class PageBody extends StatelessWidget {
     final list = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(padding, context.isWide ? 0 : Gaps.lg, padding, Gaps.xxl * 2),
-      children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
-          ),
-        ),
-      ],
+      children: [Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children)],
     );
     return onRefresh == null ? list : RefreshIndicator(onRefresh: onRefresh!, child: list);
   }

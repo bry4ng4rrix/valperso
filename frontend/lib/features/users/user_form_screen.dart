@@ -15,6 +15,7 @@ import '../../shared/widgets/states.dart';
 import '../../shared/widgets/store_selector.dart';
 import 'user_models.dart';
 import 'users_repository.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 /// Création d'un utilisateur, ou modification de ses informations
 /// (le rôle, le magasin et le statut se changent depuis la fiche).
@@ -145,7 +146,6 @@ class _UserFormScreenState extends State<UserFormScreen> with ApiFormState {
   Widget build(BuildContext context) {
     return DetailPage(
       title: _isEdit ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur',
-      maxWidth: Sizes.formMaxWidth,
       child: FutureBuilder<void>(
         future: _ready,
         builder: (context, snapshot) {
@@ -163,111 +163,120 @@ class _UserFormScreenState extends State<UserFormScreen> with ApiFormState {
             child: ListView(
               padding: const EdgeInsets.all(Gaps.lg),
               children: [
-                SectionCard(
-                  title: 'Identité',
-                  icon: Icons.person_outline,
-                  child: Column(
-                    children: [
-                      AppTextField(
-                        label: 'Prénom',
-                        controller: _firstName,
-                        required: true,
-                        errorText: errorFor('first_name'),
-                        validator: Validators.text(required: true, max: 100),
-                      ),
-                      const SizedBox(height: Gaps.md),
-                      AppTextField(
-                        label: 'Nom',
-                        controller: _lastName,
-                        required: true,
-                        errorText: errorFor('last_name'),
-                        validator: Validators.text(required: true, max: 100),
-                      ),
-                      const SizedBox(height: Gaps.md),
-                      AppTextField(
-                        label: 'Identifiant de connexion',
-                        controller: _username,
-                        required: true,
-                        errorText: errorFor('username'),
-                        validator: Validators.username,
-                      ),
-                      const SizedBox(height: Gaps.md),
-                      AppTextField(
-                        label: 'Email',
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        errorText: errorFor('email'),
-                        validator: Validators.email,
-                      ),
-                      const SizedBox(height: Gaps.md),
-                      AppTextField(
-                        label: 'Téléphone',
-                        controller: _phone,
-                        keyboardType: TextInputType.phone,
-                        errorText: errorFor('phone'),
-                        validator: Validators.phone,
-                      ),
-                    ],
-                  ),
-                ),
-                if (!_isEdit) ...[
-                  const SizedBox(height: Gaps.lg),
-                  SectionCard(
-                    title: 'Accès',
-                    icon: Icons.admin_panel_settings_outlined,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                TwoColumns(
+                  breakpoint: 860,
+                  left: SectionCard(
+                    title: 'Identité',
+                    icon: Icons.person_outline,
+                    child: ResponsiveGrid(
+                      minItemWidth: 300,
+                      maxColumns: 3,
                       children: [
-                        SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment(value: 'VENDEUR', label: Text('Vendeur'), icon: Icon(Icons.person_outline)),
-                            ButtonSegment(
-                              value: 'ADMIN',
-                              label: Text('Administrateur'),
-                              icon: Icon(Icons.shield_outlined),
-                            ),
-                          ],
-                          selected: {_role},
-                          onSelectionChanged: (selection) => setState(() => _role = selection.first),
+                        AppTextField(
+                          label: 'Prénom',
+                          controller: _firstName,
+                          required: true,
+                          errorText: errorFor('first_name'),
+                          validator: Validators.text(required: true, max: 100),
                         ),
-                        const SizedBox(height: Gaps.md),
-                        StoreSelector(
-                          value: _storeId,
-                          label: _role == 'VENDEUR' ? 'Magasin (recommandé)' : 'Magasin',
-                          allLabel: 'Aucun magasin',
-                          onChanged: (store) => setState(() => _storeId = store?.id),
+                        AppTextField(
+                          label: 'Nom',
+                          controller: _lastName,
+                          required: true,
+                          errorText: errorFor('last_name'),
+                          validator: Validators.text(required: true, max: 100),
+                        ),
+                        AppTextField(
+                          label: 'Identifiant de connexion',
+                          controller: _username,
+                          required: true,
+                          errorText: errorFor('username'),
+                          validator: Validators.username,
+                        ),
+                        AppTextField(
+                          label: 'Email',
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          errorText: errorFor('email'),
+                          validator: Validators.email,
+                        ),
+                        AppTextField(
+                          label: 'Téléphone',
+                          controller: _phone,
+                          keyboardType: TextInputType.phone,
+                          errorText: errorFor('phone'),
+                          validator: Validators.phone,
                         ),
                       ],
                     ),
                   ),
-                ],
-                const SizedBox(height: Gaps.lg),
-                SectionCard(
-                  title: _isEdit ? 'Nouveau mot de passe (facultatif)' : 'Mot de passe',
-                  icon: Icons.lock_outline,
-                  child: Column(
+                  right: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      AppTextField(
-                        label: 'Mot de passe',
-                        controller: _password,
-                        obscureText: _hidePassword,
-                        required: !_isEdit,
-                        errorText: errorFor('password'),
-                        validator: (value) => Validators.password(value, required: !_isEdit),
-                        helper: '8 caractères minimum.',
-                        suffix: IconButton(
-                          onPressed: () => setState(() => _hidePassword = !_hidePassword),
-                          icon: Icon(_hidePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                      if (!_isEdit) ...[
+                        SectionCard(
+                          title: 'Accès',
+                          icon: Icons.admin_panel_settings_outlined,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SegmentedButton<String>(
+                                segments: const [
+                                  ButtonSegment(
+                                    value: 'VENDEUR',
+                                    label: Text('Vendeur'),
+                                    icon: Icon(Icons.person_outline),
+                                  ),
+                                  ButtonSegment(
+                                    value: 'ADMIN',
+                                    label: Text('Administrateur'),
+                                    icon: Icon(Icons.shield_outlined),
+                                  ),
+                                ],
+                                selected: {_role},
+                                onSelectionChanged: (selection) => setState(() => _role = selection.first),
+                              ),
+                              const SizedBox(height: Gaps.md),
+                              StoreSelector(
+                                value: _storeId,
+                                label: _role == 'VENDEUR' ? 'Magasin (recommandé)' : 'Magasin',
+                                allLabel: 'Aucun magasin',
+                                onChanged: (store) => setState(() => _storeId = store?.id),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: Gaps.md),
-                      AppTextField(
-                        label: 'Confirmer le mot de passe',
-                        controller: _passwordConfirm,
-                        obscureText: _hidePassword,
-                        required: !_isEdit,
-                        validator: (value) =>
-                            (value ?? '') == _password.text ? null : 'Les mots de passe ne correspondent pas.',
+                        const SizedBox(height: Gaps.lg),
+                      ],
+                      SectionCard(
+                        title: _isEdit ? 'Nouveau mot de passe (facultatif)' : 'Mot de passe',
+                        icon: Icons.lock_outline,
+                        child: Column(
+                          children: [
+                            AppTextField(
+                              label: 'Mot de passe',
+                              controller: _password,
+                              obscureText: _hidePassword,
+                              required: !_isEdit,
+                              errorText: errorFor('password'),
+                              validator: (value) => Validators.password(value, required: !_isEdit),
+                              helper: '8 caractères minimum.',
+                              suffix: IconButton(
+                                onPressed: () => setState(() => _hidePassword = !_hidePassword),
+                                icon: Icon(_hidePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                              ),
+                            ),
+                            const SizedBox(height: Gaps.md),
+                            AppTextField(
+                              label: 'Confirmer le mot de passe',
+                              controller: _passwordConfirm,
+                              obscureText: _hidePassword,
+                              required: !_isEdit,
+                              validator: (value) =>
+                                  (value ?? '') == _password.text ? null : 'Les mots de passe ne correspondent pas.',
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

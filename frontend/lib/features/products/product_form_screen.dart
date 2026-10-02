@@ -19,6 +19,7 @@ import '../categories/categories_repository.dart';
 import '../categories/category_dialog.dart';
 import 'product_models.dart';
 import 'products_repository.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 /// Création ou modification d'un produit.
 /// Règle métier : le prix de vente doit être supérieur ou égal au prix d'achat.
@@ -159,7 +160,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> with ApiFormState
     final user = context.watch<SessionController>().requireUser;
     return DetailPage(
       title: _isEdit ? 'Modifier le produit' : 'Nouveau produit',
-      maxWidth: Sizes.formMaxWidth,
       child: FutureBuilder<void>(
         future: _ready,
         builder: (context, snapshot) {
@@ -177,83 +177,89 @@ class _ProductFormScreenState extends State<ProductFormScreen> with ApiFormState
             child: ListView(
               padding: const EdgeInsets.all(Gaps.lg),
               children: [
-                SectionCard(
-                  title: 'Informations',
-                  icon: Icons.inventory_2_outlined,
-                  child: Column(
-                    children: [
-                      AppTextField(
-                        label: 'Référence',
-                        controller: _reference,
-                        required: true,
-                        errorText: errorFor('reference'),
-                        validator: Validators.reference,
-                        helper: 'Lettres, chiffres et . _ / - (ex. P-001)',
-                      ),
-                      const SizedBox(height: Gaps.md),
-                      AppTextField(
-                        label: 'Nom du produit',
-                        controller: _name,
-                        required: true,
-                        errorText: errorFor('name'),
-                        validator: Validators.text(required: true, min: 2, max: 200),
-                      ),
-                      const SizedBox(height: Gaps.md),
-                      Row(
+                SectionColumns(
+                  children: [
+                    SectionCard(
+                      title: 'Informations',
+                      icon: Icons.inventory_2_outlined,
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: DropdownButtonFormField<int?>(
-                              key: ValueKey('category-$_categoryId-${_categories.length}'),
-                              initialValue: _categories.any((item) => item.id == _categoryId) ? _categoryId : null,
-                              isExpanded: true,
-                              decoration: InputDecoration(labelText: 'Catégorie', errorText: errorFor('category_id')),
-                              items: [
-                                const DropdownMenuItem<int?>(value: null, child: Text('Aucune')),
-                                for (final category in _categories)
-                                  DropdownMenuItem<int?>(value: category.id, child: Text(category.label)),
-                              ],
-                              onChanged: (value) => setState(() => _categoryId = value),
-                            ),
+                          AppTextField(
+                            label: 'Référence',
+                            controller: _reference,
+                            required: true,
+                            errorText: errorFor('reference'),
+                            validator: Validators.reference,
+                            helper: 'Lettres, chiffres et . _ / - (ex. P-001)',
                           ),
-                          if (user.can(Perm.productCreate)) ...[
-                            const SizedBox(width: Gaps.sm),
-                            IconButton.outlined(
-                              tooltip: 'Nouvelle catégorie',
-                              onPressed: _addCategory,
-                              icon: const Icon(Icons.add),
-                            ),
-                          ],
+                          const SizedBox(height: Gaps.md),
+                          AppTextField(
+                            label: 'Nom du produit',
+                            controller: _name,
+                            required: true,
+                            errorText: errorFor('name'),
+                            validator: Validators.text(required: true, min: 2, max: 200),
+                          ),
+                          const SizedBox(height: Gaps.md),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<int?>(
+                                  key: ValueKey('category-$_categoryId-${_categories.length}'),
+                                  initialValue: _categories.any((item) => item.id == _categoryId) ? _categoryId : null,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Catégorie',
+                                    errorText: errorFor('category_id'),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<int?>(value: null, child: Text('Aucune')),
+                                    for (final category in _categories)
+                                      DropdownMenuItem<int?>(value: category.id, child: Text(category.label)),
+                                  ],
+                                  onChanged: (value) => setState(() => _categoryId = value),
+                                ),
+                              ),
+                              if (user.can(Perm.productCreate)) ...[
+                                const SizedBox(width: Gaps.sm),
+                                IconButton.outlined(
+                                  tooltip: 'Nouvelle catégorie',
+                                  onPressed: _addCategory,
+                                  icon: const Icon(Icons.add),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: Gaps.lg),
-                SectionCard(
-                  title: 'Prix',
-                  icon: Icons.sell_outlined,
-                  child: Column(
-                    children: [
-                      MoneyField(
-                        label: 'Prix d\'achat (prix de stock)',
-                        controller: _purchasePrice,
-                        required: true,
-                        errorText: errorFor('purchase_price'),
-                        onChanged: (_) => setState(() {}),
+                    ),
+                    SectionCard(
+                      title: 'Prix',
+                      icon: Icons.sell_outlined,
+                      child: Column(
+                        children: [
+                          MoneyField(
+                            label: 'Prix d\'achat (prix de stock)',
+                            controller: _purchasePrice,
+                            required: true,
+                            errorText: errorFor('purchase_price'),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: Gaps.md),
+                          MoneyField(
+                            label: 'Prix de vente',
+                            controller: _sellingPrice,
+                            required: true,
+                            errorText: errorFor('selling_price'),
+                            validator: _validateSelling,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: Gaps.md),
+                          _MarginPreview(purchase: _purchase, selling: _selling),
+                        ],
                       ),
-                      const SizedBox(height: Gaps.md),
-                      MoneyField(
-                        label: 'Prix de vente',
-                        controller: _sellingPrice,
-                        required: true,
-                        errorText: errorFor('selling_price'),
-                        validator: _validateSelling,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: Gaps.md),
-                      _MarginPreview(purchase: _purchase, selling: _selling),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 if (!_isEdit) ...[
                   const SizedBox(height: Gaps.md),

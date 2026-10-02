@@ -10,6 +10,7 @@ import 'cash_models.dart';
 import 'cash_repository.dart';
 import 'cash_screen.dart';
 import 'cash_widgets.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 /// Détail d'une caisse de l'historique, avec ses mouvements.
 class CashRegisterScreen extends StatefulWidget {
@@ -35,7 +36,6 @@ class _CashRegisterScreenState extends State<CashRegisterScreen> {
   Widget build(BuildContext context) {
     return DetailPage(
       title: 'Caisse',
-      maxWidth: 820,
       child: FutureBuilder<(CashRegister, Map<int, String>)>(
         future: _future,
         builder: (context, snapshot) {
@@ -52,17 +52,20 @@ class _CashRegisterScreenState extends State<CashRegisterScreen> {
           return ListView(
             padding: const EdgeInsets.all(Gaps.lg),
             children: [
-              SectionCard(
-                title: 'Résumé',
-                icon: Icons.point_of_sale,
-                trailing: cashStatusBadge(register),
-                child: RegisterSummary(register: register, storeLabel: labels[register.storeId] ?? 'Magasin'),
-              ),
-              const SizedBox(height: Gaps.lg),
-              SectionCard(
-                title: 'Mouvements',
-                icon: Icons.receipt_long_outlined,
-                child: RegisterTransactions(registerId: register.id),
+              SectionColumns(
+                children: [
+                  SectionCard(
+                    title: 'Résumé',
+                    icon: Icons.point_of_sale,
+                    trailing: cashStatusBadge(register),
+                    child: RegisterSummary(register: register, storeLabel: labels[register.storeId] ?? 'Magasin'),
+                  ),
+                  SectionCard(
+                    title: 'Mouvements',
+                    icon: Icons.receipt_long_outlined,
+                    child: RegisterTransactions(registerId: register.id),
+                  ),
+                ],
               ),
             ],
           );

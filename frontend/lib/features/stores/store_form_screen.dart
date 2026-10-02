@@ -14,6 +14,7 @@ import '../../shared/widgets/list_page.dart';
 import '../../shared/widgets/states.dart';
 import 'store_models.dart';
 import 'stores_repository.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 /// Création ou modification d'un magasin. Un magasin est créé sans vendeur.
 class StoreFormScreen extends StatefulWidget {
@@ -106,7 +107,6 @@ class _StoreFormScreenState extends State<StoreFormScreen> with ApiFormState {
   Widget build(BuildContext context) {
     return DetailPage(
       title: widget.storeId == null ? 'Nouveau magasin' : 'Modifier le magasin',
-      maxWidth: Sizes.formMaxWidth,
       child: FutureBuilder<void>(
         future: _ready,
         builder: (context, snapshot) {
@@ -127,7 +127,9 @@ class _StoreFormScreenState extends State<StoreFormScreen> with ApiFormState {
                 SectionCard(
                   title: 'Magasin',
                   icon: Icons.storefront_outlined,
-                  child: Column(
+                  child: ResponsiveGrid(
+                    minItemWidth: 300,
+                    maxColumns: 3,
                     children: [
                       AppTextField(
                         label: 'Nom',
@@ -137,14 +139,12 @@ class _StoreFormScreenState extends State<StoreFormScreen> with ApiFormState {
                         validator: Validators.text(required: true, min: 2, max: 150),
                         helper: 'Ex. H109',
                       ),
-                      const SizedBox(height: Gaps.md),
                       AppTextField(
                         label: 'Adresse',
                         controller: _address,
                         errorText: errorFor('address'),
                         validator: Validators.text(required: false, max: 255),
                       ),
-                      const SizedBox(height: Gaps.md),
                       AppTextField(
                         label: 'Téléphone',
                         controller: _phone,

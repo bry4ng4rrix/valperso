@@ -85,7 +85,6 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
         final sale = snapshot.data;
         return DetailPage(
           title: sale?.number ?? 'Vente',
-          maxWidth: 1000,
           actions: [
             if (sale != null)
               IconButton(

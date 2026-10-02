@@ -80,3 +80,46 @@ class TwoColumns extends StatelessWidget {
     );
   }
 }
+
+/// Sections d'un écran : empilées sur mobile, réparties en colonnes sur grand écran
+/// (chaque section garde sa hauteur naturelle ; l'ordre de lecture est gauche → droite).
+class SectionColumns extends StatelessWidget {
+  const SectionColumns({
+    super.key,
+    required this.children,
+    this.minColumnWidth = 440,
+    this.maxColumns = 2,
+    this.spacing = Gaps.lg,
+  });
+
+  final List<Widget> children;
+  final double minColumnWidth;
+  final int maxColumns;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fit = ((constraints.maxWidth + spacing) / (minColumnWidth + spacing)).floor();
+        final columns = math.max(1, math.min(math.min(maxColumns, fit), children.length));
+        Widget column(Iterable<Widget> items) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (index, item) in items.indexed) ...[if (index > 0) SizedBox(height: spacing), item],
+          ],
+        );
+        if (columns == 1) return column(children);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var c = 0; c < columns; c++) ...[
+              if (c > 0) SizedBox(width: spacing),
+              Expanded(child: column([for (var i = c; i < children.length; i += columns) children[i]])),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}

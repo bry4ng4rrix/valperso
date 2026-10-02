@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.permissions import PermissionCode, RoleName
+from app.repositories import stock_repository
 from app.models import AuditLog, Stock, StockMovement, StockTransfer
 from app.services import audit_service
 
@@ -55,10 +56,28 @@ def test_transfer_10_of_10_moves_everything(client, factory, admin_headers, shop
     assert response.json()["stock_levels"][0]["source_quantity"] == 0
     assert response.json()["stock_levels"][0]["destination_quantity"] == 10
     assert global_stock(db, product) == 10  # stock déplacé, pas perdu
+    # Le produit a quitté le Stock Local : pas de ligne « épuisé » dans un magasin qui ne le détient plus.
     out = client.get(
         "/api/v1/stock/out-of-stock", headers=admin_headers, params={"store_id": factory.central_store().id}
     )
-    assert [line["product"]["id"] for line in out.json()["items"]] == [product.id]
+    assert out.json()["items"] == []
+    assert stock_repository.get_line(db, factory.central_store().id, product.id) is None
+
+
+def test_full_transfer_then_return_recreates_the_line(client, factory, admin_headers, shop, product, db):
+    transfer(client, admin_headers, shop, (product, 10))
+    back = client.post(
+        "/api/v1/stock-transfers",
+        headers=admin_headers,
+        json={
+            "source_store_id": shop.id,
+            "destination_store_id": factory.central_store().id,
+            "items": [{"product_id": product.id, "quantity": 4}],
+        },
+    )
+    assert back.status_code == 201, back.json()
+    assert factory.quantity(factory.central_store(), product) == 4
+    assert factory.quantity(shop, product) == 6
 
 
 def test_transfer_11_of_10_is_refused_and_changes_nothing(client, factory, admin_headers, shop, product, db):
@@ -159,6 +178,7 @@ def test_cancel_transfer_moves_stock_back(client, factory, admin_headers, shop, 
     assert response.status_code == 200 and response.json()["status"] == "CANCELLED"
     assert factory.quantity(factory.central_store(), product) == 10
     assert factory.quantity(shop, product) == 0
+    assert stock_repository.get_line(db, shop.id, product.id) is None, "la destination ne garde pas de ligne vide"
     assert again.status_code == 400
 
 

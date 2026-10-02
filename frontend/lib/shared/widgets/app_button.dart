@@ -100,6 +100,15 @@ class _AppButtonState extends State<AppButton> {
       AppButtonVariant.secondary => OutlinedButton.icon(onPressed: onPressed, icon: icon, label: label),
       AppButtonVariant.text => TextButton.icon(onPressed: onPressed, icon: icon, label: label),
     };
-    return widget.expand ? SizedBox(width: double.infinity, child: button) : button;
+    if (!widget.expand) return button;
+    // Toute la largeur sur mobile ; sur grand écran, taille normale alignée à droite.
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth <= 640
+          ? SizedBox(width: double.infinity, child: button)
+          : Align(
+              alignment: Alignment.centerRight,
+              child: ConstrainedBox(constraints: const BoxConstraints(minWidth: 280), child: button),
+            ),
+    );
   }
 }

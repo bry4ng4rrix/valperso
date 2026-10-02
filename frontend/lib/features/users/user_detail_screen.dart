@@ -17,6 +17,7 @@ import '../stores/store_models.dart';
 import '../stores/stores_repository.dart';
 import 'user_models.dart';
 import 'users_repository.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 /// Fiche utilisateur : informations, rôle, magasin et statut (chaque changement est confirmé).
 class UserDetailScreen extends StatefulWidget {
@@ -139,7 +140,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         final isMe = user?.id == me.id;
         return DetailPage(
           title: user?.fullName ?? 'Utilisateur',
-          maxWidth: 760,
           actions: [
             if (user != null && canUpdate)
               IconButton(
@@ -158,52 +158,55 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               : ListView(
                   padding: const EdgeInsets.all(Gaps.lg),
                   children: [
-                    SectionCard(
-                      title: 'Informations',
-                      icon: Icons.person_outline,
-                      trailing: Badges.active(user.isActive),
-                      child: Column(
-                        children: [
-                          InfoRow(label: 'Nom', value: user.fullName),
-                          InfoRow(label: 'Identifiant', value: user.username.toLowerCase()),
-                          InfoRow(label: 'Email', value: user.email ?? '—'),
-                          InfoRow(label: 'Téléphone', value: user.phone ?? '—'),
-                          InfoRow(label: 'Créé le', value: Formats.date(user.createdAt)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: Gaps.lg),
-                    SectionCard(
-                      title: 'Accès',
-                      icon: Icons.admin_panel_settings_outlined,
-                      child: Column(
-                        children: [
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Rôle'),
-                            subtitle: Align(alignment: Alignment.centerLeft, child: Badges.role(user.role.name)),
-                            trailing: canUpdate && !isMe
-                                ? TextButton(onPressed: () => _changeRole(user), child: const Text('Changer'))
-                                : null,
+                    SectionColumns(
+                      children: [
+                        SectionCard(
+                          title: 'Informations',
+                          icon: Icons.person_outline,
+                          trailing: Badges.active(user.isActive),
+                          child: Column(
+                            children: [
+                              InfoRow(label: 'Nom', value: user.fullName),
+                              InfoRow(label: 'Identifiant', value: user.username.toLowerCase()),
+                              InfoRow(label: 'Email', value: user.email ?? '—'),
+                              InfoRow(label: 'Téléphone', value: user.phone ?? '—'),
+                              InfoRow(label: 'Créé le', value: Formats.date(user.createdAt)),
+                            ],
                           ),
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Magasin'),
-                            subtitle: Text(user.storeLabel),
-                            trailing: canUpdate && me.can(Perm.storeView)
-                                ? TextButton(onPressed: () => _changeStore(user), child: const Text('Changer'))
-                                : null,
-                          ),
-                          if (isMe)
-                            Padding(
-                              padding: const EdgeInsets.only(top: Gaps.sm),
-                              child: Text(
-                                'Vous ne pouvez pas changer votre propre rôle ni désactiver votre compte.',
-                                style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        SectionCard(
+                          title: 'Accès',
+                          icon: Icons.admin_panel_settings_outlined,
+                          child: Column(
+                            children: [
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Rôle'),
+                                subtitle: Align(alignment: Alignment.centerLeft, child: Badges.role(user.role.name)),
+                                trailing: canUpdate && !isMe
+                                    ? TextButton(onPressed: () => _changeRole(user), child: const Text('Changer'))
+                                    : null,
                               ),
-                            ),
-                        ],
-                      ),
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Magasin'),
+                                subtitle: Text(user.storeLabel),
+                                trailing: canUpdate && me.can(Perm.storeView)
+                                    ? TextButton(onPressed: () => _changeStore(user), child: const Text('Changer'))
+                                    : null,
+                              ),
+                              if (isMe)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: Gaps.sm),
+                                  child: Text(
+                                    'Vous ne pouvez pas changer votre propre rôle ni désactiver votre compte.',
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     if (canUpdate && !isMe) ...[
                       const SizedBox(height: Gaps.xl),

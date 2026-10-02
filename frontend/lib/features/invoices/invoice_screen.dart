@@ -36,7 +36,6 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         final invoice = snapshot.data;
         return DetailPage(
           title: invoice == null ? 'Facture' : 'Facture ${invoice.number}',
-          maxWidth: 820,
           bottomBar: invoice == null
               ? null
               : SafeArea(

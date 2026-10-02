@@ -20,6 +20,7 @@ import '../sales/sale_models.dart';
 import '../sales/sale_widgets.dart';
 import 'customer_models.dart';
 import 'customers_repository.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 class _CustomerDetail {
   const _CustomerDetail(this.customer, this.debts, this.sales);
@@ -75,7 +76,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final detail = snapshot.data;
         return DetailPage(
           title: detail?.customer.fullName ?? 'Client',
-          maxWidth: 860,
           child: snapshot.hasError
               ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
               : detail == null
@@ -135,97 +135,100 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           ),
         ),
         const SizedBox(height: Gaps.lg),
-        SectionCard(
-          title: 'Dettes',
-          icon: Icons.account_balance_wallet_outlined,
-          trailing: Text(
-            Formats.money(debts.totalDebt),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: debts.totalDebt > 0 ? AppColors.danger : AppColors.success,
-            ),
-          ),
-          child: debts.sales.isEmpty
-              ? const Text('Aucune dette : toutes les ventes sont soldées.')
-              : Column(
-                  children: [
-                    for (final sale in debts.sales)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Gaps.sm),
-                        child: AppCard(
-                          padding: const EdgeInsets.all(Gaps.md),
-                          onTap: () => context.push('/sales/${sale.id}'),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+        SectionColumns(
+          children: [
+            SectionCard(
+              title: 'Dettes',
+              icon: Icons.account_balance_wallet_outlined,
+              trailing: Text(
+                Formats.money(debts.totalDebt),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: debts.totalDebt > 0 ? AppColors.danger : AppColors.success,
+                ),
+              ),
+              child: debts.sales.isEmpty
+                  ? const Text('Aucune dette : toutes les ventes sont soldées.')
+                  : Column(
+                      children: [
+                        for (final sale in debts.sales)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: Gaps.sm),
+                            child: AppCard(
+                              padding: const EdgeInsets.all(Gaps.md),
+                              onTap: () => context.push('/sales/${sale.id}'),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: Text(sale.number, style: theme.textTheme.titleSmall)),
-                                  Badges.paymentStatus(sale.paymentStatus.code),
-                                ],
-                              ),
-                              const SizedBox(height: Gaps.xs),
-                              Text(
-                                '${Formats.date(sale.createdAt)} · ${sale.store.label} · total ${Formats.money(sale.total)}'
-                                ' · payé ${Formats.money(sale.amountPaid)}',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: Gaps.sm),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Reste ${Formats.money(sale.remainingAmount)}',
-                                          style: theme.textTheme.titleSmall?.copyWith(color: AppColors.danger),
-                                        ),
-                                        if (sale.dueDate != null)
-                                          Text(
-                                            'Échéance ${Formats.date(sale.dueDate)}${sale.isOverdue ? ' (dépassée)' : ''}',
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              color: sale.isOverdue ? AppColors.danger : null,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
+                                  Row(
+                                    children: [
+                                      Expanded(child: Text(sale.number, style: theme.textTheme.titleSmall)),
+                                      Badges.paymentStatus(sale.paymentStatus.code),
+                                    ],
                                   ),
-                                  if (user.can(Perm.paymentCreate))
-                                    FilledButton.tonalIcon(
-                                      onPressed: () => _collect(sale, customer),
-                                      icon: const Icon(Icons.payments_outlined, size: 18),
-                                      label: const Text('Encaisser'),
-                                    ),
+                                  const SizedBox(height: Gaps.xs),
+                                  Text(
+                                    '${Formats.date(sale.createdAt)} · ${sale.store.label} · total ${Formats.money(sale.total)}'
+                                    ' · payé ${Formats.money(sale.amountPaid)}',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(height: Gaps.sm),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Reste ${Formats.money(sale.remainingAmount)}',
+                                              style: theme.textTheme.titleSmall?.copyWith(color: AppColors.danger),
+                                            ),
+                                            if (sale.dueDate != null)
+                                              Text(
+                                                'Échéance ${Formats.date(sale.dueDate)}${sale.isOverdue ? ' (dépassée)' : ''}',
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: sale.isOverdue ? AppColors.danger : null,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (user.can(Perm.paymentCreate))
+                                        FilledButton.tonalIcon(
+                                          onPressed: () => _collect(sale, customer),
+                                          icon: const Icon(Icons.payments_outlined, size: 18),
+                                          label: const Text('Encaisser'),
+                                        ),
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                  ],
-                ),
-        ),
-        const SizedBox(height: Gaps.lg),
-        SectionCard(
-          title: 'Achats (${detail.sales.total})',
-          icon: Icons.receipt_long_outlined,
-          trailing: detail.sales.total > detail.sales.items.length
-              ? TextButton(
-                  onPressed: () => context.go('/sales?customer_id=${customer.id}'),
-                  child: const Text('Tout voir'),
-                )
-              : null,
-          child: detail.sales.items.isEmpty
-              ? const Text('Aucun achat.')
-              : Column(
-                  children: [
-                    for (final sale in detail.sales.items)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Gaps.sm),
-                        child: SaleCard(sale: sale, onTap: () => context.push('/sales/${sale.id}')),
-                      ),
-                  ],
-                ),
+                      ],
+                    ),
+            ),
+            SectionCard(
+              title: 'Achats (${detail.sales.total})',
+              icon: Icons.receipt_long_outlined,
+              trailing: detail.sales.total > detail.sales.items.length
+                  ? TextButton(
+                      onPressed: () => context.go('/sales?customer_id=${customer.id}'),
+                      child: const Text('Tout voir'),
+                    )
+                  : null,
+              child: detail.sales.items.isEmpty
+                  ? const Text('Aucun achat.')
+                  : Column(
+                      children: [
+                        for (final sale in detail.sales.items)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: Gaps.sm),
+                            child: SaleCard(sale: sale, onTap: () => context.push('/sales/${sale.id}')),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
         ),
       ],
     );

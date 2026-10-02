@@ -73,6 +73,8 @@ class ProductUpdate(UpdateModel):
 
 
 class ProductFilters(PageQuery):
-    search: str | None = Field(None, max_length=100, description="Recherche sur la référence ou le nom")
+    search: str | None = Field(
+        None, max_length=100, description="Nom, référence, catégorie, ou prix exact (ex. 200000 ou 200 000)"
+    )
     category_id: int | None = None
     is_active: bool | None = None

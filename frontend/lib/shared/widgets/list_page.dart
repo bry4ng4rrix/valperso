@@ -151,21 +151,13 @@ class ListPage extends StatelessWidget {
   String _count(int total) => countLabel?.call(total) ?? '$total résultat${total > 1 ? 's' : ''}';
 }
 
-/// Écran de détail ou de formulaire : barre de titre + contenu centré et limité en largeur.
+/// Écran de détail ou de formulaire : barre de titre + contenu sur toute la largeur de l'écran.
 class DetailPage extends StatelessWidget {
-  const DetailPage({
-    super.key,
-    required this.title,
-    required this.child,
-    this.actions = const [],
-    this.maxWidth = 960,
-    this.bottomBar,
-  });
+  const DetailPage({super.key, required this.title, required this.child, this.actions = const [], this.bottomBar});
 
   final String title;
   final Widget child;
   final List<Widget> actions;
-  final double maxWidth;
   final Widget? bottomBar;
 
   @override
@@ -173,13 +165,7 @@ class DetailPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(title), actions: actions),
       bottomNavigationBar: bottomBar,
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: child,
-        ),
-      ),
+      body: child,
     );
   }
 }

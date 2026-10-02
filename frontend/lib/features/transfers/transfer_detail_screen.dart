@@ -14,6 +14,7 @@ import '../../shared/widgets/states.dart';
 import '../../shared/widgets/status_badge.dart';
 import 'transfer_models.dart';
 import 'transfers_repository.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 class TransferDetailScreen extends StatefulWidget {
   const TransferDetailScreen({super.key, required this.transferId});
@@ -61,7 +62,6 @@ class _TransferDetailScreenState extends State<TransferDetailScreen> {
         final transfer = snapshot.data;
         return DetailPage(
           title: transfer?.reference ?? 'Transfert',
-          maxWidth: 760,
           child: snapshot.hasError
               ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
               : transfer == null
@@ -69,25 +69,28 @@ class _TransferDetailScreenState extends State<TransferDetailScreen> {
               : ListView(
                   padding: const EdgeInsets.all(Gaps.lg),
                   children: [
-                    SectionCard(
-                      title: 'Transfert',
-                      icon: Icons.swap_horiz,
-                      trailing: Badges.transferStatus(transfer.status),
-                      child: Column(
-                        children: [
-                          InfoRow(label: 'Source', value: transfer.source.label),
-                          InfoRow(label: 'Destination', value: transfer.destination.label),
-                          InfoRow(label: 'Date', value: Formats.dateTime(transfer.createdAt)),
-                          InfoRow(label: 'Créé par', value: transfer.creator.fullName),
-                          InfoRow(label: 'Quantité totale', value: Formats.quantity(transfer.totalQuantity)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: Gaps.lg),
-                    SectionCard(
-                      title: 'Produits transférés',
-                      icon: Icons.inventory_2_outlined,
-                      child: _ItemsList(items: transfer.items),
+                    SectionColumns(
+                      children: [
+                        SectionCard(
+                          title: 'Transfert',
+                          icon: Icons.swap_horiz,
+                          trailing: Badges.transferStatus(transfer.status),
+                          child: Column(
+                            children: [
+                              InfoRow(label: 'Source', value: transfer.source.label),
+                              InfoRow(label: 'Destination', value: transfer.destination.label),
+                              InfoRow(label: 'Date', value: Formats.dateTime(transfer.createdAt)),
+                              InfoRow(label: 'Créé par', value: transfer.creator.fullName),
+                              InfoRow(label: 'Quantité totale', value: Formats.quantity(transfer.totalQuantity)),
+                            ],
+                          ),
+                        ),
+                        SectionCard(
+                          title: 'Produits transférés',
+                          icon: Icons.inventory_2_outlined,
+                          child: _ItemsList(items: transfer.items),
+                        ),
+                      ],
                     ),
                     if (!transfer.isCancelled && user.can(Perm.transferCancel)) ...[
                       const SizedBox(height: Gaps.xl),

@@ -12,6 +12,7 @@ import '../../core/widgets/confirmation_dialog.dart';
 import '../../shared/utils/api_form.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/list_page.dart';
+import '../../shared/widgets/responsive_grid.dart';
 import '../../shared/widgets/states.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../stock/stock_models.dart';
@@ -85,7 +86,6 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
         final store = snapshot.data;
         return DetailPage(
           title: store?.label ?? 'Magasin',
-          maxWidth: 860,
           actions: [
             if (store != null && user.can(Perm.storeUpdate))
               IconButton(
@@ -113,76 +113,83 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
               : ListView(
                   padding: const EdgeInsets.all(Gaps.lg),
                   children: [
-                    SectionCard(
-                      title: 'Informations',
-                      icon: store.isCentral ? Icons.warehouse : Icons.storefront,
-                      trailing: store.isCentral
-                          ? const StatusBadge('Stock central', tone: BadgeTone.primary)
-                          : Badges.active(store.isActive),
-                      child: Column(
-                        children: [
-                          InfoRow(label: 'Nom', value: store.label),
-                          InfoRow(label: 'Adresse', value: Formats.title(store.address ?? '—')),
-                          InfoRow(label: 'Téléphone', value: store.phone ?? '—'),
+                    SectionColumns(
+                      minColumnWidth: 380,
+                      maxColumns: 3,
+                      children: [
+                        SectionCard(
+                          title: 'Informations',
+                          icon: store.isCentral ? Icons.warehouse : Icons.storefront,
+                          trailing: store.isCentral
+                              ? const StatusBadge('Stock central', tone: BadgeTone.primary)
+                              : Badges.active(store.isActive),
+                          child: Column(
+                            children: [
+                              InfoRow(label: 'Nom', value: store.label),
+                              InfoRow(label: 'Adresse', value: Formats.title(store.address ?? '—')),
+                              InfoRow(label: 'Téléphone', value: store.phone ?? '—'),
+                            ],
+                          ),
+                        ),
+                        if (_value != null) ...[
+                          FutureBuilder<StockValueReport>(
+                            future: _value,
+                            builder: (context, snapshot) {
+                              final total = snapshot.data?.total;
+                              return SectionCard(
+                                title: 'Stock du magasin',
+                                icon: Icons.inventory_outlined,
+                                trailing: TextButton(
+                                  onPressed: () => context.go('/stock'),
+                                  child: const Text('Voir le stock'),
+                                ),
+                                child: total == null
+                                    ? const LinearProgressIndicator()
+                                    : Column(
+                                        children: [
+                                          InfoRow(label: 'Unités en stock', value: Formats.quantity(total.quantity)),
+                                          InfoRow(label: 'Valeur d\'achat', value: Formats.money(total.purchaseValue)),
+                                          InfoRow(label: 'Valeur de vente', value: Formats.money(total.saleValue)),
+                                          InfoRow(
+                                            label: 'Bénéfice potentiel',
+                                            value: Formats.money(total.potentialProfit),
+                                          ),
+                                        ],
+                                      ),
+                              );
+                            },
+                          ),
                         ],
-                      ),
+                        if (_employees != null) ...[
+                          FutureBuilder<Paged<AppUser>>(
+                            future: _employees,
+                            builder: (context, snapshot) {
+                              final employees = snapshot.data?.items;
+                              return SectionCard(
+                                title: 'Employés',
+                                icon: Icons.badge_outlined,
+                                child: employees == null
+                                    ? const LinearProgressIndicator()
+                                    : employees.isEmpty
+                                    ? const Text('Aucun employé. Affectez un vendeur depuis l\'écran Utilisateurs.')
+                                    : Column(
+                                        children: [
+                                          for (final employee in employees)
+                                            ListTile(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: Text(employee.fullName),
+                                              subtitle: Text(employee.username.toLowerCase()),
+                                              trailing: Badges.role(employee.role.name),
+                                              onTap: () => context.push('/users/${employee.id}'),
+                                            ),
+                                        ],
+                                      ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
                     ),
-                    if (_value != null) ...[
-                      const SizedBox(height: Gaps.lg),
-                      FutureBuilder<StockValueReport>(
-                        future: _value,
-                        builder: (context, snapshot) {
-                          final total = snapshot.data?.total;
-                          return SectionCard(
-                            title: 'Stock du magasin',
-                            icon: Icons.inventory_outlined,
-                            trailing: TextButton(
-                              onPressed: () => context.go('/stock'),
-                              child: const Text('Voir le stock'),
-                            ),
-                            child: total == null
-                                ? const LinearProgressIndicator()
-                                : Column(
-                                    children: [
-                                      InfoRow(label: 'Unités en stock', value: Formats.quantity(total.quantity)),
-                                      InfoRow(label: 'Valeur d\'achat', value: Formats.money(total.purchaseValue)),
-                                      InfoRow(label: 'Valeur de vente', value: Formats.money(total.saleValue)),
-                                      InfoRow(label: 'Bénéfice potentiel', value: Formats.money(total.potentialProfit)),
-                                    ],
-                                  ),
-                          );
-                        },
-                      ),
-                    ],
-                    if (_employees != null) ...[
-                      const SizedBox(height: Gaps.lg),
-                      FutureBuilder<Paged<AppUser>>(
-                        future: _employees,
-                        builder: (context, snapshot) {
-                          final employees = snapshot.data?.items;
-                          return SectionCard(
-                            title: 'Employés',
-                            icon: Icons.badge_outlined,
-                            child: employees == null
-                                ? const LinearProgressIndicator()
-                                : employees.isEmpty
-                                ? const Text('Aucun employé. Affectez un vendeur depuis l\'écran Utilisateurs.')
-                                : Column(
-                                    children: [
-                                      for (final employee in employees)
-                                        ListTile(
-                                          contentPadding: EdgeInsets.zero,
-                                          title: Text(employee.fullName),
-                                          subtitle: Text(employee.username.toLowerCase()),
-                                          trailing: Badges.role(employee.role.name),
-                                          onTap: () => context.push('/users/${employee.id}'),
-                                        ),
-                                    ],
-                                  ),
-                          );
-                        },
-                      ),
-                    ],
                   ],
                 ),
         );

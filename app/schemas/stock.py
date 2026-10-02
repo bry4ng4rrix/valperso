@@ -75,7 +75,9 @@ class StockFilters(PageQuery):
     category_id: int | None = None
     low_stock: bool | None = None
     out_of_stock: bool | None = None
-    search: str | None = Field(None, max_length=100, description="Référence ou nom du produit")
+    search: str | None = Field(
+        None, max_length=100, description="Nom, référence, catégorie, ou prix exact du produit"
+    )
 
 
 class StockAlertFilters(Pagination):

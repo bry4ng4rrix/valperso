@@ -11,6 +11,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/list_page.dart';
 import 'customers_repository.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 /// Nouveau client. Le téléphone devient obligatoire pour une vente avec avance ou à crédit.
 class CustomerFormScreen extends StatefulWidget {
@@ -52,7 +53,6 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> with ApiFormSta
   Widget build(BuildContext context) {
     return DetailPage(
       title: 'Nouveau client',
-      maxWidth: Sizes.formMaxWidth,
       child: Form(
         key: _formKey,
         child: ListView(
@@ -61,7 +61,9 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> with ApiFormSta
             SectionCard(
               title: 'Coordonnées',
               icon: Icons.person_outline,
-              child: Column(
+              child: ResponsiveGrid(
+                minItemWidth: 300,
+                maxColumns: 3,
                 children: [
                   AppTextField(
                     label: 'Prénom',
@@ -70,7 +72,6 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> with ApiFormSta
                     errorText: errorFor('first_name'),
                     validator: Validators.text(required: true, max: 100),
                   ),
-                  const SizedBox(height: Gaps.md),
                   AppTextField(
                     label: 'Nom',
                     controller: _lastName,
@@ -78,7 +79,6 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> with ApiFormSta
                     errorText: errorFor('last_name'),
                     validator: Validators.text(required: true, max: 100),
                   ),
-                  const SizedBox(height: Gaps.md),
                   AppTextField(
                     label: 'Téléphone',
                     controller: _phone,

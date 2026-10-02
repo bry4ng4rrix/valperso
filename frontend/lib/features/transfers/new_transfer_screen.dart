@@ -16,6 +16,7 @@ import '../../shared/utils/api_form.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/list_page.dart';
+import '../../shared/widgets/responsive_grid.dart';
 import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/store_selector.dart';
 import '../stock/stock_models.dart';
@@ -156,7 +157,6 @@ class _NewTransferScreenState extends State<NewTransferScreen> {
     final result = _result;
     return DetailPage(
       title: result == null ? 'Nouveau transfert' : 'Transfert effectué',
-      maxWidth: 820,
       child: result == null ? _form() : _ResultView(transfer: result, onNew: _reset),
     );
   }
@@ -179,147 +179,163 @@ class _NewTransferScreenState extends State<NewTransferScreen> {
     return ListView(
       padding: const EdgeInsets.all(Gaps.lg),
       children: [
-        SectionCard(
-          title: '1. Magasins',
-          icon: Icons.storefront_outlined,
-          child: Column(
+        TwoColumns(
+          breakpoint: 900,
+          left: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_user.canChooseStore)
-                StoreSelector(label: 'Magasin source', value: source?.id, onChanged: (store) => _setSource(store?.ref))
-              else
-                InfoRow(label: 'Magasin source', value: source?.label ?? 'Aucun magasin affecté'),
-              const SizedBox(height: Gaps.md),
-              StoreSelector(
-                label: 'Magasin de destination',
-                value: _destination?.id,
-                excludeId: source?.id,
-                onChanged: (store) => setState(() => _destination = store?.ref),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: Gaps.lg),
-        SectionCard(
-          title: '2. Produits à transférer',
-          icon: Icons.inventory_2_outlined,
-          child: source == null
-              ? const Text('Choisissez d\'abord le magasin source.')
-              : Column(
+              SectionCard(
+                title: '1. Magasins',
+                icon: Icons.storefront_outlined,
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    AppSearchField(
-                      hint: 'Rechercher un produit de ${source.label}',
-                      onChanged: (term) => setState(() {
-                        _term = term;
-                        _runSearch();
-                      }),
-                    ),
-                    const SizedBox(height: Gaps.sm),
-                    FutureBuilder<Paged<StockLine>>(
-                      future: _search,
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) return const Text('Recherche impossible.');
-                        if (!snapshot.hasData) return const LinearProgressIndicator();
-                        final results = snapshot.data!.items;
-                        if (results.isEmpty) {
-                          return const Padding(padding: EdgeInsets.all(Gaps.md), child: Text('Aucun produit.'));
-                        }
-                        return Column(
-                          children: [
-                            for (final stock in results)
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                dense: true,
-                                title: Text(stock.product.label),
-                                subtitle: Text(
-                                  '${stock.product.reference.toUpperCase()} · disponible : ${stock.quantity}',
-                                ),
-                                trailing: _lines.containsKey(stock.product.id)
-                                    ? const Icon(Icons.check, color: AppColors.success)
-                                    : stock.quantity <= 0
-                                    ? const Text('Épuisé', style: TextStyle(color: AppColors.danger))
-                                    : IconButton(
-                                        tooltip: 'Ajouter',
-                                        onPressed: () => _add(stock),
-                                        icon: const Icon(Icons.add_circle_outline),
-                                      ),
-                              ),
-                          ],
-                        );
-                      },
+                    if (_user.canChooseStore)
+                      StoreSelector(
+                        label: 'Magasin source',
+                        value: source?.id,
+                        onChanged: (store) => _setSource(store?.ref),
+                      )
+                    else
+                      InfoRow(label: 'Magasin source', value: source?.label ?? 'Aucun magasin affecté'),
+                    const SizedBox(height: Gaps.md),
+                    StoreSelector(
+                      label: 'Magasin de destination',
+                      value: _destination?.id,
+                      excludeId: source?.id,
+                      onChanged: (store) => setState(() => _destination = store?.ref),
                     ),
                   ],
                 ),
-        ),
-        const SizedBox(height: Gaps.lg),
-        SectionCard(
-          title: '3. Quantités (${_lines.length})',
-          icon: Icons.format_list_numbered,
-          child: _lines.isEmpty
-              ? const Text('Aucun produit sélectionné.')
-              : Column(
-                  children: [
-                    for (final line in _lines.values)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Gaps.md),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
+              ),
+              const SizedBox(height: Gaps.lg),
+              SectionCard(
+                title: '2. Produits à transférer',
+                icon: Icons.inventory_2_outlined,
+                child: source == null
+                    ? const Text('Choisissez d\'abord le magasin source.')
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          AppSearchField(
+                            hint: 'Rechercher un produit de ${source.label}',
+                            onChanged: (term) => setState(() {
+                              _term = term;
+                              _runSearch();
+                            }),
+                          ),
+                          const SizedBox(height: Gaps.sm),
+                          FutureBuilder<Paged<StockLine>>(
+                            future: _search,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasError) return const Text('Recherche impossible.');
+                              if (!snapshot.hasData) return const LinearProgressIndicator();
+                              final results = snapshot.data!.items;
+                              if (results.isEmpty) {
+                                return const Padding(padding: EdgeInsets.all(Gaps.md), child: Text('Aucun produit.'));
+                              }
+                              return Column(
+                                children: [
+                                  for (final stock in results)
+                                    ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      dense: true,
+                                      title: Text(stock.product.label),
+                                      subtitle: Text(
+                                        '${stock.product.reference.toUpperCase()} · disponible : ${stock.quantity}',
+                                      ),
+                                      trailing: _lines.containsKey(stock.product.id)
+                                          ? const Icon(Icons.check, color: AppColors.success)
+                                          : stock.quantity <= 0
+                                          ? const Text('Épuisé', style: TextStyle(color: AppColors.danger))
+                                          : IconButton(
+                                              tooltip: 'Ajouter',
+                                              onPressed: () => _add(stock),
+                                              icon: const Icon(Icons.add_circle_outline),
+                                            ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+          right: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SectionCard(
+                title: '3. Quantités (${_lines.length})',
+                icon: Icons.format_list_numbered,
+                child: _lines.isEmpty
+                    ? const Text('Aucun produit sélectionné.')
+                    : Column(
+                        children: [
+                          for (final line in _lines.values)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: Gaps.md),
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(line.stock.product.label, style: theme.textTheme.titleSmall),
-                                  Text(
-                                    'Source : ${line.stock.quantity} → ${line.stock.quantity - line.value}'
-                                    '${line.value == line.stock.quantity ? ' (épuisé dans la source)' : ''}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: line.isValid ? null : AppColors.danger,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(line.stock.product.label, style: theme.textTheme.titleSmall),
+                                        Text(
+                                          'Source : ${line.stock.quantity} → ${line.stock.quantity - line.value}'
+                                          '${line.value == line.stock.quantity ? ' (épuisé dans la source)' : ''}',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: line.isValid ? null : AppColors.danger,
+                                          ),
+                                        ),
+                                      ],
                                     ),
+                                  ),
+                                  const SizedBox(width: Gaps.sm),
+                                  SizedBox(
+                                    width: 110,
+                                    child: TextField(
+                                      controller: line.quantity,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      decoration: InputDecoration(
+                                        labelText: 'Quantité',
+                                        isDense: true,
+                                        errorText: line.isValid ? null : 'Max ${line.stock.quantity}',
+                                      ),
+                                      onChanged: (_) => setState(() {}),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Tout transférer',
+                                    onPressed: () => setState(() => line.quantity.text = '${line.stock.quantity}'),
+                                    icon: const Icon(Icons.vertical_align_top),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Retirer',
+                                    onPressed: () => _remove(line.stock.product.id),
+                                    icon: const Icon(Icons.delete_outline, color: AppColors.danger),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: Gaps.sm),
-                            SizedBox(
-                              width: 110,
-                              child: TextField(
-                                controller: line.quantity,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                decoration: InputDecoration(
-                                  labelText: 'Quantité',
-                                  isDense: true,
-                                  errorText: line.isValid ? null : 'Max ${line.stock.quantity}',
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Tout transférer',
-                              onPressed: () => setState(() => line.quantity.text = '${line.stock.quantity}'),
-                              icon: const Icon(Icons.vertical_align_top),
-                            ),
-                            IconButton(
-                              tooltip: 'Retirer',
-                              onPressed: () => _remove(line.stock.product.id),
-                              icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
-                  ],
+              ),
+              if (_lines.isNotEmpty && _destination != null && source != null) ...[
+                const SizedBox(height: Gaps.lg),
+                SectionCard(
+                  title: '4. Récapitulatif',
+                  icon: Icons.fact_check_outlined,
+                  child: _Summary(lines: _lines.values.toList(), source: source, destination: _destination!),
                 ),
-        ),
-        if (_lines.isNotEmpty && _destination != null && source != null) ...[
-          const SizedBox(height: Gaps.lg),
-          SectionCard(
-            title: '4. Récapitulatif',
-            icon: Icons.fact_check_outlined,
-            child: _Summary(lines: _lines.values.toList(), source: source, destination: _destination!),
+              ],
+            ],
           ),
-        ],
+        ),
         const SizedBox(height: Gaps.xl),
         AppButton(
           label: 'Valider le transfert',

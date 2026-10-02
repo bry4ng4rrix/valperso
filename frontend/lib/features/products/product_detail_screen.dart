@@ -215,63 +215,66 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         if (user.can(Perm.stockView)) ...[
           const SizedBox(height: Gaps.lg),
-          SectionCard(
-            title: 'Stock par magasin',
-            icon: Icons.storefront_outlined,
-            trailing: user.canCreateTransfer && product.isActive
-                ? TextButton.icon(
-                    onPressed: () => context.push('/transfers/new?product=${product.id}'),
-                    icon: const Icon(Icons.swap_horiz, size: 18),
-                    label: const Text('Transférer'),
-                  )
-                : null,
-            child: detail.lines.isEmpty
-                ? const Text('Ce produit n\'est présent dans aucun magasin.')
-                : Column(
-                    children: [
-                      for (final line in detail.lines)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(line.store.label),
-                          subtitle: Text('Seuil d\'alerte : ${line.alertThreshold}'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(Formats.quantity(line.quantity), style: theme.textTheme.titleMedium),
-                              const SizedBox(width: Gaps.sm),
-                              Badges.stock(outOfStock: line.outOfStock, lowStock: line.lowStock),
-                              if (operations.isNotEmpty || user.can(Perm.stockAdjust))
-                                PopupMenuButton<String>(
-                                  tooltip: 'Actions',
-                                  onSelected: (action) async {
-                                    final changed = action == 'threshold'
-                                        ? await showThresholdDialog(context, line)
-                                        : await showStockOperationSheet(context, line: line);
-                                    if (changed && mounted) _reload();
-                                  },
-                                  itemBuilder: (_) => [
-                                    if (operations.isNotEmpty)
-                                      const PopupMenuItem(value: 'operation', child: Text('Opération de stock')),
-                                    if (user.can(Perm.stockAdjust))
-                                      const PopupMenuItem(
-                                        value: 'threshold',
-                                        child: Text('Modifier le seuil d\'alerte'),
-                                      ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-          ),
-          const SizedBox(height: Gaps.lg),
-          SectionCard(
-            title: 'Derniers mouvements',
-            icon: Icons.history,
-            child: detail.movements.isEmpty
-                ? const Text('Aucun mouvement.')
-                : Column(children: [for (final movement in detail.movements) MovementTile(movement: movement)]),
+          SectionColumns(
+            children: [
+              SectionCard(
+                title: 'Stock par magasin',
+                icon: Icons.storefront_outlined,
+                trailing: user.canCreateTransfer && product.isActive
+                    ? TextButton.icon(
+                        onPressed: () => context.push('/transfers/new?product=${product.id}'),
+                        icon: const Icon(Icons.swap_horiz, size: 18),
+                        label: const Text('Transférer'),
+                      )
+                    : null,
+                child: detail.lines.isEmpty
+                    ? const Text('Ce produit n\'est présent dans aucun magasin.')
+                    : Column(
+                        children: [
+                          for (final line in detail.lines)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(line.store.label),
+                              subtitle: Text('Seuil d\'alerte : ${line.alertThreshold}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(Formats.quantity(line.quantity), style: theme.textTheme.titleMedium),
+                                  const SizedBox(width: Gaps.sm),
+                                  Badges.stock(outOfStock: line.outOfStock, lowStock: line.lowStock),
+                                  if (operations.isNotEmpty || user.can(Perm.stockAdjust))
+                                    PopupMenuButton<String>(
+                                      tooltip: 'Actions',
+                                      onSelected: (action) async {
+                                        final changed = action == 'threshold'
+                                            ? await showThresholdDialog(context, line)
+                                            : await showStockOperationSheet(context, line: line);
+                                        if (changed && mounted) _reload();
+                                      },
+                                      itemBuilder: (_) => [
+                                        if (operations.isNotEmpty)
+                                          const PopupMenuItem(value: 'operation', child: Text('Opération de stock')),
+                                        if (user.can(Perm.stockAdjust))
+                                          const PopupMenuItem(
+                                            value: 'threshold',
+                                            child: Text('Modifier le seuil d\'alerte'),
+                                          ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+              SectionCard(
+                title: 'Derniers mouvements',
+                icon: Icons.history,
+                child: detail.movements.isEmpty
+                    ? const Text('Aucun mouvement.')
+                    : Column(children: [for (final movement in detail.movements) MovementTile(movement: movement)]),
+              ),
+            ],
           ),
         ],
       ],

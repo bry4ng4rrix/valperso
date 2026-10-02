@@ -8,7 +8,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.models import Product, Stock, StockMovement, Store
-from app.repositories.base import PageResult, apply_sort, date_range_filter, paginate, search_filter
+from app.repositories import product_repository
+from app.repositories.base import PageResult, apply_sort, date_range_filter, paginate
 from app.schemas.stock import StockFilters, StockMovementFilters
 
 STOCK_SORT_FIELDS = {
@@ -80,7 +81,7 @@ def _stock_query(
     if category_id is not None:
         stmt = stmt.where(Product.category_id == category_id)
     if search:
-        stmt = stmt.where(search_filter(search, Product.reference, Product.name))
+        stmt = stmt.where(product_repository.search_condition(search))
     return stmt
 
 

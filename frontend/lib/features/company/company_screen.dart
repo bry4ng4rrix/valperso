@@ -17,6 +17,7 @@ import '../../shared/widgets/list_page.dart';
 import '../../shared/widgets/states.dart';
 import '../invoices/invoice_actions.dart';
 import 'company_repository.dart';
+import '../../shared/widgets/responsive_grid.dart';
 
 /// Informations de la société (en-tête des factures). Modification réservée à `company.update`,
 /// avec confirmation des changements. Les factures déjà émises ne changent pas.
@@ -113,7 +114,6 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
     final canEdit = context.watch<SessionController>().requireUser.can(Perm.companyUpdate);
     return DetailPage(
       title: 'Société',
-      maxWidth: Sizes.formMaxWidth,
       actions: [
         if (canEdit && !_editing && _company != null)
           IconButton(
@@ -188,7 +188,9 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
           SectionCard(
             title: 'Modifier',
             icon: Icons.edit_outlined,
-            child: Column(
+            child: ResponsiveGrid(
+              minItemWidth: 300,
+              maxColumns: 3,
               children: [
                 AppTextField(
                   label: 'Nom de la société',
@@ -197,7 +199,6 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
                   errorText: errorFor('name'),
                   validator: Validators.text(required: true, min: 2, max: 150),
                 ),
-                const SizedBox(height: Gaps.md),
                 AppTextField(
                   label: 'Logo (adresse web ou chemin /...)',
                   controller: _logo,
@@ -206,7 +207,6 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
                   validator: Validators.logoUrl,
                   helper: 'Ex. https://exemple.mg/logo.png',
                 ),
-                const SizedBox(height: Gaps.md),
                 AppTextField(
                   label: 'Téléphone',
                   controller: _phone,
@@ -214,7 +214,6 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
                   errorText: errorFor('phone'),
                   validator: Validators.phone,
                 ),
-                const SizedBox(height: Gaps.md),
                 AppTextField(
                   label: 'Email',
                   controller: _email,
@@ -222,14 +221,12 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
                   errorText: errorFor('email'),
                   validator: Validators.email,
                 ),
-                const SizedBox(height: Gaps.md),
                 AppTextField(
                   label: 'Adresse',
                   controller: _address,
                   errorText: errorFor('address'),
                   validator: Validators.text(required: false, max: 255),
                 ),
-                const SizedBox(height: Gaps.md),
                 AppTextField(
                   label: 'Ville',
                   controller: _city,

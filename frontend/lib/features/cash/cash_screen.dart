@@ -17,6 +17,7 @@ import '../../shared/widgets/export_button.dart';
 import '../../shared/widgets/filters.dart';
 import '../../shared/widgets/list_period_filter.dart';
 import '../../shared/widgets/paged_list_view.dart';
+import '../../shared/widgets/responsive_grid.dart';
 import '../../shared/widgets/states.dart';
 import '../../shared/widgets/store_selector.dart';
 import '../stores/store_models.dart';
@@ -110,7 +111,6 @@ class _CashScreenState extends State<CashScreen> with SingleTickerProviderStateM
 
   Widget _currentTab() {
     return PageBody(
-      maxWidth: 900,
       onRefresh: () async => _reload(),
       children: [
         const SizedBox(height: Gaps.lg),
@@ -201,42 +201,45 @@ class _CashScreenState extends State<CashScreen> with SingleTickerProviderStateM
   }
 
   Widget _openView(CashRegister register, String storeLabel) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SectionColumns(
       children: [
-        SectionCard(
-          title: 'Caisse ouverte',
-          icon: Icons.point_of_sale,
-          trailing: cashStatusBadge(register),
-          child: RegisterSummary(register: register, storeLabel: storeLabel),
-        ),
-        const SizedBox(height: Gaps.lg),
-        Wrap(
-          spacing: Gaps.md,
-          runSpacing: Gaps.md,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_user.can(Perm.cashTransaction))
-              FilledButton.tonalIcon(
-                onPressed: () async {
-                  final saved = await showCashTransactionDialog(context, register);
-                  if (saved && mounted) _reload();
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Opération de caisse'),
-              ),
-            if (_user.can(Perm.cashClose))
-              AppButton(
-                label: 'Fermer la caisse',
-                icon: Icons.lock_outline,
-                variant: AppButtonVariant.danger,
-                onPressed: () async {
-                  final closed = await showCloseRegisterDialog(context, register);
-                  if (closed != null && mounted) _reload();
-                },
-              ),
+            SectionCard(
+              title: 'Caisse ouverte',
+              icon: Icons.point_of_sale,
+              trailing: cashStatusBadge(register),
+              child: RegisterSummary(register: register, storeLabel: storeLabel),
+            ),
+            const SizedBox(height: Gaps.lg),
+            Wrap(
+              spacing: Gaps.md,
+              runSpacing: Gaps.md,
+              children: [
+                if (_user.can(Perm.cashTransaction))
+                  FilledButton.tonalIcon(
+                    onPressed: () async {
+                      final saved = await showCashTransactionDialog(context, register);
+                      if (saved && mounted) _reload();
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Opération de caisse'),
+                  ),
+                if (_user.can(Perm.cashClose))
+                  AppButton(
+                    label: 'Fermer la caisse',
+                    icon: Icons.lock_outline,
+                    variant: AppButtonVariant.danger,
+                    onPressed: () async {
+                      final closed = await showCloseRegisterDialog(context, register);
+                      if (closed != null && mounted) _reload();
+                    },
+                  ),
+              ],
+            ),
           ],
         ),
-        const SizedBox(height: Gaps.lg),
         SectionCard(
           title: 'Mouvements de la caisse',
           icon: Icons.receipt_long_outlined,
