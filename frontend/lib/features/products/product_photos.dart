@@ -107,12 +107,15 @@ class _ProductPhotosCardState extends State<ProductPhotosCard> {
       title: 'Photos (${images.length})',
       icon: Icons.photo_library_outlined,
       trailing: widget.canEdit
-          ? TextButton.icon(
-              onPressed: _busy ? null : _add,
-              icon: _busy
-                  ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.add_a_photo_outlined, size: 18),
-              label: const Text('Ajouter une photo'),
+          ? Tooltip(
+              message: 'Ajouter une photo',
+              child: TextButton.icon(
+                onPressed: _busy ? null : _add,
+                icon: _busy
+                    ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.add_a_photo_outlined, size: 18),
+                label: const Text('Ajouter'),
+              ),
             )
           : null,
       child: images.isEmpty

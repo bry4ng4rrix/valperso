@@ -18,6 +18,7 @@ import 'package:valmag/core/auth/auth_repository.dart';
 import 'package:valmag/core/auth/permissions.dart';
 import 'package:valmag/core/export/excel_export.dart';
 import 'package:valmag/core/storage/key_value_store.dart';
+import 'package:valmag/core/utils/media.dart';
 import 'package:valmag/core/utils/periods.dart';
 import 'package:valmag/features/audit/audit_repository.dart';
 import 'package:valmag/features/chat/chat_repository.dart';
@@ -153,6 +154,85 @@ void main() {
       expect(value.stores, isNotEmpty);
       final movements = await stock.movements(PageQuery(filters: {'product_id': line.product.id}));
       expect(movements.items.map((movement) => movement.type.code), containsAll(['TRANSFER_OUT', 'SALE']));
+    });
+
+    test('nouveautés : vente sans client, échéancier, descriptions, transferts, tableau de bord, photos', () async {
+      final (api, _) = await _login('valenciaraza@local.mg');
+      final stores = await StoresRepository(api).active();
+      final local = stores.first;
+      final h109 = stores.firstWhere((store) => store.label == 'H109');
+      final stock = StockRepository(api);
+      final localLines = await stock.lines(PageQuery(pageSize: 100, filters: {'store_id': local.id}));
+      final line = localLines.items.firstWhere((item) => item.quantity >= 6);
+      final sales = SalesRepository(api);
+
+      // Vente payée sans client : enregistrée au nom de « Client comptant ».
+      final cashCart = CartController()..setStore(local.ref);
+      cashCart.add(line.product, available: line.quantity);
+      expect(cashCart.isReady, isTrue, reason: cashCart.allErrors.join(', '));
+      final cashSale = await sales.create(cashCart.toNewSale(includeStore: true));
+      expect(cashSale.customer.fullName, 'Client Comptant');
+      expect(cashSale.paymentStatus, PaymentStatus.paid);
+
+      // Dette : description de l'article, avance, deux dates de remboursement.
+      final cart = CartController()..setStore(local.ref);
+      cart.add(line.product, available: line.quantity - 1);
+      cart.setQuantity(line.product.id, 2);
+      cart.setDescription(line.product.id, 'Taille M, noir');
+      cart.setCustomer(const CartCustomer.create(firstName: 'Echeance', lastName: 'Test', phone: '034 99 888 77'));
+      cart.setPayment(inFull: false, advance: (cart.total / 4).floorToDouble());
+      cart.addInstallment();
+      final [first, second] = cart.installments;
+      final today = DateTime.now();
+      cart.setInstallmentDate(first.id, today.add(const Duration(days: 10)));
+      cart.setInstallmentDate(second.id, today.add(const Duration(days: 40)));
+      expect(cart.isReady, isTrue, reason: cart.allErrors.join(', '));
+      final sale = await sales.create(cart.toNewSale(includeStore: true));
+      expect(sale.items.single.description, 'taille m, noir');
+      expect(sale.installments, hasLength(2));
+      expect(sale.installments.map((i) => i.status), everyElement(PaymentStatus.unpaid));
+      expect(sale.paymentDueDate, sale.installments.first.dueDate, reason: 'prochaine échéance');
+
+      // Paiement de la première date : elle est soldée, la prochaine échéance passe à la seconde.
+      await PaymentsRepository(api).create(saleId: sale.id, amount: sale.installments.first.amount);
+      final after = await sales.get(sale.id);
+      expect(after.installments.first.status, PaymentStatus.paid);
+      expect(after.paymentDueDate, after.installments.last.dueDate);
+      final invoice = await sales.invoice(sale.id);
+      expect(invoice.installments, hasLength(2));
+      expect(invoice.lines.single.description, 'taille m, noir');
+      expect(String.fromCharCodes((await buildInvoicePdf(invoice)).sublist(0, 5)), '%PDF-');
+
+      // Transfert : les deux mouvements s'affichent « Transfert » avec l'origine et la destination.
+      final transfer = await TransfersRepository(
+        api,
+      ).create(sourceStoreId: local.id, destinationStoreId: h109.id, lines: {line.product.id: 1});
+      final movements = await stock.movements(PageQuery(filters: {'reference': transfer.reference}));
+      expect(movements.items, hasLength(2));
+      for (final movement in movements.items) {
+        expect(movement.typeLabel, 'Transfert');
+        expect((movement.sourceStore?.id, movement.destinationStore?.id), (local.id, h109.id));
+      }
+
+      // Tableau de bord : marge du stock, marge des ventes, moins vendus, performance des magasins.
+      final summary = await DashboardRepository(api).summary(range: rangeFor(Period.today).toQuery());
+      expect(summary.estimatedProfit, greaterThan(0));
+      expect(summary.leastSoldProducts, isNotEmpty);
+      expect(summary.storesPerformance.map((performance) => performance.store.id), containsAll([local.id, h109.id]));
+      final localPerformance = summary.storesPerformance.firstWhere((p) => p.store.id == local.id);
+      expect(localPerformance.salesCount, greaterThanOrEqualTo(2));
+
+      // Photo : envoyée, servie sous /media, puis supprimée.
+      final products = ProductsRepository(api);
+      final png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, ...List.filled(32, 0)];
+      final withPhoto = await products.addImage(line.product.id, png, 'photo.png');
+      final photo = withPhoto.images.last;
+      final client = HttpClient();
+      final served = await (await client.getUrl(Uri.parse(resolveMediaUrl(photo.url, api.baseUrl)!))).close();
+      client.close();
+      expect(served.statusCode, 200);
+      final withoutPhoto = await products.deleteImage(line.product.id, photo.id);
+      expect(withoutPhoto.images.map((image) => image.id), isNot(contains(photo.id)));
     });
 
     test('administrateur : écrans de gestion (utilisateurs, rôles, société, audit, chat)', () async {

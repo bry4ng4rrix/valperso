@@ -51,8 +51,8 @@ void main() {
     };
 
     expect(find.text('Photos (0)'), findsOneWidget);
-    await tester.ensureVisible(find.text('Ajouter une photo'));
-    await tester.tap(find.text('Ajouter une photo'));
+    await tester.ensureVisible(find.byTooltip('Ajouter une photo'));
+    await tester.tap(find.byTooltip('Ajouter une photo'));
     await tester.pumpAndSettle();
     expect(find.text('Prendre une photo'), findsOneWidget, reason: 'Android : appareil photo ou galerie');
     await tester.tap(find.text('Choisir dans la galerie'));
