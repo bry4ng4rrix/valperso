@@ -86,7 +86,12 @@ Future<FakeApi> openScreen(
   setScreenSize(tester, size);
   final api = FakeApi();
   stubDemoApi(api);
-  await pumpApp(tester, api, loggedIn: demoMe(admin: !seller), light: light);
+  await pumpApp(
+    tester,
+    api,
+    loggedIn: demoMe(admin: !seller),
+    light: light,
+  );
   if (route != '/') {
     GoRouter.of(tester.element(find.byType(Scaffold).first)).go(route);
     await settle(tester);

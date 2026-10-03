@@ -59,6 +59,10 @@ def find_or_add_for_sale(db: Session, user: User, data: CustomerCreate, ip_addre
     return existing or _add_customer(db, user, data, ip_address)
 
 
+# Client des ventes payées sans client renseigné (un seul, réutilisé à chaque fois).
+CASH_CUSTOMER = CustomerCreate(first_name="Client", last_name="Comptant")
+
+
 def list_customers(db: Session, user: User, filters: CustomerFilters) -> PageResult[Customer]:
     scope_store_id = store_access.visible_store_id(user, filters.store_id)
     return customer_repository.list_customers(db, filters, scope_store_id)

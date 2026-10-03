@@ -25,6 +25,7 @@ import '../sales/sale_widgets.dart';
 import '../sales/sales_repository.dart';
 import '../stock/stock_models.dart';
 import '../stock/stock_repository.dart';
+import 'bar_chart.dart';
 import 'dashboard_repository.dart';
 import 'sales_chart.dart';
 
@@ -86,7 +87,6 @@ class _DashboardViewState extends State<DashboardView> {
   int? _storeId;
   late Future<DashboardSummary> _summary;
   Future<List<SalesPoint>>? _chart;
-  late Future<Paged<StockLine>> _lowStock;
 
   bool get _canReport => widget.user.can(Perm.reportView);
 
@@ -100,7 +100,6 @@ class _DashboardViewState extends State<DashboardView> {
     final repository = context.read<DashboardRepository>();
     final range = rangeFor(_period, custom: _customRange).toQuery();
     _summary = repository.summary(range: range, storeId: _storeId);
-    _lowStock = repository.lowStock(storeId: _storeId);
     final showChart = _canReport && _period != Period.today && _period != Period.yesterday;
     _chart = showChart
         ? repository.sales(
@@ -167,7 +166,7 @@ class _DashboardViewState extends State<DashboardView> {
             builder: (context, snapshot) {
               if (snapshot.hasError) return ErrorState(message: errorMessageOf(snapshot.error), onRetry: _refresh);
               if (!snapshot.hasData) return const SizedBox(height: 360, child: LoadingState(lines: 4));
-              return _SummaryContent(summary: snapshot.data!, user: user, chart: _chart, lowStock: _lowStock);
+              return _SummaryContent(summary: snapshot.data!, user: user, chart: _chart);
             },
           ),
         ],
@@ -177,12 +176,11 @@ class _DashboardViewState extends State<DashboardView> {
 }
 
 class _SummaryContent extends StatelessWidget {
-  const _SummaryContent({required this.summary, required this.user, required this.chart, required this.lowStock});
+  const _SummaryContent({required this.summary, required this.user, required this.chart});
 
   final DashboardSummary summary;
   final CurrentUser user;
   final Future<List<SalesPoint>>? chart;
-  final Future<Paged<StockLine>> lowStock;
 
   @override
   Widget build(BuildContext context) {
@@ -204,14 +202,23 @@ class _SummaryContent extends StatelessWidget {
               icon: Icons.receipt_long,
               onTap: () => context.go(Routes.salesHistory),
             ),
-            if (user.can(Perm.reportView))
+            // Les marges révèlent les prix : réservées à qui peut voir les rapports.
+            if (user.can(Perm.reportView)) ...[
               StatCard(
                 label: 'Bénéfice estimé',
                 value: Formats.money(s.estimatedProfit),
                 icon: Icons.savings_outlined,
                 tone: s.estimatedProfit < 0 ? AppColors.danger : AppColors.success,
+                caption: 'Marge du stock actuel',
               ),
-            StatCard(label: 'Encaissé', value: Formats.money(s.amountCollected), icon: Icons.payments_outlined),
+              StatCard(
+                label: 'Encaissé',
+                value: Formats.money(s.salesMargin),
+                icon: Icons.payments_outlined,
+                tone: s.salesMargin < 0 ? AppColors.danger : null,
+                caption: 'Marge des produits vendus',
+              ),
+            ],
             StatCard(
               label: 'Reste à encaisser',
               value: Formats.money(s.debtAmount),
@@ -265,16 +272,36 @@ class _SummaryContent extends StatelessWidget {
           ),
         ],
         const SizedBox(height: Gaps.xl),
+        // Ventes par produit sur la période choisie : même échelle pour comparer les deux graphiques.
         ResponsiveGrid(
           minItemWidth: 340,
           maxColumns: 2,
           children: [
-            _RecentSales(sales: s.recentSales),
-            _TopProducts(products: s.topProducts),
+            _ProductsChart(
+              title: 'Produits les plus vendus',
+              icon: Icons.emoji_events_outlined,
+              products: s.topProducts,
+              maxQuantity: _maxQuantity(s),
+            ),
+            _ProductsChart(
+              title: 'Produits les moins vendus',
+              subtitle: 'Parmi les produits en stock',
+              icon: Icons.trending_down,
+              products: s.leastSoldProducts,
+              maxQuantity: _maxQuantity(s),
+              color: AppColors.warning,
+            ),
           ],
         ),
         const SizedBox(height: Gaps.lg),
-        _LowStockSection(future: lowStock),
+        ResponsiveGrid(
+          minItemWidth: 340,
+          maxColumns: 2,
+          children: [
+            _StoresPerformance(stores: s.storesPerformance, showMargin: user.can(Perm.reportView)),
+            _RecentSales(sales: s.recentSales),
+          ],
+        ),
       ],
     );
   }
@@ -317,42 +344,101 @@ class _RecentSales extends StatelessWidget {
   }
 }
 
-class _TopProducts extends StatelessWidget {
-  const _TopProducts({required this.products});
+double _maxQuantity(DashboardSummary summary) => [
+  ...summary.topProducts,
+  ...summary.leastSoldProducts,
+].fold(0.0, (max, product) => product.quantitySold > max ? product.quantitySold.toDouble() : max);
 
+/// Graphique des ventes par produit (quantités vendues sur la période).
+class _ProductsChart extends StatelessWidget {
+  const _ProductsChart({
+    required this.title,
+    required this.icon,
+    required this.products,
+    required this.maxQuantity,
+    this.subtitle,
+    this.color,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData icon;
   final List<TopProduct> products;
+  final double maxQuantity;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return SectionCard(
-      title: 'Produits les plus vendus',
-      icon: Icons.emoji_events_outlined,
-      child: products.isEmpty
-          ? const Padding(padding: EdgeInsets.all(Gaps.md), child: Text('Aucune vente sur la période.'))
-          : Column(
-              children: [
-                for (final (index, product) in products.take(6).indexed)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      radius: 14,
-                      backgroundColor: theme.colorScheme.primaryContainer,
-                      child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: theme.colorScheme.primary)),
-                    ),
-                    title: Text(Formats.capitalize(product.name), overflow: TextOverflow.ellipsis),
-                    subtitle: Text(
-                      '${product.reference.toUpperCase()} · ${Formats.quantity(product.quantitySold)} vendus',
-                    ),
-                    trailing: Text(Formats.money(product.revenue), style: theme.textTheme.titleSmall),
-                    onTap: () => context.push('/products/${product.productId}'),
-                  ),
-              ],
-            ),
+      title: title,
+      icon: icon,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (subtitle != null) Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
+          HorizontalBarChart(
+            color: color,
+            maxValue: maxQuantity,
+            emptyText: 'Aucune vente sur la période.',
+            entries: [
+              for (final product in products)
+                BarEntry(
+                  label: Formats.capitalize(product.name),
+                  value: product.quantitySold.toDouble(),
+                  valueText: '${Formats.quantity(product.quantitySold)} vendu${product.quantitySold > 1 ? 's' : ''}',
+                  detail: [
+                    product.reference.toUpperCase(),
+                    if (product.quantitySold > 0) Formats.money(product.revenue),
+                    if (product.stockQuantity != null) '${Formats.quantity(product.stockQuantity!)} en stock',
+                  ].join(' · '),
+                  onTap: () => context.push('/products/${product.productId}'),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
+/// Performance de chaque magasin sur la période : chiffre d'affaires (barre), ventes, marge, reste à payer.
+class _StoresPerformance extends StatelessWidget {
+  const _StoresPerformance({required this.stores, required this.showMargin});
+
+  final List<StorePerformance> stores;
+
+  /// La marge révèle les prix : seulement pour qui peut voir les rapports.
+  final bool showMargin;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      title: 'Performance des magasins',
+      icon: Icons.storefront_outlined,
+      child: HorizontalBarChart(
+        color: AppColors.success,
+        emptyText: 'Aucun magasin.',
+        entries: [
+          for (final performance in stores)
+            BarEntry(
+              label: performance.store.label,
+              value: performance.revenue,
+              valueText: Formats.money(performance.revenue),
+              detail: [
+                '${Formats.quantity(performance.salesCount)} vente${performance.salesCount > 1 ? 's' : ''}',
+                if (showMargin) 'marge ${Formats.money(performance.salesMargin)}',
+                if (performance.debtAmount > 0) 'reste ${Formats.money(performance.debtAmount)}',
+                '${Formats.quantity(performance.stockQuantity)} en stock',
+              ].join(' · '),
+              onTap: () => context.push('/stores/${performance.store.id}'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Stocks à surveiller (accueil vendeur : stock faible ou rupture dans son magasin).
 class _LowStockSection extends StatelessWidget {
   const _LowStockSection({required this.future});
 

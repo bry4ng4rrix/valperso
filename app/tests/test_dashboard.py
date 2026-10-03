@@ -123,3 +123,33 @@ def test_reports_require_report_permission(client, factory):
     headers = factory.headers(factory.vendeur(factory.store()))
     for url in ("/api/v1/dashboard/top-products", "/api/v1/dashboard/sales", "/api/v1/dashboard/stock-value"):
         assert client.get(url, headers=headers).status_code == 403
+
+
+def test_least_sold_products_and_stores_performance(client, admin_headers, activity):
+    body = client.get("/api/v1/dashboard/summary", headers=admin_headers).json()
+
+    # Produits encore en stock, du moins vendu au plus vendu ; le sel (0 partout) n'est pas en stock.
+    least = [(p["name"], p["quantity_sold"], p["stock_quantity"]) for p in body["least_sold_products"]]
+    assert least == [("huile", 1, 2), ("riz", 15, 85)]
+    assert [p["name"] for p in body["top_products"]] == ["riz", "huile"]
+
+    performance = {p["store"]["name"]: p for p in body["stores_performance"]}
+    assert [p["store"]["name"] for p in body["stores_performance"]] == ["stock local", "magasin 1"]
+    local, shop = performance["stock local"], performance["magasin 1"]
+    assert (local["sales_count"], local["revenue"], local["sales_margin"], local["debt_amount"]) == (
+        2,
+        55000.0,
+        18000.0,
+        10000.0,
+    )
+    assert local["stock_quantity"] == 2 and shop["stock_quantity"] == 85
+    assert (shop["sales_count"], shop["revenue"], shop["sales_margin"]) == (0, 0.0, 0.0)
+
+
+def test_least_sold_and_performance_follow_the_store_filter(client, admin_headers, activity):
+    body = client.get(
+        "/api/v1/dashboard/summary", headers=admin_headers, params={"store_id": activity["shop"].id}
+    ).json()
+
+    assert [(p["name"], p["quantity_sold"]) for p in body["least_sold_products"]] == [("riz", 0)]
+    assert [p["store"]["name"] for p in body["stores_performance"]] == ["magasin 1"]

@@ -288,6 +288,9 @@ class _CartLineTileState extends State<_CartLineTile> {
   }
 }
 
+/// Nom enregistré par le serveur pour une vente payée sans client.
+const cashCustomerLabel = 'Client comptant';
+
 // --- Client -------------------------------------------------------------------------------------------
 
 class CustomerPanel extends StatefulWidget {
@@ -393,6 +396,12 @@ class _CustomerPanelState extends State<CustomerPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text(
+          'Facultatif pour une vente payée : elle est alors enregistrée au nom de « $cashCustomerLabel ». '
+          'Obligatoire pour une dette ou une avance.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: Gaps.sm),
         AppSearchField(hint: 'Rechercher un client (nom, téléphone)', onChanged: _search),
         if (_results != null)
           FutureBuilder<List<CustomerRef>>(
@@ -779,7 +788,7 @@ class SaleConfirmationSummary extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         InfoRow(label: 'Magasin', value: storeLabel),
-        InfoRow(label: 'Client', value: [customer?.fullName ?? '—', ?customer?.phoneNumber].join('\n')),
+        InfoRow(label: 'Client', value: [customer?.fullName ?? cashCustomerLabel, ?customer?.phoneNumber].join('\n')),
         InfoRow(label: 'Paiement', value: payment),
         const SizedBox(height: Gaps.md),
         Container(

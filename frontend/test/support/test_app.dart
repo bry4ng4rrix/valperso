@@ -60,7 +60,6 @@ void stubAdminBasics(FakeApi api) {
   api.on('GET', '/stores', (_) => page([storeJson(), storeJson(id: 2, name: 'h109', central: false)]));
   api.on('GET', '/dashboard/summary', (_) => dashboardJson());
   api.on('GET', '/dashboard/sales', (_) => <Object>[]);
-  api.on('GET', '/dashboard/low-stock', (_) => page([stockLineJson(quantity: 2)]));
   api.on(
     'GET',
     '/categories',

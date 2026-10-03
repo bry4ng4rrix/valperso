@@ -60,10 +60,12 @@ class SaleLine:
 
 
 def _resolve_customer(db: Session, user: User, data: SaleCreate, ip_address: str | None) -> Customer:
+    """Client existant, nouveau client, ou « Client comptant » si la vente n'en indique aucun."""
     if data.customer_id is not None:
         return customer_service.get_customer(db, data.customer_id)
-    assert data.customer is not None  # garanti par la validation de SaleCreate
-    return customer_service.find_or_add_for_sale(db, user, data.customer, ip_address)
+    return customer_service.find_or_add_for_sale(
+        db, user, data.customer or customer_service.CASH_CUSTOMER, ip_address
+    )
 
 
 def _build_lines(db: Session, store: Store, items: list[SaleItemCreate]) -> list[SaleLine]:
@@ -152,6 +154,8 @@ def create_sale(db: Session, user: User, data: SaleCreate, ip_address: str | Non
     discount_amount = discount_service.compute_discount(subtotal, data.discount_type, data.discount_value)
     total = subtotal - discount_amount
     paid_now = _initial_payment_amount(data.payment, total)
+    if paid_now < total and data.customer_id is None and data.customer is None:
+        raise InvalidPayment("Choisissez le client : il est obligatoire pour une vente avec dette ou avance")
     installments = _debt_schedule(customer, total - paid_now, data)
 
     sale = Sale(

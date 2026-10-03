@@ -37,6 +37,21 @@ class TopProduct(BaseModel):
     revenue: Money = Field(description="Montant des lignes vendues, avant remise globale de la vente")
 
 
+class LeastSoldProduct(TopProduct):
+    stock_quantity: int = Field(description="Quantité en stock (magasin filtré, sinon tous les magasins)")
+
+
+class StorePerformance(BaseModel):
+    store: StoreSummary
+    sales_count: int
+    revenue: Money = Field(description="Chiffre d'affaires de la période")
+    sales_margin: SignedMoney = Field(
+        description="Marge des produits vendus : (prix de vente - prix) x quantité"
+    )
+    debt_amount: Money = Field(description="Restes à payer des ventes de la période")
+    stock_quantity: int = Field(description="Unités en stock actuellement")
+
+
 class SalesStatPoint(BaseModel):
     period: date
     sales_count: int
@@ -79,5 +94,11 @@ class DashboardSummary(BaseModel):
     unavailable_products_count: int = Field(
         description="Produits actifs à zéro dans TOUS les magasins (réellement indisponibles)"
     )
-    top_products: list[TopProduct]
+    top_products: list[TopProduct] = Field(description="Produits les plus vendus sur la période")
+    least_sold_products: list[LeastSoldProduct] = Field(
+        description="Produits en stock les moins vendus sur la période (0 vendu compris)"
+    )
+    stores_performance: list[StorePerformance] = Field(
+        description="Chiffres de chaque magasin sur la période"
+    )
     recent_sales: list[SaleSummary]

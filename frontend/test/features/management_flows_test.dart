@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:valmag/core/widgets/app_dialog.dart';
+import 'package:valmag/features/dashboard/bar_chart.dart';
 import 'package:valmag/shared/widgets/stat_card.dart';
 import 'package:go_router/go_router.dart';
 
@@ -361,6 +362,20 @@ void main() {
     expect(chip.selected, isTrue);
   });
 
+  testWidgets('accueil : produits les plus et les moins vendus, performance des magasins', (tester) async {
+    await _admin(tester, '/', (_) {});
+    expect(find.text('Stocks à surveiller (1)'), findsNothing, reason: 'remplacé par les graphiques de ventes');
+    expect(find.text('Produits les plus vendus'), findsOneWidget);
+    expect(find.text('Produits les moins vendus'), findsOneWidget);
+    expect(find.text('Parmi les produits en stock'), findsOneWidget);
+    expect(find.text('0 vendu'), findsOneWidget);
+    expect(find.textContaining('40 en stock'), findsOneWidget);
+    expect(find.text('Performance des magasins'), findsOneWidget);
+    expect(find.text('10\u00A0000 Ar'), findsOneWidget, reason: 'chiffre d\'affaires du Stock Local');
+    expect(find.textContaining('1 vente · marge 1\u00A0000 Ar · reste 3\u00A0000 Ar · 50 en stock'), findsOneWidget);
+    expect(find.byType(HorizontalBarChart), findsNWidgets(3));
+  });
+
   testWidgets('accueil : 4 indicateurs et 3 actions rapides, « ⋯ » affiche les autres', (tester) async {
     await _admin(tester, '/', (_) {});
     for (final label in ['Chiffre d\'affaires', 'Ventes', 'Bénéfice estimé', 'Encaissé']) {
@@ -368,6 +383,17 @@ void main() {
     }
     expect(find.widgetWithText(StatCard, 'Reste à encaisser'), findsNothing);
     expect(find.byType(QuickActionCard), findsNWidgets(3));
+    // Bénéfice estimé = marge du stock actuel ; Encaissé = marge des produits vendus (sales_margin).
+    expect(
+      find.descendant(of: find.widgetWithText(StatCard, 'Bénéfice estimé'), matching: find.text('5\u00A0000 Ar')),
+      findsOneWidget,
+    );
+    expect(find.text('Marge du stock actuel'), findsOneWidget);
+    expect(
+      find.descendant(of: find.widgetWithText(StatCard, 'Encaissé'), matching: find.text('4\u00A0000 Ar')),
+      findsOneWidget,
+    );
+    expect(find.text('Marge des produits vendus'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Afficher 4 de plus').first); // indicateurs
     await tester.pumpAndSettle();

@@ -14,12 +14,14 @@ from app.repositories.base import PageResult
 from app.schemas.dashboard import (
     DashboardQuery,
     DashboardSummary,
+    LeastSoldProduct,
     LowStockQuery,
     SalesStatPoint,
     SalesStatsQuery,
     StockValue,
     StockValueQuery,
     StockValueReport,
+    StorePerformance,
     StoreStockValue,
     TopProduct,
     TopProductsQuery,
@@ -60,6 +62,17 @@ def get_summary(db: Session, user: User, query: DashboardQuery) -> DashboardSumm
         out_of_stock_count=stock_repository.count_out_of_stock(db, store_id),
         unavailable_products_count=stock_repository.count_unavailable_products(db),
         top_products=get_top_products(db, user, top_query),
+        least_sold_products=[
+            LeastSoldProduct.model_validate(row, from_attributes=True)
+            for row in dashboard_repository.least_sold_products(db, *period, limit=SUMMARY_TOP_PRODUCTS)
+        ],
+        stores_performance=[
+            StorePerformance(
+                store=StoreSummary.model_validate(row.Store),
+                **{key: getattr(row, key) for key in StorePerformance.model_fields if key != "store"},
+            )
+            for row in dashboard_repository.stores_performance(db, *period)
+        ],
         recent_sales=[
             SaleSummary.model_validate(sale)
             for sale in dashboard_repository.recent_sales(db, *period, limit=SUMMARY_RECENT_SALES)

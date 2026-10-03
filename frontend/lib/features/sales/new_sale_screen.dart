@@ -100,7 +100,8 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
 
   bool _stepValid(int step) => switch (step) {
     0 => _cart.cartErrors.isEmpty,
-    1 => _cart.customer != null,
+    // Client facultatif pour une vente payée ; exigé ensuite (étape Paiement) pour une dette.
+    1 => true,
     2 => _cart.discountErrors.isEmpty && _cart.paymentErrors.isEmpty,
     _ => _cart.isReady,
   };

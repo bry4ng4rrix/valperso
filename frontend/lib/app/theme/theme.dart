@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'colors.dart';
@@ -6,6 +7,11 @@ import 'typography.dart';
 
 /// Thèmes Material 3 centralisés. L'application démarre en [AppTheme.dark].
 abstract final class AppTheme {
+  /// Polices de secours ajoutées par les tests visuels : la Roboto du SDK de test n'a pas tous les
+  /// symboles (« → »), que les appareils réels trouvent dans leurs polices système.
+  @visibleForTesting
+  static List<String> testFontFallback = const [];
+
   /// Thème sombre : noir et gris neutres, actions en blanc.
   static ThemeData get dark => _build(
     brightness: Brightness.dark,
@@ -75,7 +81,15 @@ abstract final class AppTheme {
       outline: border,
       outlineVariant: border,
     );
-    final textTheme = buildTextTheme(textPrimary, textSecondary);
+    // Tailles et couleurs de l'application sur la typographie de la plateforme (police, polices de secours) :
+    // les styles utilisés tels quels (titre de la barre, puces) gardent ainsi la même police que le reste.
+    final platformTextTheme = ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+    ).textTheme.merge(buildTextTheme(textPrimary, textSecondary));
+    final textTheme = testFontFallback.isEmpty
+        ? platformTextTheme
+        : platformTextTheme.apply(fontFamilyFallback: testFontFallback);
     final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md));
     const buttonPadding = EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.md);
 

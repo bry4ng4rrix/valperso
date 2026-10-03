@@ -274,6 +274,7 @@ class CartController extends ChangeNotifier {
   /// Problèmes de paiement (montant, dates de remboursement, téléphone du client).
   List<String> get paymentErrors => [
     if (!payInFull && advanceAmount > total) 'L\'avance ne peut pas dépasser le total.',
+    if (hasDebt && customer == null) 'Choisissez le client : il est obligatoire pour une dette ou une avance.',
     ...installmentErrors,
     if (hasDebt && customer != null && customer!.phoneNumber == null)
       'Le téléphone du client est obligatoire s\'il reste un montant à payer.',
@@ -298,18 +299,14 @@ class CartController extends ChangeNotifier {
     ];
   }
 
-  List<String> get allErrors => [
-    ...cartErrors,
-    if (customer == null) 'Choisissez ou créez le client.',
-    ...discountErrors,
-    ...paymentErrors,
-  ];
+  List<String> get allErrors => [...cartErrors, ...discountErrors, ...paymentErrors];
 
   bool get isReady => allErrors.isEmpty;
 
   /// Données envoyées à POST /sales (une seule fois, après confirmation).
+  /// Sans client (vente payée), le serveur enregistre la vente au nom de « Client comptant ».
   NewSale toNewSale({required bool includeStore}) {
-    final client = customer!;
+    final client = customer;
     final method = effectiveMethod;
     final collected = method != PaymentMethod.credit;
     return NewSale(
@@ -319,10 +316,10 @@ class CartController extends ChangeNotifier {
           if (line.description.isNotEmpty) line.product.id: line.description,
       },
       storeId: includeStore ? store?.id : null,
-      customerId: client.existing?.id,
-      customerFirstName: client.firstName,
-      customerLastName: client.lastName,
-      customerPhone: client.phone,
+      customerId: client?.existing?.id,
+      customerFirstName: client?.firstName,
+      customerLastName: client?.lastName,
+      customerPhone: client?.phone,
       discountType: discountType,
       discountValue: discountValue,
       paymentMethod: method,

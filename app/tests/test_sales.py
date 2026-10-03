@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 
 from app.models import AuditLog, Customer, Payment, Sale, StockMovement
 from app.services import audit_service
-from app.tests.helpers import CUSTOMER, sale_payload
+from app.tests.helpers import CUSTOMER, due_date, sale_payload
 
 
 def count(db, model) -> int:
@@ -293,3 +293,33 @@ def test_invoice(client, seller_headers, history):
     )
     assert invoice["payment_status"] == "PARTIAL" and invoice["payment_due_date"] == "2099-01-31"
     assert [p["amount"] for p in invoice["payments"]] == [5000.0]
+
+
+def test_paid_sale_without_customer_uses_the_cash_customer(client, factory, shop, seller_headers, db):
+    """Vente payée sans informations client : enregistrée au nom de « Client comptant », réutilisé."""
+    product = factory.product(stock=10, store=shop)
+    payload = sale_payload((product, 1))
+    del payload["customer"]
+
+    first = client.post("/api/v1/sales", headers=seller_headers, json=payload)
+    second = client.post("/api/v1/sales", headers=seller_headers, json=payload)
+
+    assert first.status_code == second.status_code == 201
+    assert (first.json()["customer"]["first_name"], first.json()["customer"]["last_name"]) == (
+        "client",
+        "comptant",
+    )
+    assert first.json()["customer"]["id"] == second.json()["customer"]["id"]
+    assert count(db, Customer) == 1
+
+
+@pytest.mark.parametrize("payment", [None, {"method": "CASH", "amount": 500}])
+def test_a_debt_needs_a_customer(client, factory, shop, seller_headers, db, payment):
+    product = factory.product(selling_price="1000", stock=10, store=shop)
+    payload = sale_payload((product, 1), payment=payment, payment_due_date=due_date())
+    del payload["customer"]
+
+    response = client.post("/api/v1/sales", headers=seller_headers, json=payload)
+
+    assert response.status_code == 400 and "client" in response.json()["detail"]
+    assert count(db, Sale) == count(db, Customer) == 0

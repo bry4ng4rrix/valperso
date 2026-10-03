@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:valmag/app/theme/theme.dart';
 
 /// Tests visuels : les captures utilisent les vraies polices (Roboto et les icônes Material),
 /// sinon le texte s'affiche en blocs. Elles sont fournies par le SDK Flutter.
@@ -18,6 +18,12 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     'Roboto-Light.ttf',
   ]);
   await _load(fonts, 'MaterialIcons', ['MaterialIcons-Regular.otf']);
+  // Police de secours pour les symboles absents de Roboto (« → »), comme sur les appareils réels.
+  final dejaVu = Directory('/usr/share/fonts/TTF');
+  if (File('${dejaVu.path}/DejaVuSans.ttf').existsSync()) {
+    await _load(dejaVu, 'DejaVu Sans', ['DejaVuSans.ttf']);
+    AppTheme.testFontFallback = const ['DejaVu Sans'];
+  }
   await testMain();
 }
 
@@ -32,7 +38,8 @@ Directory _materialFonts() {
   ];
   return candidates.firstWhere(
     (dir) => dir.existsSync(),
-    orElse: () => throw StateError('Polices Material introuvables dans le SDK Flutter (lancez une fois `flutter precache`).'),
+    orElse: () =>
+        throw StateError('Polices Material introuvables dans le SDK Flutter (lancez une fois `flutter precache`).'),
   );
 }
 
@@ -40,7 +47,9 @@ Future<void> _load(Directory dir, String family, List<String> files) async {
   final loader = FontLoader(family);
   for (final name in files) {
     final file = File('${dir.path}/$name');
-    if (file.existsSync()) loader.addFont(file.readAsBytes().then((bytes) => ByteData.sublistView(Uint8List.fromList(bytes))));
+    if (file.existsSync()) {
+      loader.addFont(file.readAsBytes().then((bytes) => ByteData.sublistView(Uint8List.fromList(bytes))));
+    }
   }
   await loader.load();
 }

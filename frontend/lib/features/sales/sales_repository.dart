@@ -49,7 +49,7 @@ class NewSale {
     'store_id': storeId,
     if (customerId != null)
       'customer_id': customerId
-    else
+    else if (customerFirstName != null)
       'customer': {'first_name': customerFirstName, 'last_name': customerLastName, 'phone': customerPhone},
     'items': [
       for (final entry in lines.entries)

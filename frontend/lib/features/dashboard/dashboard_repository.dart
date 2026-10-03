@@ -1,8 +1,8 @@
 import '../../core/api/api_client.dart';
 import '../../core/api/paged.dart';
 import '../../core/utils/json.dart';
+import '../../shared/models/refs.dart';
 import '../sales/sale_models.dart';
-import '../stock/stock_models.dart';
 
 class TopProduct {
   const TopProduct({
@@ -11,6 +11,7 @@ class TopProduct {
     required this.name,
     required this.quantitySold,
     required this.revenue,
+    this.stockQuantity,
   });
 
   factory TopProduct.fromJson(Json json) => TopProduct(
@@ -19,6 +20,7 @@ class TopProduct {
     name: '${json['name']}',
     quantitySold: toInt(json['quantity_sold']),
     revenue: toDouble(json['revenue']),
+    stockQuantity: json['stock_quantity'] == null ? null : toInt(json['stock_quantity']),
   );
 
   final int productId;
@@ -26,6 +28,37 @@ class TopProduct {
   final String name;
   final int quantitySold;
   final double revenue;
+
+  /// Produits les moins vendus : quantité encore en stock.
+  final int? stockQuantity;
+}
+
+/// Chiffres d'un magasin sur la période (stock : quantité actuelle).
+class StorePerformance {
+  const StorePerformance({
+    required this.store,
+    required this.salesCount,
+    required this.revenue,
+    required this.salesMargin,
+    required this.debtAmount,
+    required this.stockQuantity,
+  });
+
+  factory StorePerformance.fromJson(Json json) => StorePerformance(
+    store: StoreRef.fromJson(Json.from(json['store'] as Map)),
+    salesCount: toInt(json['sales_count']),
+    revenue: toDouble(json['revenue']),
+    salesMargin: toDouble(json['sales_margin']),
+    debtAmount: toDouble(json['debt_amount']),
+    stockQuantity: toInt(json['stock_quantity']),
+  );
+
+  final StoreRef store;
+  final int salesCount;
+  final double revenue;
+  final double salesMargin;
+  final double debtAmount;
+  final int stockQuantity;
 }
 
 class SalesPoint {
@@ -47,6 +80,7 @@ class DashboardSummary {
     required this.salesCount,
     required this.revenue,
     required this.estimatedProfit,
+    required this.salesMargin,
     required this.amountCollected,
     required this.debtAmount,
     required this.productsCount,
@@ -57,12 +91,15 @@ class DashboardSummary {
     required this.unavailableProductsCount,
     required this.topProducts,
     required this.recentSales,
+    this.leastSoldProducts = const [],
+    this.storesPerformance = const [],
   });
 
   factory DashboardSummary.fromJson(Json json) => DashboardSummary(
     salesCount: toInt(json['sales_count']),
     revenue: toDouble(json['revenue']),
     estimatedProfit: toDouble(json['estimated_profit']),
+    salesMargin: toDouble(json['sales_margin']),
     amountCollected: toDouble(json['amount_collected']),
     debtAmount: toDouble(json['debt_amount']),
     productsCount: toInt(json['products_count']),
@@ -72,12 +109,21 @@ class DashboardSummary {
     outOfStockCount: toInt(json['out_of_stock_count']),
     unavailableProductsCount: toInt(json['unavailable_products_count']),
     topProducts: toList(json['top_products'], TopProduct.fromJson),
+    leastSoldProducts: toList(json['least_sold_products'], TopProduct.fromJson),
+    storesPerformance: toList(json['stores_performance'], StorePerformance.fromJson),
     recentSales: toList(json['recent_sales'], Sale.fromJson),
   );
 
   final int salesCount;
   final double revenue;
+
+  /// Marge (prix de vente − prix) × quantité de tout le stock actuel.
   final double estimatedProfit;
+
+  /// Marge (prix de vente − prix) × quantité des produits vendus sur la période (« Encaissé »).
+  final double salesMargin;
+
+  /// Paiements reçus sur la période.
   final double amountCollected;
   final double debtAmount;
   final int productsCount;
@@ -87,6 +133,10 @@ class DashboardSummary {
   final int outOfStockCount;
   final int unavailableProductsCount;
   final List<TopProduct> topProducts;
+
+  /// Produits en stock les moins vendus sur la période (0 vendu compris).
+  final List<TopProduct> leastSoldProducts;
+  final List<StorePerformance> storesPerformance;
   final List<Sale> recentSales;
 }
 
@@ -105,9 +155,4 @@ class DashboardRepository {
         await _api.get('/dashboard/sales', query: cleanQuery({...range, 'store_id': storeId, 'group_by': groupBy})),
         SalesPoint.fromJson,
       );
-
-  Future<Paged<StockLine>> lowStock({int? storeId, int pageSize = 5}) async => Paged.fromJson(
-    await _api.get('/dashboard/low-stock', query: cleanQuery({'store_id': storeId, 'page_size': pageSize})) as Json,
-    StockLine.fromJson,
-  );
 }

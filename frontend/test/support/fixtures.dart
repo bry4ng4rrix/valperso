@@ -165,6 +165,7 @@ Map<String, Object?> dashboardJson() => {
   'sales_count': 3,
   'revenue': 15000,
   'estimated_profit': 5000,
+  'sales_margin': 4000,
   'amount_collected': 12000,
   'debt_amount': 3000,
   'products_count': 12,
@@ -175,6 +176,27 @@ Map<String, Object?> dashboardJson() => {
   'unavailable_products_count': 0,
   'top_products': [
     {'product_id': 10, 'reference': 'p-10', 'name': 'stylo bleu', 'quantity_sold': 5, 'revenue': 5000},
+  ],
+  'least_sold_products': [
+    {'product_id': 11, 'reference': 'c-1', 'name': 'cahier', 'quantity_sold': 0, 'revenue': 0, 'stock_quantity': 40},
+  ],
+  'stores_performance': [
+    {
+      'store': storeJson(),
+      'sales_count': 2,
+      'revenue': 10000,
+      'sales_margin': 3000,
+      'debt_amount': 0,
+      'stock_quantity': 100,
+    },
+    {
+      'store': storeJson(id: 2, name: 'h109', central: false),
+      'sales_count': 1,
+      'revenue': 5000,
+      'sales_margin': 1000,
+      'debt_amount': 3000,
+      'stock_quantity': 50,
+    },
   ],
   'recent_sales': [saleJson()],
 };

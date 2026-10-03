@@ -64,7 +64,11 @@ class SaleCreate(InputModel):
         None, gt=0, description="ADMIN uniquement (défaut : Stock Local). Un VENDEUR vend dans son magasin."
     )
     customer_id: int | None = Field(None, gt=0, description="Client existant")
-    customer: CustomerCreate | None = Field(None, description="Ou nouveau client (nom, prénom, téléphone)")
+    customer: CustomerCreate | None = Field(
+        None,
+        description="Ou nouveau client (nom, prénom, téléphone). Sans client : « Client comptant », "
+        "seulement pour une vente payée en totalité",
+    )
     items: list[SaleItemCreate] = Field(min_length=1, max_length=200)
     discount_type: DiscountType = DiscountType.NONE
     discount_value: Money = Field(Decimal("0"), description="Pourcentage (0-100) ou montant fixe")
@@ -80,7 +84,7 @@ class SaleCreate(InputModel):
 
     @model_validator(mode="after")
     def _check_sale(self):
-        if (self.customer_id is None) == (self.customer is None):
+        if self.customer_id is not None and self.customer is not None:
             raise ValueError("Indiquez soit customer_id (client existant), soit customer (nouveau client)")
 
         product_ids = [item.product_id for item in self.items]

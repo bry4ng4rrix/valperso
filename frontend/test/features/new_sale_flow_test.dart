@@ -81,7 +81,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 000 Ar × 2 = 2 000 Ar'), findsOneWidget);
 
-    // Sans client, le bouton reste actif mais la validation explique ce qui manque.
+    // Client choisi (facultatif pour une vente payée).
     await _fillNewCustomer(tester);
     expect(find.text('Rasoa Be'), findsOneWidget);
 
@@ -182,7 +182,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(next);
     await tester.pumpAndSettle();
-    expect(tester.widget<FilledButton>(next).onPressed, isNull, reason: 'pas encore de client');
+    expect(tester.widget<FilledButton>(next).onPressed, isNotNull, reason: 'client facultatif pour une vente payée');
 
     await _fillNewCustomer(tester, phone: '034 12 345 67');
     await tester.tap(next);
@@ -330,5 +330,49 @@ void main() {
     expect(installments.map((i) => i['amount']), [750.0, 750.0]);
     final dates = installments.map((i) => DateTime.parse(i['due_date'] as String)).toList();
     expect(dates.last.isAfter(dates.first), isTrue, reason: 'la seconde date suit la première d\'un mois');
+  });
+
+  testWidgets('vente payée sans client : enregistrée au nom de « Client comptant »', (tester) async {
+    setScreenSize(tester, desktopSize);
+    final api = _sellerApi();
+    api.on('POST', '/sales', (_) => saleJson(total: 1000, paid: 1000, store: _h109), status: 201);
+    await pumpApp(tester, api, loggedIn: meJson(admin: false, id: 2, store: _h109));
+    await _openNewSale(tester);
+    await tester.tap(find.byTooltip('Ajouter au panier').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Facultatif pour une vente payée'), findsOneWidget);
+
+    await _showValidateButton(tester);
+    await tester.tap(_validateButton);
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: find.byType(AppDialog), matching: find.text('Client comptant')), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byType(AppDialog), matching: find.text('Valider la vente')));
+    await settle(tester);
+
+    final body = api.calls('POST', '/sales').single.data as Map;
+    expect(body.containsKey('customer'), isFalse);
+    expect(body.containsKey('customer_id'), isFalse);
+    expect(body['payment'], {'method': 'CASH', 'amount': null});
+  });
+
+  testWidgets('dette sans client : bloquée avant l\'envoi', (tester) async {
+    setScreenSize(tester, desktopSize);
+    final api = _sellerApi();
+    await pumpApp(tester, api, loggedIn: meJson(admin: false, id: 2, store: _h109));
+    await _openNewSale(tester);
+    await tester.tap(find.byTooltip('Ajouter au panier').first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Dette (avance)'));
+    await tester.tap(find.text('Dette (avance)'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Payé maintenant'), '');
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Choisissez le client : il est obligatoire pour une dette'), findsWidgets);
+    await _showValidateButton(tester);
+    await tester.tap(_validateButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Valider la vente ?'), findsNothing);
+    expect(api.calls('POST', '/sales'), isEmpty);
   });
 }

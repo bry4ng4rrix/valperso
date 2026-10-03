@@ -388,7 +388,14 @@ Map<String, Object?> demoInvoice(Map<String, Object?> sale) => {
   'thank_you_message': ['Merci pour votre achat !', 'À bientôt chez valheri wear.'],
 };
 
-Map<String, Object?> _user(int id, String username, String first, String last, bool admin, Map<String, Object?>? store) => {
+Map<String, Object?> _user(
+  int id,
+  String username,
+  String first,
+  String last,
+  bool admin,
+  Map<String, Object?>? store,
+) => {
   'id': id,
   'username': username,
   'first_name': first,
@@ -439,7 +446,6 @@ void stubDemoApi(FakeApi api) {
   });
   final low = demoStockLines.where((line) => line['low_stock'] == true).toList();
   api.on('GET', '/stock/low-stock', (_) => page(low));
-  api.on('GET', '/dashboard/low-stock', (_) => page(low));
   api.on('GET', '/stock/movements', (request) {
     final product = queryInt(request.queryParameters, 'product_id');
     return page([
@@ -519,7 +525,8 @@ void stubDemoApi(FakeApi api) {
       ...dashboardJson(),
       'sales_count': 3,
       'revenue': 330000,
-      'estimated_profit': 95000,
+      'estimated_profit': 2225000, // marge de tout le stock de démonstration
+      'sales_margin': 95000,
       'amount_collected': 165000,
       'debt_amount': 245000,
       'products_count': demoProducts.length,
@@ -532,6 +539,59 @@ void stubDemoApi(FakeApi api) {
         {'product_id': 10, 'reference': 'ab-001', 'name': 'abaya brodée', 'quantity_sold': 4, 'revenue': 800000},
         {'product_id': 11, 'reference': 've-014', 'name': 'veste tweed', 'quantity_sold': 3, 'revenue': 255000},
         {'product_id': 12, 'reference': 'ro-003', 'name': 'robe vintage', 'quantity_sold': 2, 'revenue': 90000},
+      ],
+      'least_sold_products': [
+        {
+          'product_id': 14,
+          'reference': 've-020',
+          'name': 'veste femme longue en laine avec doublure satinée',
+          'quantity_sold': 0,
+          'revenue': 0,
+          'stock_quantity': 2,
+        },
+        {
+          'product_id': 15,
+          'reference': 'ac-002',
+          'name': 'foulard soie',
+          'quantity_sold': 0,
+          'revenue': 0,
+          'stock_quantity': 30,
+        },
+        {
+          'product_id': 13,
+          'reference': 'ab-007',
+          'name': 'yara',
+          'quantity_sold': 1,
+          'revenue': 120000,
+          'stock_quantity': 16,
+        },
+      ],
+      'stores_performance': [
+        {
+          'store': demoH109,
+          'sales_count': 2,
+          'revenue': 245000,
+          'sales_margin': 70000,
+          'debt_amount': 160000,
+          'stock_quantity': 12,
+        },
+        {
+          'store': demoC209,
+          'sales_count': 1,
+          'revenue': 85000,
+          'sales_margin': 25000,
+          'debt_amount': 85000,
+          'stock_quantity': 34,
+        },
+        {
+          'store': demoCentral,
+          'sales_count': 0,
+          'revenue': 0,
+          'sales_margin': 0,
+          'debt_amount': 0,
+          'stock_quantity': 48,
+        },
+        {'store': demoCity, 'sales_count': 0, 'revenue': 0, 'sales_margin': 0, 'debt_amount': 0, 'stock_quantity': 2},
       ],
       'recent_sales': demoSales.take(3).toList(),
     },
