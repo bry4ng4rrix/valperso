@@ -35,7 +35,9 @@ def test_summary(client, admin_headers, activity):
 
     assert body["sales_count"] == 2
     assert body["revenue"] == 55000.0  # le transfert n'est pas un chiffre d'affaires
-    assert body["estimated_profit"] == 18000.0  # 55 000 - (15 x 2000 + 1 x 7000)
+    # Bénéfice estimé : marge du stock actuel = riz 85 x 1 000 + huile 2 x 3 000 (vente annulée revenue).
+    assert body["estimated_profit"] == 91000.0
+    assert body["sales_margin"] == 18000.0  # encaissé : riz 15 x 1 000 + huile 1 x 3 000
     assert body["amount_collected"] == 45000.0
     assert body["debt_amount"] == 10000.0
     assert (body["products_count"], body["stores_count"]) == (3, 2)
@@ -55,12 +57,15 @@ def test_summary_by_store(client, admin_headers, activity):
     ).json()
     assert body["sales_count"] == 0 and body["revenue"] == 0.0
     assert body["stock_quantity"] == 85 and body["out_of_stock_count"] == 0
+    assert body["estimated_profit"] == 85000.0 and body["sales_margin"] == 0.0  # marge du stock du magasin
 
 
 def test_summary_period_filter(client, admin_headers, activity):
     future = (datetime.now(UTC) + timedelta(days=1)).isoformat()
     body = client.get("/api/v1/dashboard/summary", headers=admin_headers, params={"date_from": future}).json()
     assert body["sales_count"] == 0 and body["revenue"] == 0.0
+    assert body["sales_margin"] == 0.0
+    assert body["estimated_profit"] == 91000.0, "le stock actuel ne dépend pas de la période"
 
 
 def test_stock_value_per_store_and_global(client, factory, admin_headers):

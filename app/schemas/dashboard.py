@@ -62,8 +62,14 @@ class StockValueReport(BaseModel):
 class DashboardSummary(BaseModel):
     sales_count: int
     revenue: Money = Field(description="Chiffre d'affaires : total des ventes non annulées")
-    estimated_profit: SignedMoney = Field(description="Chiffre d'affaires - coût d'achat des articles vendus")
-    amount_collected: Money = Field(description="Encaissements : paiements reçus sur la période")
+    estimated_profit: SignedMoney = Field(
+        description="Bénéfice estimé : marge (prix de vente - prix) x quantité de tout le stock actuel "
+        "(magasin filtré). Ne dépend pas de la période."
+    )
+    sales_margin: SignedMoney = Field(
+        description="Encaissé : marge (prix de vente - prix) x quantité des produits vendus sur la période"
+    )
+    amount_collected: Money = Field(description="Paiements reçus sur la période")
     debt_amount: Money = Field(description="Total des restes à payer des ventes de la période")
     products_count: int = Field(description="Produits actifs au catalogue")
     stores_count: int = Field(description="Magasins actifs")

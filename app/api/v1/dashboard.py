@@ -30,9 +30,10 @@ def get_summary(
     query: Annotated[DashboardQuery, Query()],
     current_user: Annotated[User, require_permission(P.DASHBOARD_VIEW)],
 ):
-    """Ventes, chiffre d'affaires, bénéfice estimé, encaissements, dettes, produits, magasins,
-    stock (faible, à zéro dans un magasin, indisponible partout), meilleurs produits et ventes
-    récentes. Sans dates, la période couvre tout l'historique."""
+    """Ventes, chiffre d'affaires, bénéfice estimé (marge de tout le stock actuel), encaissé (marge des
+    produits vendus), paiements reçus, dettes, produits, magasins, stock (faible, à zéro dans un magasin,
+    indisponible partout), meilleurs produits et ventes récentes. Sans dates, la période couvre tout
+    l'historique (le bénéfice estimé, lui, porte toujours sur le stock actuel)."""
     return dashboard_service.get_summary(db, current_user, query)
 
 

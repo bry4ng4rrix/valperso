@@ -55,12 +55,14 @@ def amount_collected(
     return Decimal(db.scalar(stmt) or 0)
 
 
-def cost_of_goods_sold(
+def sales_margin(
     db: Session, store_id: int | None, date_from: datetime | None, date_to: datetime | None
 ) -> Decimal:
-    """Coût d'achat des articles vendus, au prix de stock enregistré au moment de chaque vente."""
+    """Marge des produits vendus : (prix de vente - prix) x quantité, aux prix enregistrés à chaque vente
+    (un changement de prix ensuite ne modifie pas les ventes passées)."""
+    margin = SaleItem.quantity * (SaleItem.unit_price - SaleItem.unit_purchase_price)
     stmt = (
-        select(func.coalesce(func.sum(SaleItem.quantity * SaleItem.unit_purchase_price), 0))
+        select(func.coalesce(func.sum(margin), 0))
         .select_from(SaleItem)
         .join(Sale, SaleItem.sale_id == Sale.id)
         .where(*_valid_sales(store_id, date_from, date_to))

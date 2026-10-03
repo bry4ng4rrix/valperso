@@ -121,14 +121,16 @@ def test_old_invoice_keeps_the_store_as_it_was(client, factory, admin_headers):
 
 
 def test_past_profit_does_not_change_with_the_purchase_price(client, factory, admin_headers):
+    """La marge des ventes passées garde les prix de la vente ; celle du stock suit les prix actuels."""
     product = factory.product(purchase_price="6000", selling_price="10000", stock=10)
     client.post("/api/v1/sales", headers=admin_headers, json=sale_payload((product, 2)))
-    before = client.get("/api/v1/dashboard/summary", headers=admin_headers).json()["estimated_profit"]
+    before = client.get("/api/v1/dashboard/summary", headers=admin_headers).json()
 
     client.patch(f"/api/v1/products/{product.id}", headers=admin_headers, json={"purchase_price": 9000})
 
-    after = client.get("/api/v1/dashboard/summary", headers=admin_headers).json()["estimated_profit"]
-    assert before == after == 8000.0
+    after = client.get("/api/v1/dashboard/summary", headers=admin_headers).json()
+    assert before["sales_margin"] == after["sales_margin"] == 8000.0  # 2 x (10 000 - 6 000)
+    assert (before["estimated_profit"], after["estimated_profit"]) == (32000.0, 8000.0)  # 8 en stock
 
 
 # --- Une vente refusée ne consomme pas de numéro de facture --------------------------------------

@@ -49,7 +49,8 @@ def get_summary(db: Session, user: User, query: DashboardQuery) -> DashboardSumm
     return DashboardSummary(
         sales_count=sales_count,
         revenue=revenue,
-        estimated_profit=revenue - dashboard_repository.cost_of_goods_sold(db, *period),
+        estimated_profit=stock_repository.potential_profit(db, store_id),
+        sales_margin=dashboard_repository.sales_margin(db, *period),
         amount_collected=dashboard_repository.amount_collected(db, *period),
         debt_amount=debt_amount,
         products_count=product_repository.count_active(db),

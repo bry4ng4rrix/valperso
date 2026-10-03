@@ -1,0 +1,134 @@
+@Tags(['visual'])
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:valmag/shared/widgets/states.dart';
+
+import '../support/demo_data.dart';
+import '../support/fake_api.dart';
+import '../support/test_app.dart';
+
+/// Tests visuels : chaque écran est comparé à sa capture de référence (test/visual/goldens).
+///
+/// Après une modification volontaire de l'interface, regénérer les captures puis les relire :
+///   flutter test test/visual --update-goldens
+const phone = Size(390, 844);
+const desktop = Size(1440, 900);
+
+/// Écran : route à ouvrir et nom de la capture.
+typedef Screen = ({String route, String name});
+
+const adminScreens = <Screen>[
+  (route: '/', name: 'accueil'),
+  (route: '/sales/new', name: 'vente_nouvelle_vide'),
+  (route: '/sales', name: 'ventes_historique'),
+  (route: '/sales/500', name: 'vente_detail_dette'),
+  (route: '/sales/499', name: 'vente_detail_annulee'),
+  (route: '/sales/500/invoice', name: 'facture'),
+  (route: '/products', name: 'produits'),
+  (route: '/products?state=low', name: 'produits_stock_faible'),
+  (route: '/products/10', name: 'produit_detail'),
+  (route: '/products/new', name: 'produit_nouveau'),
+  (route: '/products/10/edit', name: 'produit_modifier'),
+  (route: '/movements', name: 'mouvements'),
+  (route: '/transfers', name: 'transferts'),
+  (route: '/transfers/2', name: 'transfert_detail'),
+  (route: '/transfers/new', name: 'transfert_nouveau'),
+  (route: '/customers', name: 'clients'),
+  (route: '/customers/7', name: 'client_detail'),
+  (route: '/customers/new', name: 'client_nouveau'),
+  (route: '/payments', name: 'paiements'),
+  (route: '/stores', name: 'magasins'),
+  (route: '/stores/2', name: 'magasin_detail'),
+  (route: '/stores/new', name: 'magasin_nouveau'),
+  (route: '/users', name: 'utilisateurs'),
+  (route: '/users/4', name: 'utilisateur_detail'),
+  (route: '/users/new', name: 'utilisateur_nouveau'),
+  (route: '/categories', name: 'categories'),
+  (route: '/audit', name: 'audit'),
+  (route: '/chat', name: 'messages'),
+  (route: '/chat/1', name: 'conversation'),
+  (route: '/settings', name: 'parametres'),
+  (route: '/settings/company', name: 'societe'),
+  (route: '/settings/roles', name: 'roles_permissions'),
+];
+
+/// Écrans revus aussi en thème clair.
+const lightScreens = <Screen>[
+  (route: '/', name: 'accueil'),
+  (route: '/sales', name: 'ventes_historique'),
+  (route: '/sales/500', name: 'vente_detail_dette'),
+  (route: '/products', name: 'produits'),
+  (route: '/movements', name: 'mouvements'),
+  (route: '/customers/7', name: 'client_detail'),
+  (route: '/settings', name: 'parametres'),
+];
+
+const sellerScreens = <Screen>[
+  (route: '/', name: 'accueil'),
+  (route: '/more', name: 'plus'),
+  (route: '/payments', name: 'paiements'),
+];
+
+String folder(Size size, {bool light = false, bool seller = false}) =>
+    '${size == phone ? 'telephone' : 'ordinateur'}/${seller ? 'vendeur' : (light ? 'clair' : 'sombre')}';
+
+/// Ouvre l'application connectée sur la route demandée.
+Future<FakeApi> openScreen(
+  WidgetTester tester,
+  String route, {
+  required Size size,
+  bool light = false,
+  bool seller = false,
+}) async {
+  setScreenSize(tester, size);
+  final api = FakeApi();
+  stubDemoApi(api);
+  await pumpApp(tester, api, loggedIn: demoMe(admin: !seller), light: light);
+  if (route != '/') {
+    GoRouter.of(tester.element(find.byType(Scaffold).first)).go(route);
+    await settle(tester);
+  }
+  return api;
+}
+
+/// Compare l'écran à sa capture de référence, après avoir vérifié qu'il s'affiche sans erreur.
+Future<void> expectScreen(WidgetTester tester, FakeApi api, String path) async {
+  expect(tester.takeException(), isNull, reason: path);
+  expect(find.byType(ErrorState), findsNothing, reason: '$path : erreur de chargement');
+  expect(api.unmatched, isEmpty, reason: '$path : routes non simulées');
+  await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$path.png'));
+  // Démonte l'application et laisse finir les minuteurs (recherche différée, infobulles...).
+  await tester.pumpWidget(const SizedBox());
+  await tester.pump(const Duration(seconds: 5));
+}
+
+void main() {
+  setUpAll(initFrenchDates);
+
+  for (final size in [phone, desktop]) {
+    group(size == phone ? 'téléphone' : 'ordinateur', () {
+      for (final screen in adminScreens) {
+        testWidgets('${screen.name} (sombre)', (tester) async {
+          final api = await openScreen(tester, screen.route, size: size);
+          await expectScreen(tester, api, '${folder(size)}/${screen.name}');
+        });
+      }
+      for (final screen in lightScreens) {
+        testWidgets('${screen.name} (clair)', (tester) async {
+          final api = await openScreen(tester, screen.route, size: size, light: true);
+          await expectScreen(tester, api, '${folder(size, light: true)}/${screen.name}');
+        });
+      }
+      for (final screen in sellerScreens) {
+        if (screen.route == '/more' && size != phone) continue; // page « Plus » : téléphone seulement
+        testWidgets('vendeur : ${screen.name}', (tester) async {
+          final api = await openScreen(tester, screen.route, size: size, seller: true);
+          await expectScreen(tester, api, '${folder(size, seller: true)}/${screen.name}');
+        });
+      }
+    });
+  }
+}

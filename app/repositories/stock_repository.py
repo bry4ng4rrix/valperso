@@ -147,6 +147,16 @@ def total_quantity(db: Session, store_id: int | None) -> int:
     return db.scalar(stmt) or 0
 
 
+def potential_profit(db: Session, store_id: int | None) -> Decimal:
+    """Marge de tout le stock actuel : (prix de vente - prix) x quantité, aux prix actuels des produits."""
+    stmt = select(
+        func.coalesce(func.sum(Stock.quantity * (Product.selling_price - Product.purchase_price)), 0)
+    ).join(Product, Product.id == Stock.product_id)
+    if store_id is not None:
+        stmt = stmt.where(Stock.store_id == store_id)
+    return Decimal(db.scalar(stmt) or 0)
+
+
 def count_unavailable_products(db: Session) -> int:
     """Produits actifs dont la quantité est nulle dans TOUS les magasins (réellement indisponibles)."""
     total_by_product = (
