@@ -133,6 +133,9 @@ class PagedListView<T> extends StatelessWidget {
             child: Card(
               child: DataTable(
                 showCheckboxColumn: false,
+                // Colonnes plus serrées que par défaut (56 px) : les tableaux larges tiennent sur l'écran.
+                columnSpacing: Gaps.lg,
+                horizontalMargin: Gaps.lg,
                 headingRowHeight: 44,
                 dataRowMinHeight: 52,
                 dataRowMaxHeight: 64,

@@ -121,9 +121,13 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              // Numéro puis badges : sur téléphone, les badges passent à la ligne sans couper le numéro.
+              Wrap(
+                spacing: Gaps.md,
+                runSpacing: Gaps.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(child: Text(sale.number, style: theme.textTheme.titleLarge)),
+                  Text(sale.number, style: theme.textTheme.titleLarge),
                   SaleBadges(sale: sale),
                 ],
               ),

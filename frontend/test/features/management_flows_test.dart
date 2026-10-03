@@ -369,10 +369,13 @@ void main() {
     expect(find.text('Produits les moins vendus'), findsOneWidget);
     expect(find.text('Parmi les produits en stock'), findsOneWidget);
     expect(find.text('0 vendu'), findsOneWidget);
-    expect(find.textContaining('40 en stock'), findsOneWidget);
+    expect(find.textContaining('40\u00A0en\u00A0stock'), findsOneWidget);
     expect(find.text('Performance des magasins'), findsOneWidget);
     expect(find.text('10\u00A0000 Ar'), findsOneWidget, reason: 'chiffre d\'affaires du Stock Local');
-    expect(find.textContaining('1 vente · marge 1\u00A0000 Ar · reste 3\u00A0000 Ar · 50 en stock'), findsOneWidget);
+    expect(
+      find.textContaining('1\u00A0vente · marge\u00A01\u00A0000 Ar · reste\u00A03\u00A0000 Ar · 50\u00A0en\u00A0stock'),
+      findsOneWidget,
+    );
     expect(find.byType(HorizontalBarChart), findsNWidgets(3));
   });
 

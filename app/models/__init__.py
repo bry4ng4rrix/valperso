@@ -8,7 +8,7 @@ from app.models.company import COMPANY_ID, CompanyInformation, InvoiceCompanySna
 from app.models.customer import Customer
 from app.models.payment import Payment
 from app.models.permission import Permission
-from app.models.product import Product
+from app.models.product import Product, ProductImage
 from app.models.role import Role, role_permissions
 from app.models.sale import Sale, SaleInstallment, SaleItem, invoice_number_sequence
 from app.models.stock import Stock
@@ -31,6 +31,7 @@ __all__ = [
     "Payment",
     "Permission",
     "Product",
+    "ProductImage",
     "Role",
     "Sale",
     "SaleInstallment",

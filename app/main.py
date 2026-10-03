@@ -5,9 +5,11 @@ Documentation   : /docs (Swagger UI) et /redoc
 """
 
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -81,6 +83,10 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(api_router, prefix="/api/v1")
     app.include_router(health_router, prefix="/api/v1")
+    # Photos des produits envoyées par l'application (fichiers, pas en base).
+    media = Path(settings.MEDIA_ROOT)
+    media.mkdir(parents=True, exist_ok=True)
+    app.mount("/media", StaticFiles(directory=media), name="media")
     return app
 
 

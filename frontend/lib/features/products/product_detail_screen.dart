@@ -20,6 +20,7 @@ import '../stock/stock_models.dart';
 import '../stock/stock_operation_sheet.dart';
 import '../stock/stock_repository.dart';
 import 'product_models.dart';
+import 'product_photos.dart';
 import 'product_widgets.dart';
 import 'products_repository.dart';
 
@@ -170,7 +171,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         AppCard(
           child: Row(
             children: [
-              ProductAvatar(name: product.label, imageUrl: product.imageUrl, size: 72),
+              ProductAvatar(name: product.label, imageUrl: product.imageUrl, gallery: product.imageUrls, size: 72),
               const SizedBox(width: Gaps.lg),
               Expanded(
                 child: Column(
@@ -193,6 +194,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ],
           ),
         ),
+        const SizedBox(height: Gaps.lg),
+        ProductPhotosCard(product: product, canEdit: user.can(Perm.productUpdate), onChanged: _reload),
         const SizedBox(height: Gaps.lg),
         ResponsiveGrid(
           minItemWidth: 160,

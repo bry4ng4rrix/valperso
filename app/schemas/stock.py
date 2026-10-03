@@ -39,6 +39,7 @@ class StockProduct(ORMModel):
     purchase_price: Money
     selling_price: Money
     is_active: bool
+    image_url: str | None = Field(None, description="Photo principale du produit")
 
 
 class StockRead(ORMModel):

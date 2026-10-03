@@ -14,7 +14,7 @@ import '../sales/sale_models.dart';
 import '../sales/sales_repository.dart';
 import 'invoice_actions.dart';
 
-/// Facture d'une vente : aperçu, partage et enregistrement en PDF.
+/// Facture d'une vente : aperçu, impression et partage en PDF.
 /// Les informations de la société sont celles en vigueur au moment de la vente.
 class InvoiceScreen extends StatefulWidget {
   const InvoiceScreen({super.key, required this.saleId});
@@ -45,18 +45,18 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                       children: [
                         Expanded(
                           child: AppButton(
-                            label: 'Enregistrer PDF',
-                            icon: Icons.download_outlined,
-                            variant: AppButtonVariant.secondary,
+                            label: 'Imprimer',
+                            icon: Icons.print_outlined,
                             expand: true,
-                            onPressed: () => saveInvoice(context, invoice),
+                            onPressed: () => printInvoice(context, invoice),
                           ),
                         ),
                         const SizedBox(width: Gaps.md),
                         Expanded(
                           child: AppButton(
-                            label: 'Partager',
-                            icon: Icons.share_outlined,
+                            label: sharePdfLabel,
+                            icon: Icons.picture_as_pdf_outlined,
+                            variant: AppButtonVariant.secondary,
                             expand: true,
                             onPressed: () => shareInvoice(context, widget.saleId, invoice: invoice),
                           ),
@@ -120,18 +120,21 @@ class InvoiceView extends StatelessWidget {
                         errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
                     ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        Formats.title(invoice.companyName),
-                        style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),
-                      ),
-                      if (invoice.companyAddress != null) Text(Formats.title(invoice.companyAddress), style: muted),
-                      if (invoice.companyCity != null) Text(Formats.title(invoice.companyCity), style: muted),
-                      if (invoice.companyPhone != null) Text('Tél. ${invoice.companyPhone}', style: muted),
-                      if (invoice.companyEmail != null) Text(invoice.companyEmail!, style: muted),
-                    ],
+                  // Flexible : une adresse ou un e-mail long passe à la ligne au lieu de déborder.
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          Formats.title(invoice.companyName),
+                          style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),
+                        ),
+                        if (invoice.companyAddress != null) Text(Formats.title(invoice.companyAddress), style: muted),
+                        if (invoice.companyCity != null) Text(Formats.title(invoice.companyCity), style: muted),
+                        if (invoice.companyPhone != null) Text('Tél. ${invoice.companyPhone}', style: muted),
+                        if (invoice.companyEmail != null) Text(invoice.companyEmail!, style: muted),
+                      ],
+                    ),
                   ),
                 ],
               ),

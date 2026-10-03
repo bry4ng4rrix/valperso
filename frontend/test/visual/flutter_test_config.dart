@@ -8,7 +8,7 @@ import 'package:valmag/app/theme/theme.dart';
 /// Tests visuels : les captures utilisent les vraies polices (Roboto et les icônes Material),
 /// sinon le texte s'affiche en blocs. Elles sont fournies par le SDK Flutter.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  _VisualTestBinding();
   final fonts = _materialFonts();
   await _load(fonts, 'Roboto', [
     'Roboto-Regular.ttf',
@@ -52,4 +52,11 @@ Future<void> _load(Directory dir, String family, List<String> files) async {
     }
   }
   await loader.load();
+}
+
+/// Les tests remplacent normalement les ombres par un trait noir (visible en thème clair) :
+/// les captures gardent ici les vraies ombres, comme sur l'appareil.
+class _VisualTestBinding extends AutomatedTestWidgetsFlutterBinding {
+  @override
+  bool get disableShadows => false;
 }

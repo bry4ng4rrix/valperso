@@ -107,6 +107,7 @@ Copiez `.env.example` en `.env`. **Ne versionnez jamais `.env`** : il est ignor�
 | `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD` | premier ADMIN créé par le seed | — / `admin` / — |
 | `COMPANY_NAME` | nom initial de la société (modifiable ensuite par l'ADMIN) | `Ma Société` |
 | `DEFAULT_ALERT_THRESHOLD` | seuil d'alerte des nouvelles lignes de stock | `5` |
+| `MEDIA_ROOT` | dossier des photos des produits (servi sous `/media`) | `media` |
 | `TIMEZONE` | fuseau des statistiques par jour/mois et de l'année des numéros (ex. `Indian/Antananarivo`) | `UTC` |
 | `DEMO_PASSWORD` | (développement) mot de passe des comptes créés par `python -m app.seed_demo` | — |
 | `TEST_DATABASE_URL` | (tests) base de test, par défaut `DATABASE_URL` suffixée par `_test` | — |
@@ -269,6 +270,11 @@ Liste des permissions :
 - Règle : **prix de vente ≥ prix de stock** (`selling_price >= purchase_price`). Elle est vérifiée par le schéma (422), par le service à la création et à la modification (400 `INVALID_SELLING_PRICE`, même si un seul prix est envoyé) et par une contrainte en base.
 - `unit_profit` = prix de vente − prix de stock.
 - Le produit n'a pas de champ stock. À sa création, une ligne de stock à 0 est créée dans le Stock Local.
+
+**Photos des produits** (permission `product.update`) :
+- `POST /products/{id}/images` (multipart, champ `file`) ajoute une photo ; `DELETE /products/{id}/images/{image_id}` la supprime (fichier compris). Chaque action est auditée.
+- Formats JPEG, PNG ou WebP, reconnus au contenu du fichier ; 5 Mo et 10 photos maximum par produit ; le nom du fichier est aléatoire (jamais celui envoyé).
+- Les fichiers sont dans `MEDIA_ROOT` (défaut `media/`, volume Docker `media_data`), servis sans authentification sous `/media/...`. Les produits renvoient `images` (`id`, `url`) et `image_url` (la première, photo principale) ; les lignes de stock renvoient `product.image_url`.
 
 **Stock par magasin** : table `stocks`, une ligne par couple (produit, magasin), `UNIQUE(product_id, store_id)`, quantité jamais négative.
 

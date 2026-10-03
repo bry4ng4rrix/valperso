@@ -130,6 +130,11 @@ class InvalidSellingPrice(BusinessRuleError):
     default_message = "Le prix de vente doit être supérieur ou égal au prix."
 
 
+class InvalidImage(BusinessRuleError):
+    code = "INVALID_IMAGE"
+    default_message = "Image invalide"
+
+
 class InvalidDiscount(BusinessRuleError):
     code = "INVALID_DISCOUNT"
     default_message = "Remise invalide"

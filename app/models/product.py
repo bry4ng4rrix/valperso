@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import MONEY, Base, TimestampMixin, UpperCaseString
+from app.models.base import MONEY, Base, CreatedAtMixin, TimestampMixin, UpperCaseString
 from app.models.category import Category
 
 if TYPE_CHECKING:
@@ -36,3 +36,32 @@ class Product(TimestampMixin, Base):
 
     category: Mapped[Category | None] = relationship(back_populates="products", lazy="selectin")
     stocks: Mapped[list["Stock"]] = relationship(back_populates="product")
+    images: Mapped[list["ProductImage"]] = relationship(
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="(ProductImage.position, ProductImage.id)",
+    )
+
+    @property
+    def image_url(self) -> str | None:
+        """Photo principale (la première), ou None."""
+        return self.images[0].url if self.images else None
+
+
+class ProductImage(CreatedAtMixin, Base):
+    """Photo d'un produit. Le fichier est dans MEDIA_ROOT (servi sous /media), pas dans PostgreSQL."""
+
+    __tablename__ = "product_images"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(sa.ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    # Chemin relatif à MEDIA_ROOT, ex. products/3f2a....jpg (nom aléatoire, jamais celui envoyé).
+    path: Mapped[str] = mapped_column(sa.String(255))
+    position: Mapped[int] = mapped_column(default=0, server_default="0")
+
+    product: Mapped[Product] = relationship(back_populates="images")
+
+    @property
+    def url(self) -> str:
+        return f"/media/{self.path}"

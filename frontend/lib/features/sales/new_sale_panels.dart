@@ -222,6 +222,8 @@ class _CartLineTileState extends State<_CartLineTile> {
         children: [
           Row(
             children: [
+              ProductAvatar(name: line.product.label, imageUrl: line.product.imageUrl, size: 40),
+              const SizedBox(width: Gaps.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

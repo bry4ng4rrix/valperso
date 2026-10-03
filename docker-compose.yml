@@ -32,6 +32,10 @@ services:
         condition: service_healthy
     ports:
       - "${API_PORT:-8000}:8000"
+    volumes:
+      # Photos des produits : conservées quand l'API est reconstruite.
+      - media_data:/app/media
 
 volumes:
   postgres_data:
+  media_data:

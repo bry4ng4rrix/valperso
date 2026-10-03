@@ -3,23 +3,21 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/export/excel_export.dart';
+import '../../core/utils/media.dart';
 import '../../core/widgets/notifications.dart';
 import '../sales/sale_models.dart';
 import '../sales/sales_repository.dart';
 import 'invoice_pdf.dart';
 
 /// Adresse complète du logo : une adresse web, ou un chemin servi par le serveur de l'API.
-String? resolveLogoUrl(String? logoUrl, String apiBaseUrl) {
-  if (logoUrl == null || logoUrl.isEmpty) return null;
-  if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) return logoUrl;
-  return '$apiBaseUrl$logoUrl';
-}
+String? resolveLogoUrl(String? logoUrl, String apiBaseUrl) => resolveMediaUrl(logoUrl, apiBaseUrl);
 
 /// Télécharge le logo pour le PDF. Sans logo (ou s'il est inaccessible), la facture reste valide.
 Future<Uint8List?> _loadLogo(ApiClient api, Invoice invoice) async {
@@ -69,13 +67,21 @@ Future<void> shareInvoice(BuildContext context, int saleId, {Invoice? invoice}) 
   }
 }
 
-/// Enregistre la facture en PDF (dossier Téléchargements, sinon dossier de l'application).
-Future<void> saveInvoice(BuildContext context, Invoice invoice) async {
+/// Ouvre la fenêtre d'impression du système avec le PDF (choix de l'imprimante, ou « Enregistrer en PDF »).
+/// Remplacée dans les tests : il n'y a pas de service d'impression.
+@visibleForTesting
+Future<bool> Function(Uint8List pdf, String name) printPdf = (pdf, name) =>
+    Printing.layoutPdf(onLayout: (_) async => pdf, name: name);
+
+/// Imprime la facture (même PDF que celui partagé).
+Future<void> printInvoice(BuildContext context, Invoice invoice) async {
   try {
     final bytes = await _pdfFor(context, invoice);
-    final path = await saveExportFile(bytes, invoiceFileName(invoice));
-    if (context.mounted) Notify.success(context, 'Facture enregistrée : $path');
+    await printPdf(bytes, invoiceFileName(invoice));
   } on Exception catch (error) {
     if (context.mounted) Notify.error(context, error);
   }
 }
+
+/// Libellé du partage : sur ordinateur, le PDF est enregistré (pas de menu de partage).
+String get sharePdfLabel => defaultTargetPlatform == TargetPlatform.android ? 'Partager en PDF' : 'Enregistrer en PDF';

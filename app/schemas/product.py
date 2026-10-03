@@ -22,6 +22,11 @@ class ProductSummary(ORMModel):
     name: DisplayStr
 
 
+class ProductImageRead(ORMModel):
+    id: int
+    url: str = Field(description="Chemin servi par l'API, ex. /media/products/3f2a....jpg")
+
+
 class ProductRead(ORMModel):
     id: int
     reference: DisplayStr = Field(description="Référence (non unique)")
@@ -31,6 +36,8 @@ class ProductRead(ORMModel):
     purchase_price: Money = Field(description="Prix de stock (prix d'achat)")
     selling_price: Money = Field(description="Prix de vente, toujours >= prix de stock")
     is_active: bool
+    image_url: str | None = Field(description="Photo principale (la première), ou null")
+    images: list[ProductImageRead] = Field(description="Photos, la principale d'abord")
     created_at: datetime
     updated_at: datetime
 

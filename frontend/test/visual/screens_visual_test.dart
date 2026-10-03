@@ -15,7 +15,7 @@ typedef Screen = ({String route, String name});
 const adminScreens = <Screen>[
   (route: '/', name: 'accueil'),
   (route: '/sales/new', name: 'vente_nouvelle_vide'),
-  (route: '/sales', name: 'ventes_historique'),
+  (route: '/sales?tab=history', name: 'ventes_historique'),
   (route: '/sales/500', name: 'vente_detail_dette'),
   (route: '/sales/499', name: 'vente_detail_annulee'),
   (route: '/sales/500/invoice', name: 'facture'),
@@ -50,7 +50,7 @@ const adminScreens = <Screen>[
 /// Écrans revus aussi en thème clair.
 const lightScreens = <Screen>[
   (route: '/', name: 'accueil'),
-  (route: '/sales', name: 'ventes_historique'),
+  (route: '/sales?tab=history', name: 'ventes_historique'),
   (route: '/sales/500', name: 'vente_detail_dette'),
   (route: '/products', name: 'produits'),
   (route: '/movements', name: 'mouvements'),

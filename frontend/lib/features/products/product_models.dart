@@ -2,6 +2,16 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/json.dart';
 import '../../shared/models/refs.dart';
 
+/// Photo d'un produit (chemin servi par l'API, ex. /media/products/....jpg).
+class ProductImage {
+  const ProductImage({required this.id, required this.url});
+
+  factory ProductImage.fromJson(Json json) => ProductImage(id: toInt(json['id']), url: '${json['url']}');
+
+  final int id;
+  final String url;
+}
+
 /// Produit du catalogue (référence et nom non uniques).
 class Product {
   const Product({
@@ -13,6 +23,7 @@ class Product {
     required this.isActive,
     this.category,
     this.imageUrl,
+    this.images = const [],
   });
 
   factory Product.fromJson(Json json) => Product(
@@ -24,6 +35,7 @@ class Product {
     sellingPrice: toDouble(json['selling_price']),
     isActive: json['is_active'] != false,
     imageUrl: toStringOrNull(json['image_url']),
+    images: toList(json['images'], ProductImage.fromJson),
   );
 
   final int id;
@@ -34,8 +46,13 @@ class Product {
   final double sellingPrice;
   final bool isActive;
 
-  /// Prévu pour l'image principale quand l'API la fournira.
+  /// Photo principale (la première), ou null.
   final String? imageUrl;
+
+  /// Toutes les photos (la fiche produit ; les listes de stock n'ont que la principale).
+  final List<ProductImage> images;
+
+  List<String> get imageUrls => [for (final image in images) image.url];
 
   double get unitProfit => sellingPrice - purchasePrice;
 

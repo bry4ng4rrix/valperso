@@ -389,7 +389,7 @@ class _ProductsChart extends StatelessWidget {
                   detail: [
                     product.reference.toUpperCase(),
                     if (product.quantitySold > 0) Formats.money(product.revenue),
-                    if (product.stockQuantity != null) '${Formats.quantity(product.stockQuantity!)} en stock',
+                    if (product.stockQuantity != null) '${Formats.quantity(product.stockQuantity!)}\u00A0en\u00A0stock',
                   ].join(' · '),
                   onTap: () => context.push('/products/${product.productId}'),
                 ),
@@ -424,11 +424,12 @@ class _StoresPerformance extends StatelessWidget {
               label: performance.store.label,
               value: performance.revenue,
               valueText: Formats.money(performance.revenue),
+              // Espaces insécables : chaque information reste sur une seule ligne.
               detail: [
-                '${Formats.quantity(performance.salesCount)} vente${performance.salesCount > 1 ? 's' : ''}',
-                if (showMargin) 'marge ${Formats.money(performance.salesMargin)}',
-                if (performance.debtAmount > 0) 'reste ${Formats.money(performance.debtAmount)}',
-                '${Formats.quantity(performance.stockQuantity)} en stock',
+                '${Formats.quantity(performance.salesCount)}\u00A0vente${performance.salesCount > 1 ? 's' : ''}',
+                if (showMargin) 'marge\u00A0${Formats.money(performance.salesMargin)}',
+                if (performance.debtAmount > 0) 'reste\u00A0${Formats.money(performance.debtAmount)}',
+                '${Formats.quantity(performance.stockQuantity)}\u00A0en\u00A0stock',
               ].join(' · '),
               onTap: () => context.push('/stores/${performance.store.id}'),
             ),

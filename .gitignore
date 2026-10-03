@@ -18,3 +18,6 @@ htmlcov/
 
 # Sauvegardes et rapports d'import (données personnelles)
 backups/
+
+# Photos envoyées en local (dans Docker : volume media_data)
+media/

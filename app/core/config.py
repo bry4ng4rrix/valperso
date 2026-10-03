@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     DEMO_PASSWORD: str | None = None
 
     # Seuil d'alerte appliqué aux nouvelles lignes de stock (modifiable ensuite ligne par ligne).
+    # Dossier des fichiers envoyés (photos des produits), servi sous /media.
+    MEDIA_ROOT: str = "media"
     DEFAULT_ALERT_THRESHOLD: int = Field(default=5, ge=0)
     # Fuseau horaire des statistiques par jour/mois et de l'année des numéros de facture.
     TIMEZONE: str = "UTC"
