@@ -1,21 +1,13 @@
 @Tags(['visual'])
 library;
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
-import 'package:valmag/shared/widgets/states.dart';
 
-import '../support/demo_data.dart';
-import '../support/fake_api.dart';
 import '../support/test_app.dart';
+import 'visual_helpers.dart';
 
-/// Tests visuels : chaque écran est comparé à sa capture de référence (test/visual/goldens).
-///
-/// Après une modification volontaire de l'interface, regénérer les captures puis les relire :
-///   flutter test test/visual --update-goldens
-const phone = Size(390, 844);
-const desktop = Size(1440, 900);
+/// Tous les écrans, comparés à leur capture de référence (test/visual/goldens) :
+/// téléphone et ordinateur, thème sombre (et clair pour une sélection), administrateur et vendeur.
 
 /// Écran : route à ouvrir et nom de la capture.
 typedef Screen = ({String route, String name});
@@ -66,52 +58,35 @@ const lightScreens = <Screen>[
   (route: '/settings', name: 'parametres'),
 ];
 
+/// Écrans longs, capturés aussi en page entière sur téléphone (contenu sous l'écran).
+const longScreens = <Screen>[
+  (route: '/', name: 'accueil'),
+  (route: '/sales/500', name: 'vente_detail_dette'),
+  (route: '/sales/500/invoice', name: 'facture'),
+  (route: '/customers/7', name: 'client_detail'),
+  (route: '/products/10', name: 'produit_detail'),
+  (route: '/stores/2', name: 'magasin_detail'),
+  (route: '/transfers/2', name: 'transfert_detail'),
+  (route: '/settings', name: 'parametres'),
+];
+
 const sellerScreens = <Screen>[
   (route: '/', name: 'accueil'),
   (route: '/more', name: 'plus'),
   (route: '/payments', name: 'paiements'),
 ];
 
-String folder(Size size, {bool light = false, bool seller = false}) =>
-    '${size == phone ? 'telephone' : 'ordinateur'}/${seller ? 'vendeur' : (light ? 'clair' : 'sombre')}';
-
-/// Ouvre l'application connectée sur la route demandée.
-Future<FakeApi> openScreen(
-  WidgetTester tester,
-  String route, {
-  required Size size,
-  bool light = false,
-  bool seller = false,
-}) async {
-  setScreenSize(tester, size);
-  final api = FakeApi();
-  stubDemoApi(api);
-  await pumpApp(
-    tester,
-    api,
-    loggedIn: demoMe(admin: !seller),
-    light: light,
-  );
-  if (route != '/') {
-    GoRouter.of(tester.element(find.byType(Scaffold).first)).go(route);
-    await settle(tester);
-  }
-  return api;
-}
-
-/// Compare l'écran à sa capture de référence, après avoir vérifié qu'il s'affiche sans erreur.
-Future<void> expectScreen(WidgetTester tester, FakeApi api, String path) async {
-  expect(tester.takeException(), isNull, reason: path);
-  expect(find.byType(ErrorState), findsNothing, reason: '$path : erreur de chargement');
-  expect(api.unmatched, isEmpty, reason: '$path : routes non simulées');
-  await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$path.png'));
-  // Démonte l'application et laisse finir les minuteurs (recherche différée, infobulles...).
-  await tester.pumpWidget(const SizedBox());
-  await tester.pump(const Duration(seconds: 5));
-}
-
 void main() {
   setUpAll(initFrenchDates);
+
+  group('téléphone, page entière', () {
+    for (final screen in longScreens) {
+      testWidgets(screen.name, (tester) async {
+        final api = await openScreen(tester, screen.route, size: phoneLong);
+        await expectScreen(tester, api, '${folder(phoneLong)}/${screen.name}');
+      });
+    }
+  });
 
   for (final size in [phone, desktop]) {
     group(size == phone ? 'téléphone' : 'ordinateur', () {

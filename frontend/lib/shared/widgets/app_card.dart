@@ -76,7 +76,9 @@ class InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Libellé court, valeur plus large (e-mail, adresse, montants).
           Expanded(
+            flex: 2,
             child: Text(
               label,
               style: emphasis
@@ -85,7 +87,8 @@ class InfoRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: Gaps.md),
-          Flexible(
+          Expanded(
+            flex: 3,
             child: Text(value, style: style, textAlign: TextAlign.end),
           ),
         ],

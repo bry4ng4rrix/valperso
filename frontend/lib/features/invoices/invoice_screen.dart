@@ -208,10 +208,13 @@ class InvoiceView extends StatelessWidget {
               value: Formats.money(invoice.remainingAmount),
               valueStyle: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
             ),
-            if (invoice.installments.isNotEmpty)
-              InfoRow(label: 'Échéancier', value: installmentsText(invoice.installments))
-            else if (invoice.dueDate != null)
+            if (invoice.installments.isEmpty && invoice.dueDate != null)
               InfoRow(label: 'Échéance', value: Formats.date(invoice.dueDate)),
+          ],
+          if (invoice.installments.isNotEmpty) ...[
+            const SizedBox(height: Gaps.md),
+            Text('Échéancier', style: theme.textTheme.titleSmall),
+            for (final line in installmentsText(invoice.installments).split('\n')) Text(line, style: muted),
           ],
           if (invoice.payments.isNotEmpty) ...[
             const SizedBox(height: Gaps.md),

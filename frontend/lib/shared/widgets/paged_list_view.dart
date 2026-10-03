@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/api/paged_controller.dart';
+import '../../core/utils/responsive.dart';
 import 'pagination_controls.dart';
 import 'states.dart';
 
@@ -79,18 +80,27 @@ class PagedListView<T> extends StatelessWidget {
                 },
               ),
             ),
-            PaginationControls(
-              page: controller.page,
-              pages: controller.pages,
-              total: controller.total,
-              isLoading: controller.isLoading,
-              onPageSelected: controller.load,
-            ),
+            // Téléphone : une seule page, le nombre de résultats est déjà affiché en haut de la liste ;
+            // plusieurs pages, la barre passe au-dessus du bouton flottant (« Nouveau... »).
+            if (!context.isMobile || controller.pages > 1)
+              Padding(
+                padding: EdgeInsets.only(bottom: _hasFloatingButton(context) ? 72 : 0),
+                child: PaginationControls(
+                  page: controller.page,
+                  pages: controller.pages,
+                  total: controller.total,
+                  isLoading: controller.isLoading,
+                  onPageSelected: controller.load,
+                ),
+              ),
           ],
         );
       },
     );
   }
+
+  bool _hasFloatingButton(BuildContext context) =>
+      context.isMobile && (Scaffold.maybeOf(context)?.hasFloatingActionButton ?? false);
 
   Widget _buildCards(BuildContext context, BoxConstraints constraints) {
     // Une colonne de cartes, centrée et limitée en largeur : lisible sur mobile comme sur tablette.
