@@ -6,7 +6,6 @@ import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/session_controller.dart';
-import '../../core/auth/settings_controller.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_logo.dart';
 import '../../shared/widgets/app_text_field.dart';
@@ -48,7 +47,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final session = context.watch<SessionController>();
-    final apiUrl = context.watch<SettingsController>().apiUrl;
     final notice = session.expiredMessage;
 
     return Scaffold(

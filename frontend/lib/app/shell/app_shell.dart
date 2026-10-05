@@ -163,7 +163,7 @@ class _SidebarHeader extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.all(compact ? Gaps.md : Gaps.lg),
       child: compact
-          ? Center(child: logo)
+          ? const Center(child: logo)
           : Row(
               children: [
                 logo,
