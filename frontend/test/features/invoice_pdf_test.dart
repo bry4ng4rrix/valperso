@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:valmag/features/invoices/invoice_actions.dart';
 import 'package:valmag/features/invoices/invoice_pdf.dart';
+import 'package:valmag/features/invoices/receipt.dart';
 import 'package:valmag/features/sales/sale_models.dart';
 
 import '../support/test_app.dart';
@@ -90,10 +91,24 @@ void main() {
     expect(invoice.thankYouMessage.last, 'À bientôt chez allsafe.');
   });
 
-  test('le PDF est généré (accents, montants, remise, reste à payer)', () async {
+  test('contenu du ticket : informations alignées, articles, échéancier, paiements', () {
+    expect(invoice.infoRows.first, ('Facture', 'FAC-2026-000125'));
+    expect(invoice.infoRows, contains(('Magasin', 'H109, Behoririka')));
+    expect(invoice.infoRows.last, ('Client', 'Rasoa Be\nTél. 0341234567'));
+    expect(receiptLabel('Date', invoice.infoRows), 'Date    :');
+    expect(invoice.articleCount, 4);
+    expect(invoice.lines.first.receiptDetail, 'P-10  3 x 1\u00A0000');
+    expect(invoice.installmentRows.single, ('30/10/2026', '2\u00A0950 Ar'));
+    expect(invoice.paymentRows.single.$2, '2\u00A0000 Ar');
+  });
+
+  test('le PDF est un ticket de 80 mm (accents, montants, remise, reste à payer)', () async {
     final bytes = await buildInvoicePdf(invoice);
     expect(bytes.length, greaterThan(1000));
     expect(ascii.decode(bytes.sublist(0, 5)), '%PDF-');
+    final mediaBox = RegExp(r'/MediaBox ?\[0 0 ([\d.]+) ([\d.]+)\]').firstMatch(latin1.decode(bytes))!;
+    expect(double.parse(mediaBox[1]!), closeTo(226.77, 0.01));
+    expect(double.parse(mediaBox[2]!), greaterThan(300));
   });
 
   test('adresse du logo : web ou chemin du serveur', () {

@@ -96,13 +96,15 @@ class SaleInstallment {
           PaymentStatus.partial => 'Reste ${Formats.money(remainingAmount)}',
           PaymentStatus.unpaid => 'À payer',
         };
+
+  /// Précision après le montant : rien pour une échéance simplement à payer.
+  String get note => status == PaymentStatus.unpaid && !isOverdue ? '' : ' (${statusLabel.toLowerCase()})';
 }
 
 /// Échéancier en texte (une ligne par date), pour les résumés et la facture.
 String installmentsText(List<SaleInstallment> installments) => [
   for (final installment in installments)
-    '${Formats.date(installment.dueDate)} : ${Formats.money(installment.amount)}'
-        '${installment.status == PaymentStatus.unpaid && !installment.isOverdue ? '' : ' (${installment.statusLabel.toLowerCase()})'}',
+    '${Formats.date(installment.dueDate)} : ${Formats.money(installment.amount)}${installment.note}',
 ].join('\n');
 
 /// Vente (ligne d'historique). Les champs du détail sont renseignés par GET /sales/{id}.

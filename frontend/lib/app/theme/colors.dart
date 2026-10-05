@@ -41,4 +41,8 @@ abstract final class AppColors {
   static const success = Color(0xFF22A06B); // payé, stock disponible
   static const warning = Color(0xFFE09B2D); // stock faible, paiement partiel
   static const danger = Color(0xFFE5484D); // erreur, suppression, rupture, dette
+
+  // --- Ticket de caisse (aperçu de la facture, identique dans les deux thèmes) ----------------
+  static const receiptPaper = Color(0xFFFFFFFF);
+  static const receiptInk = Color(0xFF1A1A1A);
 }

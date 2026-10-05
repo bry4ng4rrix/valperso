@@ -23,6 +23,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   if (File('${dejaVu.path}/DejaVuSans.ttf').existsSync()) {
     await _load(dejaVu, 'DejaVu Sans', ['DejaVuSans.ttf']);
     AppTheme.testFontFallback = const ['DejaVu Sans'];
+    // Police à chasse fixe du ticket de caisse (famille « monospace » du système).
+    await _load(dejaVu, 'monospace', ['DejaVuSansMono.ttf', 'DejaVuSansMono-Bold.ttf']);
   }
   await testMain();
 }

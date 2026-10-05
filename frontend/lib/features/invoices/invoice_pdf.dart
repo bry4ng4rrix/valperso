@@ -5,195 +5,135 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../core/utils/formatters.dart';
 import '../sales/sale_models.dart';
+import 'receipt.dart';
 
-/// Construit le PDF d'une facture (format A4).
+/// Rouleau de 80 mm des imprimantes de caisse ; la hauteur suit la longueur du ticket.
+const receiptPageFormat = PdfPageFormat(
+  80 * PdfPageFormat.mm,
+  double.infinity,
+  marginTop: 6 * PdfPageFormat.mm,
+  marginBottom: 10 * PdfPageFormat.mm,
+  marginLeft: 4 * PdfPageFormat.mm,
+  marginRight: 4 * PdfPageFormat.mm,
+);
+
+/// Construit la facture au format ticket de caisse, comme en supermarché.
 ///
-/// Les polices standard du PDF couvrent le français (accents, espaces insécables) ;
+/// Une seule page étroite, imprimée d'un bloc sur une imprimante thermique.
+/// La police Courier (standard du PDF) couvre le français (accents, espaces insécables) ;
 /// les montants n'utilisent donc pas l'espace fine U+202F.
 Future<Uint8List> buildInvoicePdf(Invoice invoice, {Uint8List? logo}) async {
   final document = pw.Document(title: 'Facture ${invoice.number}', author: Formats.title(invoice.companyName));
-  final primary = PdfColor.fromHex('#1E3A8A');
-  final muted = PdfColor.fromHex('#4B5563');
-  final small = pw.TextStyle(fontSize: 9, color: muted);
+  final base = pw.ThemeData.withFont(base: pw.Font.courier(), bold: pw.Font.courierBold());
+  final theme = base.copyWith(defaultTextStyle: base.defaultTextStyle.copyWith(fontSize: 8, color: PdfColors.black));
   final bold = pw.TextStyle(fontWeight: pw.FontWeight.bold);
 
-  pw.Widget row(String label, String value, {bool strong = false, PdfColor? color}) => pw.Padding(
-    padding: const pw.EdgeInsets.symmetric(vertical: 2),
-    child: pw.Row(
-      children: [
-        pw.Expanded(child: pw.Text(label, style: strong ? bold : null)),
-        pw.Text(
-          value,
-          style: pw.TextStyle(fontWeight: strong ? pw.FontWeight.bold : null, color: color),
-        ),
-      ],
+  pw.Widget centered(String text, {pw.TextStyle? style}) => pw.Text(text, style: style, textAlign: pw.TextAlign.center);
+
+  pw.Widget row(String label, String value, {pw.TextStyle? style}) => pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Expanded(child: pw.Text(label, style: style)),
+      pw.SizedBox(width: 6),
+      pw.Text(value, style: style),
+    ],
+  );
+
+  pw.Widget dashes() =>
+      pw.Divider(height: 12, thickness: 0.5, color: PdfColors.black, borderStyle: pw.BorderStyle.dashed);
+
+  pw.Widget doubleRule() => pw.Container(
+    height: 2.5,
+    margin: const pw.EdgeInsets.symmetric(vertical: 3),
+    decoration: const pw.BoxDecoration(
+      border: pw.Border(top: pw.BorderSide(width: 0.5), bottom: pw.BorderSide(width: 0.5)),
     ),
   );
 
-  final companyLines = [
-    if (invoice.companyAddress != null) Formats.title(invoice.companyAddress),
-    if (invoice.companyCity != null) Formats.title(invoice.companyCity),
-    if (invoice.companyPhone != null) 'Tél. ${invoice.companyPhone}',
-    if (invoice.companyEmail != null) invoice.companyEmail!,
-  ];
+  final barcode = pw.Barcode.code128();
 
   document.addPage(
-    pw.MultiPage(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(32),
-      build: (context) => [
-        // En-tête : société et facture.
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            if (logo != null)
-              pw.Container(
-                width: 64,
-                height: 64,
-                margin: const pw.EdgeInsets.only(right: 12),
+    pw.Page(
+      pageFormat: receiptPageFormat,
+      theme: theme,
+      build: (context) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // En-tête : logo, société et coordonnées, centrés.
+          if (logo != null)
+            pw.Center(
+              child: pw.Container(
+                width: 48,
+                height: 48,
+                margin: const pw.EdgeInsets.only(bottom: 4),
                 child: pw.Image(pw.MemoryImage(logo), fit: pw.BoxFit.contain),
               ),
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    Formats.title(invoice.companyName),
-                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: primary),
-                  ),
-                  for (final line in companyLines) pw.Text(line, style: small),
-                ],
-              ),
             ),
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
-              children: [
-                pw.Text(
-                  'FACTURE',
-                  style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: primary),
-                ),
-                pw.Text(invoice.number, style: bold),
-                pw.Text(Formats.dateTime(invoice.date), style: small),
-                if (invoice.status == 'CANCELLED')
-                  pw.Text(
-                    'ANNULÉE',
-                    style: pw.TextStyle(color: PdfColors.red, fontWeight: pw.FontWeight.bold),
-                  ),
-              ],
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 20),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('Magasin', style: small),
-                  pw.Text(
-                    invoice.storeName.toLowerCase() == 'stock local' ? 'Stock Local' : Formats.title(invoice.storeName),
-                    style: bold,
-                  ),
-                  if (invoice.storeAddress != null) pw.Text(Formats.title(invoice.storeAddress)),
-                  if (invoice.storePhone != null) pw.Text('Tél. ${invoice.storePhone}'),
-                  pw.SizedBox(height: 6),
-                  pw.Text('Vendeur : ${invoice.seller.fullName}', style: small),
-                ],
-              ),
-            ),
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('Client', style: small),
-                  pw.Text(invoice.customer.fullName, style: bold),
-                  if (invoice.customer.phone != null) pw.Text('Tél. ${invoice.customer.phone}'),
-                ],
-              ),
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 20),
-        pw.TableHelper.fromTextArray(
-          headers: ['Réf.', 'Désignation', 'Qté', 'Prix unitaire', 'Total'],
-          data: [
-            for (final line in invoice.lines)
-              [
-                line.reference.toUpperCase(),
-                [
-                  Formats.capitalize(line.name),
-                  if (line.description != null) Formats.capitalize(line.description),
-                ].join('\n'),
-                Formats.quantity(line.quantity),
-                Formats.money(line.unitPrice),
-                Formats.money(line.total),
-              ],
-          ],
-          headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
-          headerDecoration: pw.BoxDecoration(color: primary),
-          cellStyle: const pw.TextStyle(fontSize: 10),
-          cellAlignments: {2: pw.Alignment.centerRight, 3: pw.Alignment.centerRight, 4: pw.Alignment.centerRight},
-          columnWidths: {
-            0: const pw.FlexColumnWidth(1.4),
-            1: const pw.FlexColumnWidth(3.2),
-            2: const pw.FlexColumnWidth(0.8),
-            3: const pw.FlexColumnWidth(1.6),
-            4: const pw.FlexColumnWidth(1.6),
-          },
-        ),
-        pw.SizedBox(height: 12),
-        pw.Row(
-          children: [
-            pw.Spacer(),
-            pw.SizedBox(
-              width: 240,
-              child: pw.Column(
-                children: [
-                  row('Sous-total', Formats.money(invoice.subtotal)),
-                  if (invoice.discountAmount > 0) row('Remise', '- ${Formats.money(invoice.discountAmount)}'),
-                  pw.Divider(),
-                  row('Total', Formats.money(invoice.total), strong: true),
-                  row('Payé', Formats.money(invoice.amountPaid)),
-                  if (invoice.remainingAmount > 0) ...[
-                    row('Reste à payer', Formats.money(invoice.remainingAmount), strong: true, color: PdfColors.red),
-                    if (invoice.dueDate != null)
-                      row(
-                        invoice.installments.isEmpty ? 'Échéance' : 'Prochaine échéance',
-                        Formats.date(invoice.dueDate),
-                      ),
-                  ],
-                  row('Statut', invoice.paymentStatus.label),
-                ],
-              ),
-            ),
-          ],
-        ),
-        if (invoice.installments.isNotEmpty) ...[
-          pw.SizedBox(height: 16),
-          pw.Text('Échéancier', style: bold),
-          pw.SizedBox(height: 4),
-          for (final line in installmentsText(invoice.installments).split('\n')) pw.Text(line, style: small),
-        ],
-        if (invoice.payments.isNotEmpty) ...[
-          pw.SizedBox(height: 16),
-          pw.Text('Paiements', style: bold),
-          pw.SizedBox(height: 4),
-          for (final payment in invoice.payments)
-            pw.Text(
-              '${Formats.dateTime(payment.createdAt)} — ${Formats.money(payment.amount)}'
-              '${payment.reference == null ? '' : ' (réf. ${payment.reference})'}',
-              style: small,
-            ),
-        ],
-        pw.SizedBox(height: 28),
-        pw.Center(
-          child: pw.Column(
-            children: [for (final line in invoice.thankYouMessage) pw.Text(line, style: pw.TextStyle(color: primary))],
+          centered(
+            invoice.companyName.toUpperCase(),
+            style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
           ),
-        ),
-      ],
+          for (final line in invoice.companyLines) centered(line),
+          dashes(),
+          for (final (label, value) in invoice.infoRows)
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(receiptLabel(label, invoice.infoRows)),
+                pw.Expanded(
+                  child: pw.Padding(padding: const pw.EdgeInsets.only(left: 5), child: pw.Text(value)),
+                ),
+              ],
+            ),
+          if (invoice.status == 'CANCELLED') ...[
+            pw.SizedBox(height: 6),
+            centered('*** VENTE ANNULÉE ***', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+          ],
+          dashes(),
+          // Articles : nom, puis référence, quantité x prix et total de la ligne.
+          for (final line in invoice.lines) ...[
+            pw.Text(line.name.toUpperCase()),
+            if (line.description != null) pw.Text('  ${Formats.capitalize(line.description)}'),
+            row('  ${line.receiptDetail}', Formats.amount(line.total)),
+            pw.SizedBox(height: 2),
+          ],
+          dashes(),
+          row('NB ARTICLES', Formats.quantity(invoice.articleCount)),
+          if (invoice.discountAmount > 0) ...[
+            row('SOUS-TOTAL', Formats.amount(invoice.subtotal)),
+            row('REMISE', '-${Formats.amount(invoice.discountAmount)}'),
+          ],
+          doubleRule(),
+          row('TOTAL', Formats.money(invoice.total), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+          doubleRule(),
+          row('PAYÉ', Formats.money(invoice.amountPaid)),
+          if (invoice.remainingAmount > 0) ...[
+            row('RESTE À PAYER', Formats.money(invoice.remainingAmount), style: bold),
+            if (invoice.installments.isEmpty && invoice.dueDate != null) row('ÉCHÉANCE', Formats.date(invoice.dueDate)),
+          ],
+          row('STATUT', invoice.paymentStatus.label.toUpperCase()),
+          if (invoice.installments.isNotEmpty) ...[
+            dashes(),
+            pw.Text('ÉCHÉANCIER', style: bold),
+            for (final (date, amount) in invoice.installmentRows) row(date, amount),
+          ],
+          if (invoice.payments.isNotEmpty) ...[
+            dashes(),
+            pw.Text('PAIEMENTS', style: bold),
+            for (final (date, amount) in invoice.paymentRows) row(date, amount),
+          ],
+          dashes(),
+          for (final line in invoice.thankYouMessage) centered(line),
+          if (barcode.isValid(invoice.number)) ...[
+            pw.SizedBox(height: 10),
+            pw.Center(
+              child: pw.BarcodeWidget(barcode: barcode, data: invoice.number, width: 170, height: 32, drawText: false),
+            ),
+            pw.SizedBox(height: 2),
+            centered(invoice.number),
+          ],
+        ],
+      ),
     ),
   );
   return document.save();
