@@ -49,6 +49,7 @@ class _AuditScreenState extends State<AuditScreen> {
   late final PagedController<AuditLog> _controller = PagedController(
     (query) => context.read<AuditRepository>().list(query),
     pageSize: 30,
+    liveEntities: const {'audit'},
   );
   late final Future<Map<int, String>> _users = _loadUsers();
 

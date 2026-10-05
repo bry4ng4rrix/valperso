@@ -1,12 +1,49 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:valmag/core/widgets/app_dialog.dart';
+import 'package:valmag/features/invoices/invoice_actions.dart';
 
 import '../support/fake_api.dart';
 import '../support/fixtures.dart';
 import '../support/test_app.dart';
 
 final _h109 = storeJson(id: 2, name: 'h109', central: false);
+
+/// Facture de la vente 500 (GET /sales/500/invoice).
+const _invoiceJson = <String, Object?>{
+  'company': {'name': 'valheri wear', 'logo_url': null, 'address': null, 'city': null, 'phone': null, 'email': null},
+  'invoice_number': 'FAC-2026-000500',
+  'date': '2026-10-02T09:30:00Z',
+  'store': {'name': 'h109', 'address': null, 'phone': null},
+  'user': {'id': 2, 'username': 'vendeur1', 'first_name': 'jean', 'last_name': 'rakoto'},
+  'customer': {'id': 7, 'first_name': 'rasoa', 'last_name': 'be', 'phone': null},
+  'lines': [
+    {
+      'id': 1,
+      'product_id': 10,
+      'product_reference': 'p-10',
+      'product_name': 'stylo bleu',
+      'quantity': 2,
+      'unit_price': 1000,
+      'total': 2000,
+    },
+  ],
+  'subtotal': 2000,
+  'discount_type': 'NONE',
+  'discount_value': 0,
+  'discount_amount': 0,
+  'total': 2000,
+  'payments': [],
+  'amount_paid': 2000,
+  'remaining_amount': 0,
+  'payment_status': 'PAID',
+  'payment_due_date': null,
+  'installments': [],
+  'status': 'COMPLETED',
+  'thank_you_message': ['Merci pour votre achat !'],
+};
 
 /// Vendeur de H109, avec un produit en stock (5 unités à 1 000 Ar).
 FakeApi _sellerApi() {
@@ -117,8 +154,22 @@ void main() {
 
     expect(find.text('Vente enregistrée'), findsWidgets);
     expect(find.text('FAC-2026-000500'), findsOneWidget);
-    expect(find.text('Voir la facture'), findsOneWidget);
+    expect(find.text('Imprimer'), findsOneWidget);
     expect(find.text('Nouvelle vente'), findsWidgets);
+
+    // Imprimer : la facture de la vente est chargée puis envoyée à l'impression (ticket PDF).
+    final printed = <String>[];
+    final realPrint = printPdf;
+    printPdf = (Uint8List pdf, String name) async {
+      printed.add(name);
+      return true;
+    };
+    addTearDown(() => printPdf = realPrint);
+    api.on('GET', '/sales/500/invoice', (_) => _invoiceJson);
+    await tester.tap(find.text('Imprimer'));
+    await settle(tester);
+    expect(api.calls('GET', '/sales/500/invoice'), hasLength(1));
+    expect(printed, ['facture_FAC-2026-000500.pdf']);
   });
 
   testWidgets('avance sans téléphone : la vente est bloquée avant l\'envoi', (tester) async {

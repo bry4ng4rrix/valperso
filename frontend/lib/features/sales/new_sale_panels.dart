@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/api/paged_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/models/refs.dart';
 import '../../shared/utils/validators.dart';
@@ -21,7 +22,7 @@ import '../../core/widgets/app_dialog.dart';
 
 // --- Produits ---------------------------------------------------------------------------------------
 
-/// Produits du magasin de la vente, avec leur prix et la quantité disponible.
+/// Produits du magasin de la vente, avec leur prix et la quantité disponible (mise à jour en direct).
 class ProductCatalog extends StatelessWidget {
   const ProductCatalog({super.key, required this.controller});
 
@@ -30,6 +31,14 @@ class ProductCatalog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartController>();
+    return LiveRefresh(
+      entities: controller.liveEntities,
+      onChange: controller.refreshSilently,
+      child: _buildCatalog(context, cart),
+    );
+  }
+
+  Widget _buildCatalog(BuildContext context, CartController cart) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

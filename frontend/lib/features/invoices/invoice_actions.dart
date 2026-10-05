@@ -84,6 +84,16 @@ Future<void> printInvoice(BuildContext context, Invoice invoice) async {
   }
 }
 
+/// Imprime la facture d'une vente à partir de son numéro (ex. juste après la vente).
+Future<void> printSaleInvoice(BuildContext context, int saleId) async {
+  try {
+    final invoice = await context.read<SalesRepository>().invoice(saleId);
+    if (context.mounted) await printInvoice(context, invoice);
+  } on ApiException catch (error) {
+    if (context.mounted) Notify.error(context, error);
+  }
+}
+
 /// Libellé du partage : sur ordinateur, le PDF est enregistré ; dans le navigateur, il est téléchargé.
 String get sharePdfLabel => kIsWeb
     ? 'Télécharger le PDF'

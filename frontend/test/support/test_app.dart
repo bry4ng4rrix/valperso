@@ -7,6 +7,7 @@ import 'package:valmag/app/dependencies.dart';
 import 'package:valmag/core/storage/key_value_store.dart';
 
 import 'fake_api.dart';
+import 'fake_realtime.dart';
 import 'fixtures.dart';
 
 Future<void> initFrenchDates() async {
@@ -27,11 +28,13 @@ const desktopSize = Size(1440, 1000);
 /// Lance l'application complète avec un faux serveur.
 /// Si [loggedIn] est fourni, une session existe déjà (jetons enregistrés et /auth/me simulé).
 /// [light] : thème clair (le thème sombre est celui par défaut).
+/// [realtime] : faux WebSocket pour simuler des changements annoncés par le serveur.
 Future<AppDependencies> pumpApp(
   WidgetTester tester,
   FakeApi api, {
   Map<String, Object?>? loggedIn,
   bool light = false,
+  FakeRealtime? realtime,
 }) async {
   final storage = MemoryKeyValueStore({
     if (loggedIn != null) StorageKeys.accessToken: 'access-0',
@@ -39,7 +42,12 @@ Future<AppDependencies> pumpApp(
     if (light) StorageKeys.themeMode: 'light',
   });
   if (loggedIn != null) api.on('GET', '/auth/me', (_) => loggedIn);
-  final dependencies = AppDependencies(storage: storage, baseUrl: 'http://test.local', adapter: api);
+  final dependencies = AppDependencies(
+    storage: storage,
+    baseUrl: 'http://test.local',
+    adapter: api,
+    realtimeConnector: (realtime ?? FakeRealtime()).connect,
+  );
   await tester.runAsync(dependencies.start);
   await tester.pumpWidget(CommerceApp(dependencies: dependencies));
   await settle(tester);

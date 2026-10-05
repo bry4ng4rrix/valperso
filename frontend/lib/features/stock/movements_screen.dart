@@ -35,6 +35,7 @@ class _MovementsScreenState extends State<MovementsScreen> {
   late final PagedController<StockMovement> _controller = PagedController(
     (query) => context.read<StockRepository>().movements(query),
     filters: {'store_id': _user.canChooseStore ? null : _user.store?.id, 'sort': '-created_at'},
+    liveEntities: const {'movement'},
   );
 
   @override

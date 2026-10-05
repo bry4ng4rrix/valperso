@@ -7,6 +7,7 @@ import '../../app/theme/dimensions.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/notifications.dart';
 import '../../shared/models/refs.dart';
@@ -101,84 +102,92 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     final conversation = _conversation;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(conversation?.titleFor(_me) ?? 'Conversation'),
-        actions: [
-          if (conversation != null && conversation.isGroup)
-            IconButton(
-              tooltip: 'Participants',
-              icon: const Icon(Icons.group_outlined),
-              onPressed: () => _showMembers(conversation.members),
-            ),
-          IconButton(tooltip: 'Actualiser', onPressed: _refreshMessages, icon: const Icon(Icons.refresh)),
-        ],
-      ),
-      body: _loading
-          ? const LoadingState(lines: 5)
-          : _error != null && _messages.isEmpty
-          ? ErrorState(message: errorMessageOf(_error), onRetry: _load)
-          : Column(
-              children: [
-                Expanded(
-                  child: _messages.isEmpty
-                      ? const EmptyState(
-                          title: 'Aucun message',
-                          message: 'Écrivez le premier message.',
-                          icon: Icons.forum_outlined,
-                        )
-                      : ListView.builder(
-                          reverse: true,
-                          padding: const EdgeInsets.all(Gaps.md),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final message = _messages[index];
-                            return _MessageBubble(
-                              message: message,
-                              mine: message.senderId == _me,
-                              senderName: conversation?.isGroup == true ? _senderName(message.senderId) : null,
-                              onDelete: message.senderId == _me && !message.isDeleted && _canSend
-                                  ? () async {
-                                      final deleted = await confirmDeleteMessage(context, message);
-                                      if (deleted) await _refreshMessages();
-                                    }
-                                  : null,
-                            );
-                          },
-                        ),
-                ),
-                if (_canSend)
-                  SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.xs, Gaps.md, Gaps.md),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _input,
-                              minLines: 1,
-                              maxLines: 4,
-                              maxLength: 2000,
-                              textInputAction: TextInputAction.send,
-                              onSubmitted: (_) => _send(),
-                              decoration: const InputDecoration(hintText: 'Votre message', counterText: ''),
+    return LiveRefresh(
+      entities: const {'message', 'conversation'},
+      when: (change) => change.id == widget.conversationId,
+      onChange: _refreshMessages,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(conversation?.titleFor(_me) ?? 'Conversation'),
+          actions: [
+            if (conversation != null && conversation.isGroup)
+              IconButton(
+                tooltip: 'Participants',
+                icon: const Icon(Icons.group_outlined),
+                onPressed: () => _showMembers(conversation.members),
+              ),
+            IconButton(tooltip: 'Actualiser', onPressed: _refreshMessages, icon: const Icon(Icons.refresh)),
+          ],
+        ),
+        body: _loading
+            ? const LoadingState(lines: 5)
+            : _error != null && _messages.isEmpty
+            ? ErrorState(message: errorMessageOf(_error), onRetry: _load)
+            : Column(
+                children: [
+                  Expanded(
+                    child: _messages.isEmpty
+                        ? const EmptyState(
+                            title: 'Aucun message',
+                            message: 'Écrivez le premier message.',
+                            icon: Icons.forum_outlined,
+                          )
+                        : ListView.builder(
+                            reverse: true,
+                            padding: const EdgeInsets.all(Gaps.md),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final message = _messages[index];
+                              return _MessageBubble(
+                                message: message,
+                                mine: message.senderId == _me,
+                                senderName: conversation?.isGroup == true ? _senderName(message.senderId) : null,
+                                onDelete: message.senderId == _me && !message.isDeleted && _canSend
+                                    ? () async {
+                                        final deleted = await confirmDeleteMessage(context, message);
+                                        if (deleted) await _refreshMessages();
+                                      }
+                                    : null,
+                              );
+                            },
+                          ),
+                  ),
+                  if (_canSend)
+                    SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.xs, Gaps.md, Gaps.md),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _input,
+                                minLines: 1,
+                                maxLines: 4,
+                                maxLength: 2000,
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: (_) => _send(),
+                                decoration: const InputDecoration(hintText: 'Votre message', counterText: ''),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: Gaps.sm),
-                          IconButton.filled(
-                            tooltip: 'Envoyer',
-                            onPressed: _sending ? null : _send,
-                            icon: _sending
-                                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.send),
-                          ),
-                        ],
+                            const SizedBox(width: Gaps.sm),
+                            IconButton.filled(
+                              tooltip: 'Envoyer',
+                              onPressed: _sending ? null : _send,
+                              icon: _sending
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.send),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 

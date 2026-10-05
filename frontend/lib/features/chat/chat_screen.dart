@@ -10,6 +10,7 @@ import '../../core/api/paged.dart';
 import '../../core/auth/current_user.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/confirmation_dialog.dart';
 import '../../shared/utils/api_form.dart';
@@ -72,64 +73,73 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final canStart = _user.can(Perm.chatSend) && _user.can(Perm.userView);
-    return AdaptivePage(
-      title: 'Messages',
-      actions: [IconButton(tooltip: 'Actualiser', onPressed: _reload, icon: const Icon(Icons.refresh))],
-      primaryAction: canStart
-          ? PrimaryAction(label: 'Nouvelle conversation', icon: Icons.add_comment_outlined, onPressed: _newConversation)
-          : null,
-      body: FutureBuilder<List<Conversation>>(
-        future: _future,
-        builder: (context, snapshot) {
-          final conversations = snapshot.data;
-          if (snapshot.hasError && conversations == null) {
-            return ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload);
-          }
-          if (conversations == null) return const LoadingState(lines: 5);
-          if (conversations.isEmpty) {
-            return EmptyState(
-              title: 'Aucune conversation',
-              message: canStart ? 'Démarrez une conversation avec un collègue.' : null,
-              icon: Icons.chat_bubble_outline,
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () async {
-              _reload();
-              await _future;
-            },
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: Gaps.sm),
-              itemCount: conversations.length,
-              separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
-              itemBuilder: (context, index) {
-                final conversation = conversations[index];
-                final title = conversation.titleFor(_user.id);
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    child: conversation.isGroup
-                        ? Icon(Icons.groups, color: Theme.of(context).colorScheme.primary)
-                        : Text(title.isEmpty ? '?' : title[0].toUpperCase()),
-                  ),
-                  title: Text(
-                    title,
-                    style: conversation.unreadCount > 0 ? const TextStyle(fontWeight: FontWeight.w700) : null,
-                  ),
-                  subtitle: Text(
-                    conversation.isGroup
-                        ? '${conversation.members.length} participants'
-                        : Formats.dateTime(conversation.updatedAt),
-                  ),
-                  trailing: conversation.unreadCount > 0
-                      ? Badge(label: Text('${conversation.unreadCount}'))
-                      : const Icon(Icons.chevron_right),
-                  onTap: () => _open(conversation),
-                );
+    return LiveRefresh(
+      // Nouveaux messages (non lus) et conversations.
+      entities: const {'message', 'conversation'},
+      onChange: _reload,
+      child: AdaptivePage(
+        title: 'Messages',
+        actions: [IconButton(tooltip: 'Actualiser', onPressed: _reload, icon: const Icon(Icons.refresh))],
+        primaryAction: canStart
+            ? PrimaryAction(
+                label: 'Nouvelle conversation',
+                icon: Icons.add_comment_outlined,
+                onPressed: _newConversation,
+              )
+            : null,
+        body: FutureBuilder<List<Conversation>>(
+          future: _future,
+          builder: (context, snapshot) {
+            final conversations = snapshot.data;
+            if (snapshot.hasError && conversations == null) {
+              return ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload);
+            }
+            if (conversations == null) return const LoadingState(lines: 5);
+            if (conversations.isEmpty) {
+              return EmptyState(
+                title: 'Aucune conversation',
+                message: canStart ? 'Démarrez une conversation avec un collègue.' : null,
+                icon: Icons.chat_bubble_outline,
+              );
+            }
+            return RefreshIndicator(
+              onRefresh: () async {
+                _reload();
+                await _future;
               },
-            ),
-          );
-        },
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: Gaps.sm),
+                itemCount: conversations.length,
+                separatorBuilder: (_, _) => const Divider(height: 1, indent: 72),
+                itemBuilder: (context, index) {
+                  final conversation = conversations[index];
+                  final title = conversation.titleFor(_user.id);
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      child: conversation.isGroup
+                          ? Icon(Icons.groups, color: Theme.of(context).colorScheme.primary)
+                          : Text(title.isEmpty ? '?' : title[0].toUpperCase()),
+                    ),
+                    title: Text(
+                      title,
+                      style: conversation.unreadCount > 0 ? const TextStyle(fontWeight: FontWeight.w700) : null,
+                    ),
+                    subtitle: Text(
+                      conversation.isGroup
+                          ? '${conversation.members.length} participants'
+                          : Formats.dateTime(conversation.updatedAt),
+                    ),
+                    trailing: conversation.unreadCount > 0
+                        ? Badge(label: Text('${conversation.unreadCount}'))
+                        : const Icon(Icons.chevron_right),
+                    onTap: () => _open(conversation),
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }

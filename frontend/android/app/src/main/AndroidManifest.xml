@@ -4,7 +4,7 @@
     <!-- usesCleartextTraffic : l'API tourne en HTTP sur le réseau local (ex. http://192.168.1.10:8001).
          En production, servir l'API en HTTPS et retirer cette option. -->
     <application
-        android:label="Bryan Garrix"
+        android:label="Valheri Wear"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

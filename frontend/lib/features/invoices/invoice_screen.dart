@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/api/api_client.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/list_page.dart';
@@ -30,56 +31,63 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Invoice>(
-      future: _future,
-      builder: (context, snapshot) {
-        final invoice = snapshot.data;
-        return DetailPage(
-          title: invoice == null ? 'Facture' : 'Facture ${invoice.number}',
-          bottomBar: invoice == null
-              ? null
-              : SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Gaps.md),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AppButton(
-                            label: 'Imprimer',
-                            icon: Icons.print_outlined,
-                            expand: true,
-                            onPressed: () => printInvoice(context, invoice),
+    return LiveRefresh(
+      entities: const {'sale'},
+      when: (change) => change.id == widget.saleId,
+      onChange: () => setState(() {
+        _future = context.read<SalesRepository>().invoice(widget.saleId);
+      }),
+      child: FutureBuilder<Invoice>(
+        future: _future,
+        builder: (context, snapshot) {
+          final invoice = snapshot.data;
+          return DetailPage(
+            title: invoice == null ? 'Facture' : 'Facture ${invoice.number}',
+            bottomBar: invoice == null
+                ? null
+                : SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(Gaps.md),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AppButton(
+                              label: 'Imprimer',
+                              icon: Icons.print_outlined,
+                              expand: true,
+                              onPressed: () => printInvoice(context, invoice),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: Gaps.md),
-                        Expanded(
-                          child: AppButton(
-                            label: sharePdfLabel,
-                            icon: Icons.picture_as_pdf_outlined,
-                            variant: AppButtonVariant.secondary,
-                            expand: true,
-                            onPressed: () => shareInvoice(context, widget.saleId, invoice: invoice),
+                          const SizedBox(width: Gaps.md),
+                          Expanded(
+                            child: AppButton(
+                              label: sharePdfLabel,
+                              icon: Icons.picture_as_pdf_outlined,
+                              variant: AppButtonVariant.secondary,
+                              expand: true,
+                              onPressed: () => shareInvoice(context, widget.saleId, invoice: invoice),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-          child: snapshot.hasError
-              ? ErrorState(
-                  message: errorMessageOf(snapshot.error),
-                  onRetry: () => setState(() {
-                    _future = context.read<SalesRepository>().invoice(widget.saleId);
-                  }),
-                )
-              : invoice == null
-              ? const LoadingState(lines: 5)
-              : ListView(
-                  padding: const EdgeInsets.all(Gaps.lg),
-                  children: [InvoiceView(invoice: invoice)],
-                ),
-        );
-      },
+            child: snapshot.hasError
+                ? ErrorState(
+                    message: errorMessageOf(snapshot.error),
+                    onRetry: () => setState(() {
+                      _future = context.read<SalesRepository>().invoice(widget.saleId);
+                    }),
+                  )
+                : invoice == null
+                ? const LoadingState(lines: 5)
+                : ListView(
+                    padding: const EdgeInsets.all(Gaps.lg),
+                    children: [InvoiceView(invoice: invoice)],
+                  ),
+          );
+        },
+      ),
     );
   }
 }

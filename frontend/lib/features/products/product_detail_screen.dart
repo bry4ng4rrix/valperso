@@ -7,6 +7,7 @@ import '../../app/theme/dimensions.dart';
 import '../../core/api/paged.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/confirmation_dialog.dart';
 import '../../shared/utils/api_form.dart';
@@ -106,55 +107,61 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<SessionController>().requireUser;
-    return FutureBuilder<_ProductDetail>(
-      future: _future,
-      builder: (context, snapshot) {
-        final detail = snapshot.data;
-        return DetailPage(
-          title: detail?.product.label ?? 'Produit',
-          actions: [
-            if (detail != null && user.can(Perm.productUpdate))
-              IconButton(
-                tooltip: 'Modifier',
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  await context.push('/products/${widget.productId}/edit');
-                  if (mounted) _reload();
-                },
-              ),
-            if (detail != null && (user.can(Perm.productDelete) || user.can(Perm.productUpdate)))
-              PopupMenuButton<String>(
-                onSelected: (value) => value == 'off' ? _deactivate(detail.product) : _reactivate(detail.product),
-                itemBuilder: (_) => [
-                  if (detail.product.isActive && user.can(Perm.productDelete))
-                    const PopupMenuItem(
-                      value: 'off',
-                      child: ListTile(
-                        leading: Icon(Icons.block, color: AppColors.danger),
-                        title: Text('Désactiver le produit'),
-                      ),
-                    ),
-                  if (!detail.product.isActive && user.can(Perm.productUpdate))
-                    const PopupMenuItem(
-                      value: 'on',
-                      child: ListTile(leading: Icon(Icons.check_circle_outline), title: Text('Réactiver le produit')),
-                    ),
-                ],
-              ),
-          ],
-          child: snapshot.hasError
-              ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
-              : detail == null
-              ? const LoadingState(lines: 4)
-              : RefreshIndicator(
-                  onRefresh: () async {
-                    _reload();
-                    await _future;
+    return LiveRefresh(
+      // Ce produit, son stock dans chaque magasin (et donc ses mouvements).
+      entities: const {'product', 'stock'},
+      when: (change) => change.id == widget.productId,
+      onChange: _reload,
+      child: FutureBuilder<_ProductDetail>(
+        future: _future,
+        builder: (context, snapshot) {
+          final detail = snapshot.data;
+          return DetailPage(
+            title: detail?.product.label ?? 'Produit',
+            actions: [
+              if (detail != null && user.can(Perm.productUpdate))
+                IconButton(
+                  tooltip: 'Modifier',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () async {
+                    await context.push('/products/${widget.productId}/edit');
+                    if (mounted) _reload();
                   },
-                  child: _content(detail),
                 ),
-        );
-      },
+              if (detail != null && (user.can(Perm.productDelete) || user.can(Perm.productUpdate)))
+                PopupMenuButton<String>(
+                  onSelected: (value) => value == 'off' ? _deactivate(detail.product) : _reactivate(detail.product),
+                  itemBuilder: (_) => [
+                    if (detail.product.isActive && user.can(Perm.productDelete))
+                      const PopupMenuItem(
+                        value: 'off',
+                        child: ListTile(
+                          leading: Icon(Icons.block, color: AppColors.danger),
+                          title: Text('Désactiver le produit'),
+                        ),
+                      ),
+                    if (!detail.product.isActive && user.can(Perm.productUpdate))
+                      const PopupMenuItem(
+                        value: 'on',
+                        child: ListTile(leading: Icon(Icons.check_circle_outline), title: Text('Réactiver le produit')),
+                      ),
+                  ],
+                ),
+            ],
+            child: snapshot.hasError
+                ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
+                : detail == null
+                ? const LoadingState(lines: 4)
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      _reload();
+                      await _future;
+                    },
+                    child: _content(detail),
+                  ),
+          );
+        },
+      ),
     );
   }
 

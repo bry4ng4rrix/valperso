@@ -38,6 +38,7 @@ class _CustomersScreenState extends State<CustomersScreen> with SingleTickerProv
     (query) => context.read<CustomersRepository>().contacts(query),
     filters: widget.debtOnly ? {'has_debt': true, 'sort': '-remaining_amount'} : const {},
     fixedKeys: const {'has_debt'},
+    liveEntities: const {'customer', 'sale', 'payment'},
   );
 
   @override

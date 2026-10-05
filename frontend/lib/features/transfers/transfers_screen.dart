@@ -30,6 +30,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
   late final CurrentUser _user = context.read<SessionController>().requireUser;
   late final PagedController<StockTransfer> _controller = PagedController(
     (query) => context.read<TransfersRepository>().list(query),
+    liveEntities: const {'transfer'},
   );
 
   @override

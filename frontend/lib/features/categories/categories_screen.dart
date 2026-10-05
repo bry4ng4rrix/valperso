@@ -29,6 +29,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   late final PagedController<Category> _controller = PagedController(
     (query) => context.read<CategoriesRepository>().list(query),
     filters: const {'is_active': true},
+    liveEntities: const {'category', 'product'},
   );
 
   @override

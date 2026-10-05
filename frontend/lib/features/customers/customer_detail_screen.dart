@@ -8,6 +8,7 @@ import '../../app/theme/dimensions.dart';
 import '../../core/api/paged.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/notifications.dart';
 import '../../shared/models/refs.dart';
@@ -70,25 +71,31 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_CustomerDetail>(
-      future: _future,
-      builder: (context, snapshot) {
-        final detail = snapshot.data;
-        return DetailPage(
-          title: detail?.customer.fullName ?? 'Client',
-          child: snapshot.hasError
-              ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
-              : detail == null
-              ? const LoadingState(lines: 4)
-              : RefreshIndicator(
-                  onRefresh: () async {
-                    _reload();
-                    await _future;
-                  },
-                  child: _content(detail),
-                ),
-        );
-      },
+    return LiveRefresh(
+      // Le client lui-même, ou ses ventes et paiements (dette).
+      entities: const {'customer', 'sale', 'payment'},
+      when: (change) => change.entity != 'customer' || change.id == widget.customerId,
+      onChange: _reload,
+      child: FutureBuilder<_CustomerDetail>(
+        future: _future,
+        builder: (context, snapshot) {
+          final detail = snapshot.data;
+          return DetailPage(
+            title: detail?.customer.fullName ?? 'Client',
+            child: snapshot.hasError
+                ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
+                : detail == null
+                ? const LoadingState(lines: 4)
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      _reload();
+                      await _future;
+                    },
+                    child: _content(detail),
+                  ),
+          );
+        },
+      ),
     );
   }
 

@@ -7,6 +7,7 @@ import '../core/api/api_config.dart';
 import '../core/auth/auth_repository.dart';
 import '../core/auth/session_controller.dart';
 import '../core/auth/settings_controller.dart';
+import '../core/realtime/realtime_service.dart';
 import '../core/storage/key_value_store.dart';
 import '../features/audit/audit_repository.dart';
 import '../features/categories/categories_repository.dart';
@@ -26,20 +27,31 @@ import '../features/users/users_repository.dart';
 
 /// Objets partagés par toute l'application, créés une seule fois au démarrage.
 class AppDependencies {
-  AppDependencies._(this.storage, this.api)
+  AppDependencies._(this.storage, this.api, RealtimeConnector? realtimeConnector)
     : session = SessionController(auth: AuthRepository(api), api: api),
-      settings = SettingsController(store: storage, api: api);
+      settings = SettingsController(store: storage, api: api) {
+    realtime = RealtimeService(api: api, session: session, connector: realtimeConnector);
+  }
 
-  /// [adapter] permet aux tests de remplacer le réseau par de fausses réponses.
-  factory AppDependencies({required KeyValueStore storage, String? baseUrl, HttpClientAdapter? adapter}) {
+  /// [adapter] et [realtimeConnector] permettent aux tests de remplacer le réseau (fausses réponses,
+  /// pas de WebSocket).
+  factory AppDependencies({
+    required KeyValueStore storage,
+    String? baseUrl,
+    HttpClientAdapter? adapter,
+    RealtimeConnector? realtimeConnector,
+  }) {
     final api = ApiClient(baseUrl: baseUrl ?? ApiConfig.defaultBaseUrl, tokens: TokenStore(storage), adapter: adapter);
-    return AppDependencies._(storage, api);
+    return AppDependencies._(storage, api, realtimeConnector);
   }
 
   final KeyValueStore storage;
   final ApiClient api;
   final SessionController session;
   final SettingsController settings;
+
+  /// Changements annoncés par le serveur (WebSocket), connecté tant que la session est ouverte.
+  late final RealtimeService realtime;
   final CartController cart = CartController();
 
   /// Préférences locales puis reprise de la session (sans bloquer l'affichage).
@@ -57,6 +69,7 @@ class AppDependencies {
     Provider<ApiClient>.value(value: api),
     ChangeNotifierProvider<SessionController>.value(value: session),
     ChangeNotifierProvider<SettingsController>.value(value: settings),
+    ChangeNotifierProvider<RealtimeService>.value(value: realtime),
     ChangeNotifierProvider<CartController>.value(value: cart),
     Provider(create: (_) => StoresRepository(api)),
     Provider(create: (_) => UsersRepository(api)),

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/confirmation_dialog.dart';
 import '../../shared/utils/api_form.dart';
@@ -56,56 +57,61 @@ class _TransferDetailScreenState extends State<TransferDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<SessionController>().requireUser;
-    return FutureBuilder<StockTransfer>(
-      future: _future,
-      builder: (context, snapshot) {
-        final transfer = snapshot.data;
-        return DetailPage(
-          title: transfer?.reference ?? 'Transfert',
-          child: snapshot.hasError
-              ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
-              : transfer == null
-              ? const LoadingState(lines: 3)
-              : ListView(
-                  padding: const EdgeInsets.all(Gaps.lg),
-                  children: [
-                    SectionColumns(
-                      children: [
-                        SectionCard(
-                          title: 'Transfert',
-                          icon: Icons.swap_horiz,
-                          trailing: Badges.transferStatus(transfer.status),
-                          child: Column(
-                            children: [
-                              InfoRow(label: 'Source', value: transfer.source.label),
-                              InfoRow(label: 'Destination', value: transfer.destination.label),
-                              InfoRow(label: 'Date', value: Formats.dateTime(transfer.createdAt)),
-                              InfoRow(label: 'Créé par', value: transfer.creator.fullName),
-                              InfoRow(label: 'Quantité totale', value: Formats.quantity(transfer.totalQuantity)),
-                            ],
+    return LiveRefresh(
+      entities: const {'transfer'},
+      when: (change) => change.id == widget.transferId,
+      onChange: _reload,
+      child: FutureBuilder<StockTransfer>(
+        future: _future,
+        builder: (context, snapshot) {
+          final transfer = snapshot.data;
+          return DetailPage(
+            title: transfer?.reference ?? 'Transfert',
+            child: snapshot.hasError
+                ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
+                : transfer == null
+                ? const LoadingState(lines: 3)
+                : ListView(
+                    padding: const EdgeInsets.all(Gaps.lg),
+                    children: [
+                      SectionColumns(
+                        children: [
+                          SectionCard(
+                            title: 'Transfert',
+                            icon: Icons.swap_horiz,
+                            trailing: Badges.transferStatus(transfer.status),
+                            child: Column(
+                              children: [
+                                InfoRow(label: 'Source', value: transfer.source.label),
+                                InfoRow(label: 'Destination', value: transfer.destination.label),
+                                InfoRow(label: 'Date', value: Formats.dateTime(transfer.createdAt)),
+                                InfoRow(label: 'Créé par', value: transfer.creator.fullName),
+                                InfoRow(label: 'Quantité totale', value: Formats.quantity(transfer.totalQuantity)),
+                              ],
+                            ),
                           ),
-                        ),
-                        SectionCard(
-                          title: 'Produits transférés',
-                          icon: Icons.inventory_2_outlined,
-                          child: _ItemsList(items: transfer.items),
+                          SectionCard(
+                            title: 'Produits transférés',
+                            icon: Icons.inventory_2_outlined,
+                            child: _ItemsList(items: transfer.items),
+                          ),
+                        ],
+                      ),
+                      if (!transfer.isCancelled && user.can(Perm.transferCancel)) ...[
+                        const SizedBox(height: Gaps.xl),
+                        AppButton(
+                          label: 'Annuler le transfert',
+                          icon: Icons.undo,
+                          variant: AppButtonVariant.danger,
+                          expand: true,
+                          onPressed: () => _cancel(transfer),
                         ),
                       ],
-                    ),
-                    if (!transfer.isCancelled && user.can(Perm.transferCancel)) ...[
-                      const SizedBox(height: Gaps.xl),
-                      AppButton(
-                        label: 'Annuler le transfert',
-                        icon: Icons.undo,
-                        variant: AppButtonVariant.danger,
-                        expand: true,
-                        onPressed: () => _cancel(transfer),
-                      ),
                     ],
-                  ],
-                ),
-        );
-      },
+                  ),
+          );
+        },
+      ),
     );
   }
 }

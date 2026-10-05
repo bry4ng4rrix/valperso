@@ -28,6 +28,7 @@ class _StoresScreenState extends State<StoresScreen> {
   late final PagedController<Store> _controller = PagedController(
     (query) => context.read<StoresRepository>().list(query),
     filters: const {'is_active': true},
+    liveEntities: const {'store'},
   );
 
   @override

@@ -45,7 +45,11 @@ class ProductsScreen extends StatefulWidget {
 class _ProductsScreenState extends State<ProductsScreen> {
   late final CurrentUser _user = context.read<SessionController>().requireUser;
   late ProductsMode _mode = _user.can(Perm.stockView) ? ProductsMode.store : ProductsMode.catalogue;
-  late final PagedController<ProductListItem> _controller = PagedController(_fetch, filters: _initialFilters());
+  late final PagedController<ProductListItem> _controller = PagedController(
+    _fetch,
+    filters: _initialFilters(),
+    liveEntities: const {'product', 'stock', 'category'},
+  );
 
   bool get _showCost => _user.canAny(const [Perm.productCreate, Perm.productUpdate]);
   bool get _canSwitchMode => _user.can(Perm.stockView) && _user.isAdmin;

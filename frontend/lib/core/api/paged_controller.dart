@@ -10,11 +10,19 @@ typedef PageFetcher<T> = Future<Paged<T>> Function(PageQuery query);
 /// Utilisé par toutes les listes de l'application (ventes, produits, clients...) :
 /// la pagination, les filtres et les états (chargement / vide / erreur) restent identiques partout.
 class PagedController<T> extends ChangeNotifier {
-  PagedController(this._fetch, {Map<String, Object?> filters = const {}, this.pageSize = 20, this.fixedKeys = const {}})
-    : _filters = {...filters};
+  PagedController(
+    this._fetch, {
+    Map<String, Object?> filters = const {},
+    this.pageSize = 20,
+    this.fixedKeys = const {},
+    this.liveEntities = const {},
+  }) : _filters = {...filters};
 
   final PageFetcher<T> _fetch;
   final int pageSize;
+
+  /// Changements en temps réel qui rechargent la liste (ex. {'sale', 'payment'}), voir `PagedListView`.
+  final Set<String> liveEntities;
 
   /// Filtres qui définissent la liste elle-même (ex. `has_debt` pour la liste des dettes) :
   /// jamais comptés comme filtres actifs, jamais retirés, et conservés par « Exporter tout ».
@@ -52,11 +60,17 @@ class PagedController<T> extends ChangeNotifier {
       )
       .length;
 
-  Future<void> load([int targetPage = 1]) async {
+  Future<void> load([int targetPage = 1]) => _load(targetPage);
+
+  /// [silent] : mise à jour en arrière-plan (temps réel), sans indicateur de chargement ;
+  /// en cas d'échec, la liste affichée est conservée.
+  Future<void> _load(int targetPage, {bool silent = false}) async {
     final requestId = ++_requestId;
-    isLoading = true;
-    error = null;
-    _notify();
+    if (!silent) {
+      isLoading = true;
+      error = null;
+      _notify();
+    }
     try {
       final result = await _fetch(PageQuery(page: targetPage, pageSize: pageSize, filters: _filters));
       if (requestId != _requestId) return; // une requête plus récente a été lancée entre-temps
@@ -64,8 +78,9 @@ class PagedController<T> extends ChangeNotifier {
       total = result.total;
       page = result.page == 0 ? targetPage : result.page;
       pages = result.pages;
+      error = null;
     } on ApiException catch (exception) {
-      if (requestId != _requestId) return;
+      if (requestId != _requestId || (silent && items.isNotEmpty)) return;
       error = exception;
     } finally {
       if (requestId == _requestId) {
@@ -77,6 +92,14 @@ class PagedController<T> extends ChangeNotifier {
   }
 
   Future<void> refresh() => load(page);
+
+  /// Recharge la page affichée sans indicateur de chargement (changement annoncé par le serveur).
+  /// La page est ramenée à la dernière existante si des éléments ont disparu.
+  Future<void> refreshSilently() async {
+    if (!hasLoaded) return;
+    await _load(page, silent: true);
+    if (page > 1 && items.isEmpty && pages >= 1) await _load(pages, silent: true);
+  }
 
   Future<void> nextPage() async {
     if (page < pages) await load(page + 1);

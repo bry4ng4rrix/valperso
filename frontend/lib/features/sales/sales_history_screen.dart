@@ -42,6 +42,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   late final PagedController<Sale> _controller = PagedController(
     (query) => context.read<SalesRepository>().history(query),
     filters: {if (widget.customerId != null) 'customer_id': widget.customerId else ...periodFilters(Period.today)},
+    liveEntities: const {'sale', 'payment'},
   );
 
   @override

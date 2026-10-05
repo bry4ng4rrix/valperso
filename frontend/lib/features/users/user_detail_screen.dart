@@ -6,6 +6,7 @@ import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/confirmation_dialog.dart';
 import '../../shared/utils/api_form.dart';
@@ -132,100 +133,105 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final me = context.watch<SessionController>().requireUser;
-    return FutureBuilder<AppUser>(
-      future: _future,
-      builder: (context, snapshot) {
-        final user = snapshot.data;
-        final canUpdate = me.can(Perm.userUpdate);
-        final isMe = user?.id == me.id;
-        return DetailPage(
-          title: user?.fullName ?? 'Utilisateur',
-          actions: [
-            if (user != null && canUpdate)
-              IconButton(
-                tooltip: 'Modifier',
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  await context.push('/users/${user.id}/edit');
-                  if (mounted) await _afterChange(true, user);
-                },
-              ),
-          ],
-          child: snapshot.hasError
-              ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
-              : user == null
-              ? const LoadingState(lines: 3)
-              : ListView(
-                  padding: const EdgeInsets.all(Gaps.lg),
-                  children: [
-                    SectionColumns(
-                      children: [
-                        SectionCard(
-                          title: 'Informations',
-                          icon: Icons.person_outline,
-                          trailing: Badges.active(user.isActive),
-                          child: Column(
-                            children: [
-                              InfoRow(label: 'Nom', value: user.fullName),
-                              InfoRow(label: 'Identifiant', value: user.username.toLowerCase()),
-                              InfoRow(label: 'Email', value: user.email ?? '—'),
-                              InfoRow(label: 'Téléphone', value: user.phone ?? '—'),
-                              InfoRow(label: 'Créé le', value: Formats.date(user.createdAt)),
-                            ],
+    return LiveRefresh(
+      entities: const {'user'},
+      when: (change) => change.id == widget.userId,
+      onChange: _reload,
+      child: FutureBuilder<AppUser>(
+        future: _future,
+        builder: (context, snapshot) {
+          final user = snapshot.data;
+          final canUpdate = me.can(Perm.userUpdate);
+          final isMe = user?.id == me.id;
+          return DetailPage(
+            title: user?.fullName ?? 'Utilisateur',
+            actions: [
+              if (user != null && canUpdate)
+                IconButton(
+                  tooltip: 'Modifier',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () async {
+                    await context.push('/users/${user.id}/edit');
+                    if (mounted) await _afterChange(true, user);
+                  },
+                ),
+            ],
+            child: snapshot.hasError
+                ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
+                : user == null
+                ? const LoadingState(lines: 3)
+                : ListView(
+                    padding: const EdgeInsets.all(Gaps.lg),
+                    children: [
+                      SectionColumns(
+                        children: [
+                          SectionCard(
+                            title: 'Informations',
+                            icon: Icons.person_outline,
+                            trailing: Badges.active(user.isActive),
+                            child: Column(
+                              children: [
+                                InfoRow(label: 'Nom', value: user.fullName),
+                                InfoRow(label: 'Identifiant', value: user.username.toLowerCase()),
+                                InfoRow(label: 'Email', value: user.email ?? '—'),
+                                InfoRow(label: 'Téléphone', value: user.phone ?? '—'),
+                                InfoRow(label: 'Créé le', value: Formats.date(user.createdAt)),
+                              ],
+                            ),
                           ),
-                        ),
-                        SectionCard(
-                          title: 'Accès',
-                          icon: Icons.admin_panel_settings_outlined,
-                          child: Column(
-                            children: [
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('Rôle'),
-                                subtitle: Align(alignment: Alignment.centerLeft, child: Badges.role(user.role.name)),
-                                trailing: canUpdate && !isMe
-                                    ? TextButton(onPressed: () => _changeRole(user), child: const Text('Changer'))
-                                    : null,
-                              ),
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('Magasin'),
-                                subtitle: Text(user.storeLabel),
-                                trailing: canUpdate && me.can(Perm.storeView)
-                                    ? TextButton(onPressed: () => _changeStore(user), child: const Text('Changer'))
-                                    : null,
-                              ),
-                              if (isMe)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: Gaps.sm),
-                                  child: Text(
-                                    'Vous ne pouvez pas changer votre propre rôle ni désactiver votre compte.',
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  ),
+                          SectionCard(
+                            title: 'Accès',
+                            icon: Icons.admin_panel_settings_outlined,
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Rôle'),
+                                  subtitle: Align(alignment: Alignment.centerLeft, child: Badges.role(user.role.name)),
+                                  trailing: canUpdate && !isMe
+                                      ? TextButton(onPressed: () => _changeRole(user), child: const Text('Changer'))
+                                      : null,
                                 ),
-                            ],
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Magasin'),
+                                  subtitle: Text(user.storeLabel),
+                                  trailing: canUpdate && me.can(Perm.storeView)
+                                      ? TextButton(onPressed: () => _changeStore(user), child: const Text('Changer'))
+                                      : null,
+                                ),
+                                if (isMe)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: Gaps.sm),
+                                    child: Text(
+                                      'Vous ne pouvez pas changer votre propre rôle ni désactiver votre compte.',
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (canUpdate && !isMe) ...[
+                        const SizedBox(height: Gaps.xl),
+                        OutlinedButton.icon(
+                          onPressed: () => _changeStatus(user),
+                          icon: Icon(
+                            user.isActive ? Icons.block : Icons.check_circle_outline,
+                            color: user.isActive ? AppColors.danger : AppColors.success,
+                          ),
+                          label: Text(
+                            user.isActive ? 'Désactiver le compte' : 'Réactiver le compte',
+                            style: TextStyle(color: user.isActive ? AppColors.danger : AppColors.success),
                           ),
                         ),
                       ],
-                    ),
-                    if (canUpdate && !isMe) ...[
-                      const SizedBox(height: Gaps.xl),
-                      OutlinedButton.icon(
-                        onPressed: () => _changeStatus(user),
-                        icon: Icon(
-                          user.isActive ? Icons.block : Icons.check_circle_outline,
-                          color: user.isActive ? AppColors.danger : AppColors.success,
-                        ),
-                        label: Text(
-                          user.isActive ? 'Désactiver le compte' : 'Réactiver le compte',
-                          style: TextStyle(color: user.isActive ? AppColors.danger : AppColors.success),
-                        ),
-                      ),
                     ],
-                  ],
-                ),
-        );
-      },
+                  ),
+          );
+        },
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/auth/current_user.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/realtime_notices.dart';
 import '../../core/utils/responsive.dart';
 import '../../features/auth/logout.dart';
 import '../../shared/widgets/status_badge.dart';
@@ -27,14 +28,14 @@ class AppShell extends StatelessWidget {
     final user = context.watch<SessionController>().lastUser;
     if (user == null) return child;
 
-    switch (context.screenSize) {
-      case ScreenSize.mobile:
-        return _MobileShell(user: user, location: location, child: child);
-      case ScreenSize.tablet:
-        return _SideShell(user: user, location: location, compact: true, child: child);
-      case ScreenSize.desktop:
-        return _SideShell(user: user, location: location, compact: false, child: child);
-    }
+    return RealtimeNotices(
+      userId: user.id,
+      child: switch (context.screenSize) {
+        ScreenSize.mobile => _MobileShell(user: user, location: location, child: child),
+        ScreenSize.tablet => _SideShell(user: user, location: location, compact: true, child: child),
+        ScreenSize.desktop => _SideShell(user: user, location: location, compact: false, child: child),
+      },
+    );
   }
 }
 

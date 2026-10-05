@@ -39,10 +39,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
   late final PagedController<Payment> _payments = PagedController(
     (query) => context.read<PaymentsRepository>().list(query),
     filters: const {'sort': '-created_at'},
+    liveEntities: const {'payment'},
   );
   late final PagedController<Sale> _debts = PagedController(
     (query) => context.read<SalesRepository>().history(query),
     filters: const {'has_debt': true, 'status': 'COMPLETED', 'sort': 'created_at'},
+    liveEntities: const {'sale', 'payment'},
     fixedKeys: const {'has_debt', 'status'},
   );
 

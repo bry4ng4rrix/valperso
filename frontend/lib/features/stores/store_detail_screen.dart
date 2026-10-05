@@ -7,6 +7,7 @@ import '../../app/theme/dimensions.dart';
 import '../../core/api/paged.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/confirmation_dialog.dart';
 import '../../shared/utils/api_form.dart';
@@ -80,120 +81,126 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<SessionController>().requireUser;
-    return FutureBuilder<Store>(
-      future: _future,
-      builder: (context, snapshot) {
-        final store = snapshot.data;
-        return DetailPage(
-          title: store?.label ?? 'Magasin',
-          actions: [
-            if (store != null && user.can(Perm.storeUpdate))
-              IconButton(
-                tooltip: 'Modifier',
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  await context.push('/stores/${store.id}/edit');
-                  if (mounted) _reload();
-                },
-              ),
-            if (store != null && !store.isCentral && user.can(store.isActive ? Perm.storeDelete : Perm.storeUpdate))
-              IconButton(
-                tooltip: store.isActive ? 'Désactiver' : 'Réactiver',
-                icon: Icon(
-                  store.isActive ? Icons.block : Icons.check_circle_outline,
-                  color: store.isActive ? AppColors.danger : null,
+    return LiveRefresh(
+      // Le magasin, la valeur de son stock et ses employés.
+      entities: const {'store', 'stock', 'user'},
+      when: (change) => change.entity != 'store' || change.id == widget.storeId,
+      onChange: _reload,
+      child: FutureBuilder<Store>(
+        future: _future,
+        builder: (context, snapshot) {
+          final store = snapshot.data;
+          return DetailPage(
+            title: store?.label ?? 'Magasin',
+            actions: [
+              if (store != null && user.can(Perm.storeUpdate))
+                IconButton(
+                  tooltip: 'Modifier',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () async {
+                    await context.push('/stores/${store.id}/edit');
+                    if (mounted) _reload();
+                  },
                 ),
-                onPressed: () => _toggleActive(store),
-              ),
-          ],
-          child: snapshot.hasError
-              ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
-              : store == null
-              ? const LoadingState(lines: 3)
-              : ListView(
-                  padding: const EdgeInsets.all(Gaps.lg),
-                  children: [
-                    SectionColumns(
-                      minColumnWidth: 380,
-                      maxColumns: 3,
-                      children: [
-                        SectionCard(
-                          title: 'Informations',
-                          icon: store.isCentral ? Icons.warehouse : Icons.storefront,
-                          trailing: store.isCentral
-                              ? const StatusBadge('Stock central', tone: BadgeTone.primary)
-                              : Badges.active(store.isActive),
-                          child: Column(
-                            children: [
-                              InfoRow(label: 'Nom', value: store.label),
-                              InfoRow(label: 'Adresse', value: Formats.title(store.address ?? '—')),
-                              InfoRow(label: 'Téléphone', value: store.phone ?? '—'),
-                            ],
+              if (store != null && !store.isCentral && user.can(store.isActive ? Perm.storeDelete : Perm.storeUpdate))
+                IconButton(
+                  tooltip: store.isActive ? 'Désactiver' : 'Réactiver',
+                  icon: Icon(
+                    store.isActive ? Icons.block : Icons.check_circle_outline,
+                    color: store.isActive ? AppColors.danger : null,
+                  ),
+                  onPressed: () => _toggleActive(store),
+                ),
+            ],
+            child: snapshot.hasError
+                ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
+                : store == null
+                ? const LoadingState(lines: 3)
+                : ListView(
+                    padding: const EdgeInsets.all(Gaps.lg),
+                    children: [
+                      SectionColumns(
+                        minColumnWidth: 380,
+                        maxColumns: 3,
+                        children: [
+                          SectionCard(
+                            title: 'Informations',
+                            icon: store.isCentral ? Icons.warehouse : Icons.storefront,
+                            trailing: store.isCentral
+                                ? const StatusBadge('Stock central', tone: BadgeTone.primary)
+                                : Badges.active(store.isActive),
+                            child: Column(
+                              children: [
+                                InfoRow(label: 'Nom', value: store.label),
+                                InfoRow(label: 'Adresse', value: Formats.title(store.address ?? '—')),
+                                InfoRow(label: 'Téléphone', value: store.phone ?? '—'),
+                              ],
+                            ),
                           ),
-                        ),
-                        if (_value != null) ...[
-                          FutureBuilder<StockValueReport>(
-                            future: _value,
-                            builder: (context, snapshot) {
-                              final total = snapshot.data?.total;
-                              return SectionCard(
-                                title: 'Stock du magasin',
-                                icon: Icons.inventory_outlined,
-                                trailing: TextButton(
-                                  onPressed: () => context.go('/products?store=${store.id}'),
-                                  child: const Text('Voir le stock'),
-                                ),
-                                child: total == null
-                                    ? const LinearProgressIndicator()
-                                    : Column(
-                                        children: [
-                                          InfoRow(label: 'Unités en stock', value: Formats.quantity(total.quantity)),
-                                          InfoRow(label: 'Valeur au prix', value: Formats.money(total.purchaseValue)),
-                                          InfoRow(label: 'Valeur de vente', value: Formats.money(total.saleValue)),
-                                          InfoRow(
-                                            label: 'Bénéfice potentiel',
-                                            value: Formats.money(total.potentialProfit),
-                                          ),
-                                        ],
-                                      ),
-                              );
-                            },
-                          ),
-                        ],
-                        if (_employees != null) ...[
-                          FutureBuilder<Paged<AppUser>>(
-                            future: _employees,
-                            builder: (context, snapshot) {
-                              final employees = snapshot.data?.items;
-                              return SectionCard(
-                                title: 'Employés',
-                                icon: Icons.badge_outlined,
-                                child: employees == null
-                                    ? const LinearProgressIndicator()
-                                    : employees.isEmpty
-                                    ? const Text('Aucun employé. Affectez un vendeur depuis l\'écran Utilisateurs.')
-                                    : Column(
-                                        children: [
-                                          for (final employee in employees)
-                                            ListTile(
-                                              contentPadding: EdgeInsets.zero,
-                                              title: Text(employee.fullName),
-                                              subtitle: Text(employee.username.toLowerCase()),
-                                              trailing: Badges.role(employee.role.name),
-                                              onTap: () => context.push('/users/${employee.id}'),
+                          if (_value != null) ...[
+                            FutureBuilder<StockValueReport>(
+                              future: _value,
+                              builder: (context, snapshot) {
+                                final total = snapshot.data?.total;
+                                return SectionCard(
+                                  title: 'Stock du magasin',
+                                  icon: Icons.inventory_outlined,
+                                  trailing: TextButton(
+                                    onPressed: () => context.go('/products?store=${store.id}'),
+                                    child: const Text('Voir le stock'),
+                                  ),
+                                  child: total == null
+                                      ? const LinearProgressIndicator()
+                                      : Column(
+                                          children: [
+                                            InfoRow(label: 'Unités en stock', value: Formats.quantity(total.quantity)),
+                                            InfoRow(label: 'Valeur au prix', value: Formats.money(total.purchaseValue)),
+                                            InfoRow(label: 'Valeur de vente', value: Formats.money(total.saleValue)),
+                                            InfoRow(
+                                              label: 'Bénéfice potentiel',
+                                              value: Formats.money(total.potentialProfit),
                                             ),
-                                        ],
-                                      ),
-                              );
-                            },
-                          ),
+                                          ],
+                                        ),
+                                );
+                              },
+                            ),
+                          ],
+                          if (_employees != null) ...[
+                            FutureBuilder<Paged<AppUser>>(
+                              future: _employees,
+                              builder: (context, snapshot) {
+                                final employees = snapshot.data?.items;
+                                return SectionCard(
+                                  title: 'Employés',
+                                  icon: Icons.badge_outlined,
+                                  child: employees == null
+                                      ? const LinearProgressIndicator()
+                                      : employees.isEmpty
+                                      ? const Text('Aucun employé. Affectez un vendeur depuis l\'écran Utilisateurs.')
+                                      : Column(
+                                          children: [
+                                            for (final employee in employees)
+                                              ListTile(
+                                                contentPadding: EdgeInsets.zero,
+                                                title: Text(employee.fullName),
+                                                subtitle: Text(employee.username.toLowerCase()),
+                                                trailing: Badges.role(employee.role.name),
+                                                onTap: () => context.push('/users/${employee.id}'),
+                                              ),
+                                          ],
+                                        ),
+                                );
+                              },
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
-                ),
-        );
-      },
+                      ),
+                    ],
+                  ),
+          );
+        },
+      ),
     );
   }
 }

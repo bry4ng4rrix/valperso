@@ -9,6 +9,7 @@ import '../../core/api/paged.dart';
 import '../../core/auth/current_user.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/periods.dart';
 import '../../shared/widgets/adaptive_page.dart';
@@ -118,58 +119,63 @@ class _DashboardViewState extends State<DashboardView> {
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
-    return AdaptivePage(
-      title: 'Tableau de bord',
-      subtitle: 'Bonjour ${user.fullName}',
-      actions: [IconButton(tooltip: 'Actualiser', onPressed: _refresh, icon: const Icon(Icons.refresh))],
-      body: PageBody(
-        onRefresh: _refresh,
-        children: [
-          PeriodSelector(
-            period: _period,
-            customRange: _customRange,
-            periods: const [
-              Period.today,
-              Period.yesterday,
-              Period.thisWeek,
-              Period.thisMonth,
-              Period.thisYear,
-              Period.custom,
-            ],
-            onChanged: (period, range) => setState(() {
-              _period = period;
-              _customRange = range;
-              _load();
-            }),
-          ),
-          if (user.canChooseStore) ...[
-            const SizedBox(height: Gaps.md),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 360),
-                child: StoreSelector(
-                  value: _storeId,
-                  allLabel: 'Tous les magasins',
-                  dense: true,
-                  onChanged: (store) => setState(() {
-                    _storeId = store?.id;
-                    _load();
-                  }),
+    return LiveRefresh(
+      // Indicateurs, dernières ventes et stocks à surveiller.
+      entities: const {'sale', 'payment', 'stock', 'product', 'movement', 'transfer'},
+      onChange: _refresh,
+      child: AdaptivePage(
+        title: 'Tableau de bord',
+        subtitle: 'Bonjour ${user.fullName}',
+        actions: [IconButton(tooltip: 'Actualiser', onPressed: _refresh, icon: const Icon(Icons.refresh))],
+        body: PageBody(
+          onRefresh: _refresh,
+          children: [
+            PeriodSelector(
+              period: _period,
+              customRange: _customRange,
+              periods: const [
+                Period.today,
+                Period.yesterday,
+                Period.thisWeek,
+                Period.thisMonth,
+                Period.thisYear,
+                Period.custom,
+              ],
+              onChanged: (period, range) => setState(() {
+                _period = period;
+                _customRange = range;
+                _load();
+              }),
+            ),
+            if (user.canChooseStore) ...[
+              const SizedBox(height: Gaps.md),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: StoreSelector(
+                    value: _storeId,
+                    allLabel: 'Tous les magasins',
+                    dense: true,
+                    onChanged: (store) => setState(() {
+                      _storeId = store?.id;
+                      _load();
+                    }),
+                  ),
                 ),
               ),
+            ],
+            const SizedBox(height: Gaps.lg),
+            FutureBuilder<DashboardSummary>(
+              future: _summary,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) return ErrorState(message: errorMessageOf(snapshot.error), onRetry: _refresh);
+                if (!snapshot.hasData) return const SizedBox(height: 360, child: LoadingState(lines: 4));
+                return _SummaryContent(summary: snapshot.data!, user: user, chart: _chart);
+              },
             ),
           ],
-          const SizedBox(height: Gaps.lg),
-          FutureBuilder<DashboardSummary>(
-            future: _summary,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) return ErrorState(message: errorMessageOf(snapshot.error), onRetry: _refresh);
-              if (!snapshot.hasData) return const SizedBox(height: 360, child: LoadingState(lines: 4));
-              return _SummaryContent(summary: snapshot.data!, user: user, chart: _chart);
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

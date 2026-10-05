@@ -29,6 +29,7 @@ class _UsersScreenState extends State<UsersScreen> {
   late final PagedController<AppUser> _controller = PagedController(
     (query) => context.read<UsersRepository>().list(query),
     filters: const {'is_active': true},
+    liveEntities: const {'user'},
   );
 
   @override

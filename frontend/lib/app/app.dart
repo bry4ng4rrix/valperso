@@ -9,7 +9,7 @@ import 'router.dart';
 import 'theme/theme.dart';
 
 abstract final class AppInfo {
-  static const name = 'Bryan Garrix';
+  static const name = 'Valheri Wear';
 }
 
 class CommerceApp extends StatefulWidget {

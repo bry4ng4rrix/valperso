@@ -1,4 +1,4 @@
-# Bryan Garrix — application Flutter
+# Valheri Wear — application Flutter
 
 Application cliente de l'API FastAPI du dossier parent (gestion commerciale multi-magasins).
 

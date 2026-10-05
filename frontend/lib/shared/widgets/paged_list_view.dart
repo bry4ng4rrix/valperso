@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/api/paged_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/responsive.dart';
 import 'pagination_controls.dart';
 import 'states.dart';
@@ -21,6 +22,7 @@ class TableColumnDef<T> {
 }
 
 /// Liste paginée standard : chargement, vide, erreur, rafraîchissement et pagination.
+/// Mise à jour en direct quand le serveur annonce un changement de `controller.liveEntities`.
 ///
 /// Sur mobile : cartes empilées (pas de tableau horizontal géant).
 /// Sur grand écran (>= 900 px) et si [columns] est fourni : tableau dense.
@@ -48,6 +50,12 @@ class PagedListView<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final list = _buildList(context);
+    if (controller.liveEntities.isEmpty) return list;
+    return LiveRefresh(entities: controller.liveEntities, onChange: controller.refreshSilently, child: list);
+  }
+
+  Widget _buildList(BuildContext context) {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {

@@ -6,6 +6,7 @@ import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/realtime/live_refresh.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/confirmation_dialog.dart';
 import '../../shared/utils/api_form.dart';
@@ -79,33 +80,39 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Sale>(
-      future: _future,
-      builder: (context, snapshot) {
-        final sale = snapshot.data;
-        return DetailPage(
-          title: sale?.number ?? 'Vente',
-          actions: [
-            if (sale != null)
-              IconButton(
-                tooltip: 'Facture',
-                onPressed: () => context.push('/sales/${sale.id}/invoice'),
-                icon: const Icon(Icons.receipt_long_outlined),
-              ),
-          ],
-          child: snapshot.hasError
-              ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
-              : sale == null
-              ? const LoadingState(lines: 4)
-              : RefreshIndicator(
-                  onRefresh: () async {
-                    _reload();
-                    await _future;
-                  },
-                  child: _content(sale),
+    return LiveRefresh(
+      // Paiement, annulation ou échéance de cette vente.
+      entities: const {'sale'},
+      when: (change) => change.id == widget.saleId,
+      onChange: _reload,
+      child: FutureBuilder<Sale>(
+        future: _future,
+        builder: (context, snapshot) {
+          final sale = snapshot.data;
+          return DetailPage(
+            title: sale?.number ?? 'Vente',
+            actions: [
+              if (sale != null)
+                IconButton(
+                  tooltip: 'Facture',
+                  onPressed: () => context.push('/sales/${sale.id}/invoice'),
+                  icon: const Icon(Icons.receipt_long_outlined),
                 ),
-        );
-      },
+            ],
+            child: snapshot.hasError
+                ? ErrorState(message: errorMessageOf(snapshot.error), onRetry: _reload)
+                : sale == null
+                ? const LoadingState(lines: 4)
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      _reload();
+                      await _future;
+                    },
+                    child: _content(sale),
+                  ),
+          );
+        },
+      ),
     );
   }
 

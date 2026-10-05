@@ -44,6 +44,8 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
   late final PagedController<StockLine> _catalog = PagedController(
     (query) => context.read<StockRepository>().lines(query),
     filters: {'sort': 'name'},
+    // Stock disponible à jour pendant la vente (ventes des collègues, transferts...).
+    liveEntities: const {'stock', 'product'},
   );
   int _step = 0;
   Sale? _completed;
@@ -446,7 +448,7 @@ class _StepIndicator extends StatelessWidget {
   }
 }
 
-/// Écran de fin de vente : facture, partage, nouvelle vente.
+/// Écran de fin de vente : impression du ticket, partage, nouvelle vente.
 class _SaleSuccess extends StatelessWidget {
   const _SaleSuccess({required this.sale, required this.onNewSale});
 
@@ -491,9 +493,9 @@ class _SaleSuccess extends StatelessWidget {
               ),
               const SizedBox(height: Gaps.xl),
               FilledButton.icon(
-                onPressed: () => context.push('/sales/${sale.id}/invoice'),
-                icon: const Icon(Icons.receipt_long),
-                label: const Text('Voir la facture'),
+                onPressed: () => printSaleInvoice(context, sale.id),
+                icon: const Icon(Icons.print_outlined),
+                label: const Text('Imprimer'),
               ),
               const SizedBox(height: Gaps.sm),
               AppButton(
