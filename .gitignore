@@ -24,3 +24,6 @@ media/
 
 # Application web compilée, copiée sur le serveur par scripts/deploy.sh
 deploy/web/
+
+# Images de comparaison générées quand un test visuel échoue
+frontend/test/visual/failures/

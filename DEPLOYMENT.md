@@ -28,6 +28,11 @@ URLs : `/` (application web), `/api/v1/health`, `/docs` (Swagger), `/redoc`, `/a
 Dans le navigateur, les jetons de connexion sont gardés dans le `localStorage` du site (le stockage
 chiffré de Flutter exige HTTPS) ; les PDF et exports Excel sont téléchargés par le navigateur.
 
+**Temps réel** : les applications ouvrent un WebSocket sur `/api/v1/ws` (nginx transmet le passage
+en WebSocket). Les changements sont diffusés par le processus de l'API lui-même : uvicorn doit
+rester à **un seul processus** (pas de `--workers`), sinon il faudrait un canal commun (Redis ou
+PostgreSQL LISTEN/NOTIFY).
+
 ## Le `.env` du serveur
 
 Il n'existe que sur le serveur (`~/valperso/.env`), n'est jamais versionné ni copié par le

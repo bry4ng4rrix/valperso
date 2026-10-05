@@ -34,6 +34,7 @@ Stack : Python 3.12+, FastAPI, SQLAlchemy 2, PostgreSQL, Alembic, Pydantic v2, J
 15. [Tests](#15-tests)
 16. [Documentation de l'API (Swagger, ReDoc)](#16-documentation-de-lapi-swagger-redoc)
 17. [Conventions de code](#17-conventions-de-code)
+18. [Temps réel (WebSocket)](#18-temps-réel-websocket)
 
 ---
 
@@ -525,4 +526,18 @@ Format commun :
 - **Textes métier** (noms, références, descriptions, adresses) :
   - ils sont enregistrés en MAJUSCULES et renvoyés en minuscules (`UpperStr`, `UpperCaseString`, `DisplayStr`) ; les recherches sont donc insensibles à la casse ;
   - exceptions : emails, mots de passe, téléphones, URL du logo, contenu du chat, codes (rôles `ADMIN` / `VENDEUR`, numéros `FAC-…` / `TRF-…`, références de paiement et de mouvement, enums).
-- **Temps réel** : la V1 fonctionne en HTTP. Les services (`chat_service.send_message`, ventes, stock, paiements) sont réutilisables tels quels par un futur endpoint WebSocket ou un système de notifications.
+- **Temps réel** : aucun service n'appelle la diffusion lui-même ; toute modification validée en base est annoncée automatiquement (voir la section 18).
+
+---
+
+## 18. Temps réel (WebSocket)
+
+Les applications ouvrent `ws(s)://<serveur>/api/v1/ws?token=<access_token>` et sont prévenues de chaque modification qu'elles ont le droit de voir : ventes, paiements, stock, mouvements, transferts, produits (ajout, modification, suppression), catégories, clients, magasins, utilisateurs, rôles, société, messages et journal d'audit.
+
+- `app/core/realtime.py` relève les objets créés, modifiés ou supprimés à chaque flush SQLAlchemy et les diffuse **au COMMIT** (rien après un ROLLBACK). Une nouvelle opération est donc couverte sans code supplémentaire.
+- Chaque connexion ne reçoit que ce que son utilisateur peut voir : un VENDEUR, les changements de son magasin (ventes, stock, mouvements, transferts) et ceux visibles par tous (produits, catégories, clients...) ; les messages, uniquement les membres de la conversation ; l'audit, uniquement les ADMIN.
+- Un message ne contient que le type, l'action et l'identifiant (`{"entity": "sale", "action": "created", "id": 12, "actor_id": 3, "label": "FAC-2026-000012"}`) : l'application recharge ensuite par l'API REST, qui applique les permissions habituelles.
+- Si les droits d'un utilisateur changent (rôle, magasin, mot de passe), sa connexion est fermée (code 4000) puis rouverte avec les nouveaux droits ; un jeton refusé ferme la connexion avec le code 4401.
+- Un seul processus uvicorn (pas de `--workers`) : avec plusieurs processus, il faudrait un canal commun (Redis ou PostgreSQL LISTEN/NOTIFY).
+
+Détails du protocole : `app/api/v1/realtime.py`. Tests : `app/tests/test_realtime.py`.
