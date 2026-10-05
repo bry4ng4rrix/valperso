@@ -1,0 +1,31 @@
+# Surcharge de production (VPS), toujours utilisée avec docker-compose.yml :
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Voir DEPLOYMENT.md.
+services:
+  postgres:
+    # La base n'est jamais publiée sur Internet (accès : docker compose exec ou tunnel SSH).
+    ports: !reset []
+    restart: unless-stopped
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      args:
+        INSTALL_DEV: "false"
+    # Port public : API_PORT du .env du serveur (8000 est déjà pris sur le VPS).
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    logging: *logging

@@ -8,3 +8,8 @@ __pycache__
 .ruff_cache
 .vscode
 .idea
+# Hors de l'image de l'API : application Flutter, CI, sauvegardes et photos locales.
+frontend
+.github
+backups
+media
