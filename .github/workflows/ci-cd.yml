@@ -1,0 +1,137 @@
+# CI/CD de valperso
+#
+#   1. backend  : Ruff + pytest (PostgreSQL 17 en service)
+#   2. frontend : flutter analyze + flutter test (sans les captures « visual », liées aux polices du poste)
+#   3. docker   : construction de l'image de production de l'API
+#   4. deploy   : sur main uniquement, copie du code sur le VPS et redémarrage (scripts/deploy.sh)
+#
+# Secrets à créer (Settings > Secrets and variables > Actions) :
+#   VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_KNOWN_HOSTS   (voir DEPLOYMENT.md)
+# Variables optionnelles : VPS_PATH (défaut valperso), API_PORT (défaut 8020)
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Un déploiement en cours n'est jamais interrompu par un nouveau push.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: API (Ruff, pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: commerce
+          POSTGRES_PASSWORD: commerce
+          POSTGRES_DB: commerce
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U commerce" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://commerce:commerce@localhost:5432/commerce
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Installer les dépendances
+        run: pip install -r requirements-dev.txt ruff
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Tests
+        run: pytest
+
+  frontend:
+    name: Application Flutter (analyse, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.8
+          cache: true
+
+      - name: Dépendances
+        run: flutter pub get
+
+      - name: Analyse
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test --exclude-tags visual
+
+  docker:
+    name: Image Docker de l'API
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Construire l'image de production
+        run: docker build --build-arg INSTALL_DEV=false -t valperso-api:ci .
+
+  deploy:
+    name: Déploiement sur le VPS
+    # Le serveur n'héberge que l'API : l'application Flutter ne bloque pas le déploiement.
+    needs: [backend, docker]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configurer SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$VPS_SSH_KEY" ] || [ -z "$VPS_KNOWN_HOSTS" ]; then
+            echo "::error::Secrets VPS_SSH_KEY / VPS_KNOWN_HOSTS manquants : voir DEPLOYMENT.md"
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Déployer
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ vars.VPS_PATH || 'valperso' }}
+          API_PORT: ${{ vars.API_PORT || '8020' }}
+        run: SSH_KEY="$HOME/.ssh/deploy_key" bash scripts/deploy.sh
+
+      - name: Nettoyer la clé
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

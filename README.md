@@ -54,6 +54,8 @@ Ensuite :
 1. Connectez-vous avec `POST /api/v1/auth/login` (identifiants `INITIAL_ADMIN_*`).
 2. Collez l'`access_token` dans le bouton **Authorize** de Swagger.
 
+Production (VPS) et CI/CD GitHub Actions : voir [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ---
 
 ## 2. Architecture
