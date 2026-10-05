@@ -11,6 +11,7 @@ import '../../core/auth/session_controller.dart';
 import '../../core/auth/settings_controller.dart';
 import '../../shared/widgets/adaptive_page.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/app_logo.dart';
 import '../../shared/widgets/responsive_grid.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../auth/logout.dart';
@@ -142,8 +143,9 @@ class SettingsScreen extends StatelessWidget {
                 context: context,
                 applicationName: AppInfo.name,
                 applicationVersion: '1.0.0',
+                applicationIcon: const AppLogo(size: 48),
                 children: const [
-                  Text('Gestion commerciale multi-magasins (Android et Linux), reliée à l\'API FastAPI.'),
+                  Text('Gestion commerciale multi-magasins (Android, Linux et web), reliée à l\'API FastAPI.'),
                 ],
               ),
               child: const Text('À propos'),

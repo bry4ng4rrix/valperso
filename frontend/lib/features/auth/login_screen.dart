@@ -8,8 +8,8 @@ import '../../core/api/api_exception.dart';
 import '../../core/auth/session_controller.dart';
 import '../../core/auth/settings_controller.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/app_logo.dart';
 import '../../shared/widgets/app_text_field.dart';
-import '../settings/api_url_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -64,17 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Center(
-                        child: Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            borderRadius: BorderRadius.circular(Radii.lg),
-                          ),
-                          child: Icon(Icons.storefront, color: theme.colorScheme.onPrimary, size: 36),
-                        ),
-                      ),
+                      const Center(child: AppLogo(size: 120)),
                       const SizedBox(height: Gaps.lg),
                       Text(AppInfo.name, style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
                       const SizedBox(height: Gaps.xs),
@@ -122,12 +112,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         icon: Icons.login,
                         expand: true,
                         onPressed: _submit,
-                      ),
-                      const SizedBox(height: Gaps.xl),
-                      TextButton.icon(
-                        onPressed: () => showApiUrlDialog(context),
-                        icon: const Icon(Icons.dns_outlined, size: 18),
-                        label: Text('Serveur : $apiUrl', overflow: TextOverflow.ellipsis),
                       ),
                     ],
                   ),

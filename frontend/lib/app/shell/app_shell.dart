@@ -7,6 +7,7 @@ import '../../core/auth/session_controller.dart';
 import '../../core/realtime/realtime_notices.dart';
 import '../../core/utils/responsive.dart';
 import '../../features/auth/logout.dart';
+import '../../shared/widgets/app_logo.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../app.dart';
 import '../navigation.dart';
@@ -158,15 +159,7 @@ class _SidebarHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logo = Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
-        borderRadius: BorderRadius.circular(Radii.md),
-      ),
-      child: Icon(Icons.storefront, color: Theme.of(context).colorScheme.onPrimary),
-    );
+    const logo = AppLogo(size: 40);
     return Padding(
       padding: EdgeInsets.all(compact ? Gaps.md : Gaps.lg),
       child: compact
