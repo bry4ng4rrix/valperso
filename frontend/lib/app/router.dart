@@ -198,7 +198,10 @@ GoRouter buildRouter(SessionController session) {
             path: Routes.settings,
             builder: (_, _) => const SettingsScreen(),
             routes: [
-              GoRoute(path: 'company', builder: (_, _) => const CompanyScreen()),
+              GoRoute(
+                path: 'company',
+                builder: (_, state) => CompanyScreen(startEditing: state.uri.queryParameters['edit'] == '1'),
+              ),
               GoRoute(path: 'roles', builder: (_, _) => const RolesScreen()),
             ],
           ),

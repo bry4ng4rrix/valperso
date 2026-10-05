@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/theme/colors.dart';
 import '../../app/theme/dimensions.dart';
 import '../../core/api/paged_controller.dart';
+import '../../core/auth/current_user.dart';
 import '../../core/auth/permissions.dart';
 import '../../core/auth/session_controller.dart';
 import '../../core/export/excel_export.dart';
+import '../../core/widgets/confirmation_dialog.dart';
+import '../../shared/utils/api_form.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/export_button.dart';
 import '../../shared/widgets/filters.dart';
@@ -47,6 +51,58 @@ class _UsersScreenState extends State<UsersScreen> {
   Future<void> _open(AppUser user) async {
     await context.push('/users/${user.id}');
     if (mounted) await _controller.refresh();
+  }
+
+  /// Suppression = désactivation : le compte ne peut plus se connecter, son historique est conservé.
+  Future<void> _delete(AppUser user) async {
+    final confirmed = await showConfirmation(
+      context,
+      title: 'Supprimer ${user.fullName} ?',
+      message:
+          'Le compte ne pourra plus se connecter. Ses ventes et paiements sont conservés '
+          'et il pourra être réactivé (Filtres → Statut : Désactivés).',
+      confirmLabel: 'Supprimer',
+      type: ConfirmationType.danger,
+    );
+    if (!confirmed || !mounted) return;
+    final done = await runApiAction(
+      context,
+      () => context.read<UsersRepository>().delete(user.id),
+      success: 'Utilisateur supprimé.',
+    );
+    if (done && mounted) await _controller.refresh();
+  }
+
+  Future<void> _reactivate(AppUser user) async {
+    final done = await runApiAction(
+      context,
+      () => context.read<UsersRepository>().changeStatus(user.id, isActive: true),
+      success: 'Utilisateur réactivé.',
+    );
+    if (done && mounted) await _controller.refresh();
+  }
+
+  /// Actions d'une ligne. Pas de suppression de son propre compte ; un compte ADMIN ne peut être
+  /// supprimé que par un ADMIN (le serveur refuse aussi de supprimer le dernier ADMIN actif).
+  Widget _actions(CurrentUser me, AppUser user) {
+    final manageable = user.id != me.id && (me.isAdmin || !user.role.isAdmin);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (manageable && user.isActive && me.can(Perm.userDelete))
+          IconButton(
+            tooltip: 'Supprimer',
+            onPressed: () => _delete(user),
+            icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+          ),
+        if (manageable && !user.isActive && me.can(Perm.userUpdate))
+          IconButton(
+            tooltip: 'Réactiver',
+            onPressed: () => _reactivate(user),
+            icon: const Icon(Icons.restore, color: AppColors.success),
+          ),
+      ],
+    );
   }
 
   void _openFilters() {
@@ -141,12 +197,23 @@ class _UsersScreenState extends State<UsersScreen> {
         emptyTitle: 'Aucun utilisateur',
         emptyMessage: 'Modifiez la recherche ou les filtres.',
         columns: [
-          TableColumnDef.text('Nom', (user) => user.fullName),
-          TableColumnDef.text('Identifiant', (user) => user.username.toLowerCase()),
+          // Nom et identifiant dans une seule colonne : la colonne Actions reste visible sans défiler.
+          TableColumnDef(
+            'Nom',
+            (user) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(user.fullName),
+                Text(user.username.toLowerCase(), style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
           TableColumnDef.text('Email', (user) => user.email ?? '—'),
           TableColumnDef('Rôle', (user) => Badges.role(user.role.name)),
           TableColumnDef.text('Magasin', (user) => user.storeLabel),
           TableColumnDef('Statut', (user) => Badges.active(user.isActive)),
+          TableColumnDef('Actions', (item) => _actions(user, item)),
         ],
         cardBuilder: (context, item) => AppCard(
           onTap: () => _open(item),
@@ -180,6 +247,7 @@ class _UsersScreenState extends State<UsersScreen> {
                   if (!item.isActive) ...[const SizedBox(height: Gaps.xs), Badges.active(false)],
                 ],
               ),
+              _actions(user, item),
             ],
           ),
         ),

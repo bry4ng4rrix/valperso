@@ -15,6 +15,7 @@ import '../../shared/widgets/app_logo.dart';
 import '../../shared/widgets/responsive_grid.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../auth/logout.dart';
+import '../company/company_summary.dart';
 import 'api_url_dialog.dart';
 
 /// Paramètres : profil, apparence, serveur, société, rôles, session.
@@ -85,33 +86,20 @@ class SettingsScreen extends StatelessWidget {
                 trailing: TextButton(onPressed: () => showApiUrlDialog(context), child: const Text('Modifier')),
                 child: InfoRow(label: 'Adresse de l\'API', value: settings.apiUrl),
               ),
-              if (user.can(Perm.companyView) || user.can(Perm.roleView)) ...[
+              // Nom, logo et coordonnées imprimés sur les factures et tickets.
+              if (user.can(Perm.companyView)) CompanySummaryCard(canEdit: user.can(Perm.companyUpdate)),
+              if (user.can(Perm.roleView))
                 SectionCard(
                   title: 'Administration',
                   icon: Icons.admin_panel_settings_outlined,
-                  child: Column(
-                    children: [
-                      if (user.can(Perm.companyView))
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.business_outlined),
-                          title: const Text('Informations de la société'),
-                          subtitle: const Text('Nom, logo et coordonnées affichés sur les factures'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => context.push(Routes.company),
-                        ),
-                      if (user.can(Perm.roleView))
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.key_outlined),
-                          title: const Text('Rôles et permissions'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => context.push(Routes.roles),
-                        ),
-                    ],
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.key_outlined),
+                    title: const Text('Rôles et permissions'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(Routes.roles),
                   ),
                 ),
-              ],
               SectionCard(
                 title: 'Session',
                 icon: Icons.security_outlined,

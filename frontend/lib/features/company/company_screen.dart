@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/theme/dimensions.dart';
@@ -19,10 +20,18 @@ import '../invoices/invoice_actions.dart';
 import 'company_repository.dart';
 import '../../shared/widgets/responsive_grid.dart';
 
+/// Choix du logo dans les fichiers / la galerie. Remplacé dans les tests (pas de galerie).
+@visibleForTesting
+Future<XFile?> Function() pickCompanyLogo = () =>
+    ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1024, maxHeight: 1024, imageQuality: 90);
+
 /// Informations de la société (en-tête des factures). Modification réservée à `company.update`,
 /// avec confirmation des changements. Les factures déjà émises ne changent pas.
 class CompanyScreen extends StatefulWidget {
-  const CompanyScreen({super.key});
+  const CompanyScreen({super.key, this.startEditing = false});
+
+  /// Ouvert depuis Paramètres → Société → Modifier : le formulaire s'affiche directement.
+  final bool startEditing;
 
   @override
   State<CompanyScreen> createState() => _CompanyScreenState();
@@ -37,7 +46,8 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
   final _address = TextEditingController();
   final _city = TextEditingController();
   Company? _company;
-  bool _editing = false;
+  late bool _editing = widget.startEditing;
+  bool _uploadingLogo = false;
   late Future<void> _ready = _load();
 
   Future<void> _load() async {
@@ -53,6 +63,30 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
     _email.text = company.email ?? '';
     _address.text = Formats.title(company.address ?? '');
     _city.text = Formats.title(company.city ?? '');
+  }
+
+  /// Le logo choisi est envoyé et enregistré tout de suite ; les autres champs, avec « Enregistrer ».
+  Future<void> _pickLogo() async {
+    final file = await pickCompanyLogo();
+    if (file == null || !mounted) return;
+    setState(() => _uploadingLogo = true);
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    final repository = context.read<CompanyRepository>();
+    Company? saved;
+    await runApiAction(
+      context,
+      () async => saved = await repository.uploadLogo(bytes, file.name.isEmpty ? 'logo' : file.name),
+      success: 'Logo enregistré.',
+    );
+    if (!mounted) return;
+    setState(() {
+      _uploadingLogo = false;
+      if (saved case final company?) {
+        _company = company;
+        _logo.text = company.logoUrl ?? '';
+      }
+    });
   }
 
   @override
@@ -134,13 +168,13 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
             );
           }
           if (snapshot.connectionState != ConnectionState.done) return const LoadingState(lines: 3);
-          return _editing ? _form() : _view();
+          return _editing && canEdit ? _form() : _view(canEdit: canEdit);
         },
       ),
     );
   }
 
-  Widget _view() {
+  Widget _view({required bool canEdit}) {
     final company = _company!;
     final logoUrl = resolveLogoUrl(company.logoUrl, context.read<ApiClient>().baseUrl);
     return ListView(
@@ -175,6 +209,66 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
           'Message de remerciement des factures : « Merci pour votre achat ! À bientôt chez ${Formats.title(company.name)}. »',
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        if (canEdit) ...[
+          const SizedBox(height: Gaps.xl),
+          AppButton(
+            label: 'Modifier les informations',
+            icon: Icons.edit_outlined,
+            expand: true,
+            onPressed: () async => setState(() => _editing = true),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _logoEditor() {
+    final path = _logo.text.trim();
+    final url = resolveLogoUrl(path.isEmpty ? null : path, context.read<ApiClient>().baseUrl);
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.dividerColor),
+            borderRadius: BorderRadius.circular(Radii.md),
+          ),
+          child: url == null
+              ? const Icon(Icons.image_outlined)
+              : Image.network(url, fit: BoxFit.contain, errorBuilder: (_, _, _) => const Icon(Icons.broken_image)),
+        ),
+        const SizedBox(width: Gaps.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Logo (factures et tickets)', style: theme.textTheme.titleSmall),
+              const SizedBox(height: Gaps.xs),
+              Wrap(
+                spacing: Gaps.sm,
+                runSpacing: Gaps.xs,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _uploadingLogo ? null : _pickLogo,
+                    icon: _uploadingLogo
+                        ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.upload_outlined),
+                    label: Text(url == null ? 'Choisir une image' : 'Changer le logo'),
+                  ),
+                  if (url != null)
+                    TextButton.icon(
+                      onPressed: () => setState(_logo.clear),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Retirer'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -188,50 +282,49 @@ class _CompanyScreenState extends State<CompanyScreen> with ApiFormState {
           SectionCard(
             title: 'Modifier',
             icon: Icons.edit_outlined,
-            child: ResponsiveGrid(
-              minItemWidth: 300,
-              maxColumns: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                AppTextField(
-                  label: 'Nom de la société',
-                  controller: _name,
-                  required: true,
-                  errorText: errorFor('name'),
-                  validator: Validators.text(required: true, min: 2, max: 150),
-                ),
-                AppTextField(
-                  label: 'Logo (adresse web ou chemin /...)',
-                  controller: _logo,
-                  keyboardType: TextInputType.url,
-                  errorText: errorFor('logo_url'),
-                  validator: Validators.logoUrl,
-                  helper: 'Ex. https://exemple.mg/logo.png',
-                ),
-                AppTextField(
-                  label: 'Téléphone',
-                  controller: _phone,
-                  keyboardType: TextInputType.phone,
-                  errorText: errorFor('phone'),
-                  validator: Validators.phone,
-                ),
-                AppTextField(
-                  label: 'Email',
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  errorText: errorFor('email'),
-                  validator: Validators.email,
-                ),
-                AppTextField(
-                  label: 'Adresse',
-                  controller: _address,
-                  errorText: errorFor('address'),
-                  validator: Validators.text(required: false, max: 255),
-                ),
-                AppTextField(
-                  label: 'Ville',
-                  controller: _city,
-                  errorText: errorFor('city'),
-                  validator: Validators.text(required: false, max: 100),
+                _logoEditor(),
+                const SizedBox(height: Gaps.lg),
+                ResponsiveGrid(
+                  minItemWidth: 300,
+                  maxColumns: 3,
+                  children: [
+                    AppTextField(
+                      label: 'Nom de la société',
+                      controller: _name,
+                      required: true,
+                      errorText: errorFor('name'),
+                      validator: Validators.text(required: true, min: 2, max: 150),
+                    ),
+                    AppTextField(
+                      label: 'Téléphone',
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                      errorText: errorFor('phone'),
+                      validator: Validators.phone,
+                    ),
+                    AppTextField(
+                      label: 'Email',
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      errorText: errorFor('email'),
+                      validator: Validators.email,
+                    ),
+                    AppTextField(
+                      label: 'Adresse',
+                      controller: _address,
+                      errorText: errorFor('address'),
+                      validator: Validators.text(required: false, max: 255),
+                    ),
+                    AppTextField(
+                      label: 'Ville',
+                      controller: _city,
+                      errorText: errorFor('city'),
+                      validator: Validators.text(required: false, max: 100),
+                    ),
+                  ],
                 ),
               ],
             ),

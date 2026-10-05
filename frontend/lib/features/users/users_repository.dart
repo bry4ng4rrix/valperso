@@ -29,4 +29,7 @@ class UsersRepository {
 
   Future<AppUser> changeStatus(int id, {required bool isActive}) async =>
       AppUser.fromJson(await _api.put('/users/$id/status', data: {'is_active': isActive}) as Json);
+
+  /// Suppression logique : le compte est désactivé, ses ventes et paiements sont conservés.
+  Future<void> delete(int id) => _api.delete('/users/$id');
 }

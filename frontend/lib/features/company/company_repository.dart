@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../core/api/api_client.dart';
 import '../../core/utils/json.dart';
 
@@ -40,4 +42,13 @@ class CompanyRepository {
 
   Future<Company> update(Company company) async =>
       Company.fromJson(await _api.put('/company', data: company.toJson()) as Json);
+
+  /// Envoie le logo (JPEG, PNG ou WebP, 5 Mo maximum) : il est enregistré tout de suite sur le serveur.
+  Future<Company> uploadLogo(List<int> bytes, String fileName) async => Company.fromJson(
+    await _api.post(
+          '/company/logo',
+          data: FormData.fromMap({'file': MultipartFile.fromBytes(bytes, filename: fileName)}),
+        )
+        as Json,
+  );
 }

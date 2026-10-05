@@ -25,8 +25,9 @@ def media_root() -> Path:
     return Path(settings.MEDIA_ROOT)
 
 
-def _extension(content: bytes) -> str:
-    """Extension d'après les premiers octets du fichier (signature du format)."""
+def image_extension(content: bytes) -> str:
+    """Extension d'après les premiers octets du fichier (signature du format). Utilisée aussi pour
+    le logo de la société."""
     if content.startswith(b"\xff\xd8\xff"):
         return "jpg"
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -47,7 +48,7 @@ def add_image(
     if len(product.images) >= MAX_IMAGES_PER_PRODUCT:
         raise InvalidImage(f"{MAX_IMAGES_PER_PRODUCT} photos maximum par produit")
 
-    relative = f"{PRODUCTS_DIR}/{uuid.uuid4().hex}.{_extension(content)}"
+    relative = f"{PRODUCTS_DIR}/{uuid.uuid4().hex}.{image_extension(content)}"
     target = media_root() / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content)
