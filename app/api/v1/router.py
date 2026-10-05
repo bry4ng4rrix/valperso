@@ -12,6 +12,7 @@ from app.api.v1 import (
     payments,
     permissions,
     products,
+    realtime,
     roles,
     sales,
     stock,
@@ -40,5 +41,6 @@ for module in (
     company,
     chat,
     audit,
+    realtime,
 ):
     api_router.include_router(module.router)

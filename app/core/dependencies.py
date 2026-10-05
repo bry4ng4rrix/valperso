@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.exceptions import AuthenticationError, PermissionDenied
 from app.core.permissions import PermissionCode, has_permission
+from app.core.realtime import ACTOR_KEY
 from app.core.security import TokenType, decode_token, ensure_token_is_current
 from app.models import User
 
@@ -32,6 +33,8 @@ def get_current_user(
     if user is None or not user.is_active:
         raise AuthenticationError("Utilisateur introuvable ou désactivé")
     ensure_token_is_current(token, user.token_version)
+    # Auteur des modifications de cette requête, annoncé avec elles en temps réel.
+    db.info[ACTOR_KEY] = user.id
     return user
 
 

@@ -1,5 +1,7 @@
 fastapi==0.142.2
 uvicorn==0.54.0
+# WebSocket (temps réel) : uvicorn n'accepte les connexions WebSocket qu'avec cette bibliothèque.
+websockets==17.2
 sqlalchemy==2.1.2
 psycopg[binary]==3.3.6
 alembic==1.20.0
