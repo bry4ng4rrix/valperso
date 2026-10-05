@@ -3,7 +3,8 @@
 #   1. backend  : Ruff + pytest (PostgreSQL 17 en service)
 #   2. frontend : flutter analyze + flutter test (sans les captures « visual », liées aux polices du poste)
 #   3. docker   : construction de l'image de production de l'API
-#   4. deploy   : sur main uniquement, copie du code sur le VPS et redémarrage (scripts/deploy.sh)
+#   4. deploy   : sur main uniquement, compilation de la version web, copie sur le VPS et redémarrage
+#                 (scripts/deploy.sh)
 #
 # Secrets à créer (Settings > Secrets and variables > Actions) :
 #   VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_KNOWN_HOSTS   (voir DEPLOYMENT.md)
@@ -98,17 +99,28 @@ jobs:
 
   deploy:
     name: Déploiement sur le VPS
-    # Le serveur n'héberge que l'API : l'application Flutter ne bloque pas le déploiement.
-    needs: [backend, docker]
+    # Le serveur héberge l'API et la version web de l'application : tout doit être vert.
+    needs: [backend, frontend, docker]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment: production
     concurrency:
       group: deploy-production
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
+
+      # scripts/deploy.sh compile la version web (flutter build web).
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.8
+          cache: true
+
+      - name: Dépendances Flutter
+        working-directory: frontend
+        run: flutter pub get
 
       - name: Configurer SSH
         env:

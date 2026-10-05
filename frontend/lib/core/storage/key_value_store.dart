@@ -1,7 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Stockage clé/valeur. L'application utilise [SecureKeyValueStore] (jetons chiffrés),
-/// les tests utilisent [MemoryKeyValueStore].
+/// Stockage clé/valeur. L'application utilise [SecureKeyValueStore] (jetons chiffrés) ou, dans le
+/// navigateur, le localStorage (voir `core/web/browser.dart`) ; les tests utilisent [MemoryKeyValueStore].
 abstract interface class KeyValueStore {
   Future<String?> read(String key);
   Future<void> write(String key, String value);

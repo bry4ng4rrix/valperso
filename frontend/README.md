@@ -2,7 +2,7 @@
 
 Application cliente de l'API FastAPI du dossier parent (gestion commerciale multi-magasins).
 
-- **Plateformes** : Android (prioritaire) et Linux (bureau). Pas d'iOS.
+- **Plateformes** : Android (prioritaire), Linux (bureau) et web (navigateur). Pas d'iOS.
 - **Thème** : sombre par défaut, entièrement noir et gris neutres (actions principales en blanc, couleurs réservées aux états : vert payé, orange alerte, rouge dette), Material 3. Thème clair (actions en bleu) disponible dans Paramètres.
 - **Écrans adaptatifs** : mobile < 600 px (barre de navigation en bas : Accueil, Ventes, Produits, Clients, Plus), tablette 600–1024 px (menu latéral compact), bureau > 1024 px (menu latéral complet). Les boîtes de dialogue ont une largeur fixe adaptée à l'écran (presque toute la largeur sur mobile), un contenu qui défile et des boutons toujours visibles.
 - Le backend n'est pas modifié : l'application utilise uniquement les routes `/api/v1` existantes.
@@ -27,7 +27,9 @@ flutter run --dart-define=API_URL=http://192.168.1.10:8001
 
 L'adresse du serveur peut aussi être changée dans l'application : lien « Serveur : … » sous le formulaire de connexion, ou Paramètres → Serveur. L'adresse est testée (`/api/v1/health`) avant d'être enregistrée.
 
-Ordre de priorité de l'adresse : valeur enregistrée dans l'application, puis `--dart-define=API_URL`, puis `http://10.0.2.2:8001` (Android) / `http://localhost:8001` (Linux).
+Ordre de priorité de l'adresse : valeur enregistrée dans l'application, puis `--dart-define=API_URL`, puis `http://10.0.2.2:8001` (Android) / `http://localhost:8001` (Linux) / l'adresse du site (web).
+
+**Web** : en production, la version web est servie par le même serveur que l'API (nginx transmet `/api`, voir `DEPLOYMENT.md` à la racine) ; elle appelle donc l'API à sa propre adresse. En développement : `flutter run -d chrome --dart-define=API_URL=http://localhost:8001` (l'API doit alors autoriser l'origine dans `CORS_ORIGINS`). Les jetons sont gardés dans le `localStorage` du navigateur (le stockage chiffré exige HTTPS), les PDF et exports Excel sont téléchargés.
 
 **Linux** : le stockage sécurisé des jetons utilise libsecret (`libsecret-1-0` et un trousseau, par exemple gnome-keyring). Pour compiler : `libgtk-3-dev` et `libsecret-1-dev`.
 
@@ -104,6 +106,7 @@ cd frontend && LIVE_API_URL=http://127.0.0.1:8002 LIVE_PASSWORD=<mot de passe de
 ```bash
 flutter build apk --release --dart-define=API_URL=https://api.exemple.mg
 flutter build linux --release --dart-define=API_URL=https://api.exemple.mg
+flutter build web --release        # déployé par scripts/deploy.sh (voir DEPLOYMENT.md)
 ```
 
 ## Limites connues (liées à l'API actuelle)

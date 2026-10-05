@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Déploie l'API sur le VPS : copie du code puis (re)démarrage de la stack Docker.
+# Déploie sur le VPS l'API et la version web de l'application : compilation web (Flutter),
+# copie sur le serveur puis (re)démarrage de la stack Docker.
 #
 #   VPS_HOST=185.215.167.79 VPS_USER=smart SSH_KEY=~/.ssh/valperso_deploy scripts/deploy.sh
 #
 # Variables : VPS_HOST, VPS_USER (obligatoires), VPS_PATH (défaut : valperso, dans le dossier
-# personnel), SSH_KEY (clé privée), API_PORT (port public de l'API, défaut : 8020).
-# Utilisé aussi par la CI/CD GitHub Actions (.github/workflows/ci-cd.yml).
+# personnel), SSH_KEY (clé privée), API_PORT (port public, défaut : 8020).
+# Utilisé aussi par la CI/CD GitHub Actions (.github/workflows/ci-cd.yml). Nécessite Flutter.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -18,11 +19,17 @@ if [[ -n "${SSH_KEY:-}" ]]; then
   SSH_OPTS+=(-i "$SSH_KEY" -o IdentitiesOnly=yes -o BatchMode=yes)
 fi
 
+echo "==> Compilation de l'application web"
+# L'adresse de l'API n'est pas fixée : dans le navigateur, c'est celle du site (voir ApiConfig).
+(cd frontend && flutter build web --release)
+
 echo "==> Copie du code vers $TARGET:$VPS_PATH"
-# Seul le backend part sur le serveur : l'application Flutter n'y est pas utilisée.
+# Le backend, sans les sources Flutter, plus la version web compilée placée dans deploy/web
+# (servie par nginx, voir deploy/Dockerfile).
 tar --exclude=./.env --exclude=./.venv --exclude=./.git --exclude=./frontend --exclude=./backups \
-  --exclude=./media --exclude='__pycache__' --exclude=.pytest_cache --exclude=.ruff_cache \
-  -czf - . | ssh "${SSH_OPTS[@]}" "$TARGET" "cat > valperso-release.tgz"
+  --exclude=./media --exclude=./deploy/web --exclude='__pycache__' --exclude=.pytest_cache --exclude=.ruff_cache \
+  -czf - . -C frontend/build --transform='s,^web,deploy/web,' web \
+  | ssh "${SSH_OPTS[@]}" "$TARGET" "cat > valperso-release.tgz"
 
 echo "==> Démarrage de la stack"
 ssh "${SSH_OPTS[@]}" "$TARGET" bash -s -- "$VPS_PATH" <<'REMOTE'
@@ -48,3 +55,5 @@ REMOTE
 echo "==> Vérification"
 curl --fail --silent --show-error --max-time 20 "http://$VPS_HOST:${API_PORT:-8020}/api/v1/health"
 echo
+curl --fail --silent --show-error --max-time 20 -o /dev/null "http://$VPS_HOST:${API_PORT:-8020}/"
+echo "Application web : http://$VPS_HOST:${API_PORT:-8020}/"

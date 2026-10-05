@@ -106,8 +106,9 @@ class InvoiceView extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xxl, Gaps.xl, Gaps.xxl),
             child: DefaultTextStyle(
               style: const TextStyle(
-                fontFamily: 'monospace',
-                fontFamilyFallback: ['DejaVu Sans Mono', 'Courier New'],
+                // Police embarquée (voir pubspec.yaml) : même rendu sur Android, Linux et le web.
+                fontFamily: 'ReceiptMono',
+                fontFamilyFallback: ['monospace'],
                 fontSize: 13,
                 height: 1.35,
                 color: AppColors.receiptInk,

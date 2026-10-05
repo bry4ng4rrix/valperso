@@ -21,3 +21,6 @@ backups/
 
 # Photos envoyées en local (dans Docker : volume media_data)
 media/
+
+# Application web compilée, copiée sur le serveur par scripts/deploy.sh
+deploy/web/

@@ -66,7 +66,8 @@ class ExportButton<T> extends StatelessWidget {
       if (!context.mounted) return;
       Notify.success(context, 'Export terminé : ${rows.length} ligne(s) — $path');
       // Sur mobile, le fichier est proposé au partage (enregistrer, envoyer par message...).
-      if (defaultTargetPlatform == TargetPlatform.android) {
+      // Dans le navigateur (même sur un téléphone), il est simplement téléchargé.
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         await SharePlus.instance.share(ShareParams(files: [XFile(path)], title: sheetName));
       }
     } catch (error) {

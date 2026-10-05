@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 ///
 /// Ordre de priorité : valeur enregistrée dans les paramètres de l'application,
 /// puis `--dart-define=API_URL=...`, puis une valeur par défaut adaptée à la plateforme
-/// (l'émulateur Android voit la machine hôte à l'adresse 10.0.2.2).
+/// (l'émulateur Android voit la machine hôte à l'adresse 10.0.2.2). Dans le navigateur, l'API est
+/// servie par le même serveur que la page (nginx transmet /api à l'API) : son adresse est celle du site.
 abstract final class ApiConfig {
   static const _fromEnvironment = String.fromEnvironment('API_URL');
 
   static String get defaultBaseUrl {
     if (_fromEnvironment.isNotEmpty) return _fromEnvironment;
+    if (kIsWeb) return Uri.base.origin;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:8001';
     return 'http://localhost:8001';
   }

@@ -46,6 +46,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   printing: ^5.14.3
+  web: ^1.1.1
   image_picker: ^1.2.3
 
 dev_dependencies:
@@ -80,6 +81,15 @@ flutter:
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
+
+  # Police à chasse fixe du ticket de caisse (embarquée : le navigateur n'a pas de police système).
+  # DejaVu Sans Mono, licence libre : assets/fonts/DejaVu-LICENSE.txt
+  fonts:
+    - family: ReceiptMono
+      fonts:
+        - asset: assets/fonts/DejaVuSansMono.ttf
+        - asset: assets/fonts/DejaVuSansMono-Bold.ttf
+          weight: 700
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

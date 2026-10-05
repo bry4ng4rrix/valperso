@@ -3,21 +3,30 @@
 ## En production
 
 ```
-Internet ──▶ API :8020  (http://185.215.167.79:8020)
+Internet ──▶ web (nginx) :8020 ──▶ /            application web (Flutter, compilée)
+                                ├─▶ /api, /media  api :8000 (réseau Docker)
+                                └─▶ /docs, /redoc api :8000
              PostgreSQL : réseau Docker uniquement, jamais publié
 ```
 
 - Serveur : `smart@185.215.167.79` (Ubuntu 24.04), dossier `~/valperso`.
-- Seul le backend est déployé. Les applications Flutter (Android, Linux) s'y connectent :
-  adresse du serveur `http://185.215.167.79:8020` (lien « Serveur : … » sous le formulaire de
-  connexion, ou Paramètres → Serveur), ou au build : `--dart-define=API_URL=http://185.215.167.79:8020`.
-- Pas de reverse proxy : comme les autres applications du VPS, l'API a son propre port. Les ports
-  3000, 3010, 5678, 8000 et 8010 appartiennent à d'autres applications (`smart_*`, `garrix-offre`).
-- `docker-compose.prod.yml` (surcharge) : PostgreSQL non publié, image sans pytest
-  (`INSTALL_DEV=false`), healthcheck de l'API, redémarrage automatique, logs limités.
-- Au démarrage, le conteneur applique les migrations Alembic puis le seed (idempotent).
+- **Version web** : http://185.215.167.79:8020/ (n'importe quel navigateur, ordinateur ou téléphone).
+  Elle appelle l'API à sa propre adresse : pas de CORS, rien à configurer.
+- **Applications Android et Linux** : adresse du serveur `http://185.215.167.79:8020` (lien
+  « Serveur : … » sous le formulaire de connexion, ou Paramètres → Serveur), ou au build :
+  `--dart-define=API_URL=http://185.215.167.79:8020`.
+- Une seule entrée publique, nginx (`deploy/nginx.conf`, image `deploy/Dockerfile`) : il sert la
+  version web et transmet `/api`, `/media`, `/docs`, `/redoc` à l'API, qui n'a plus de port public.
+  Les ports 3000, 3010, 5678, 8000 et 8010 appartiennent à d'autres applications du VPS
+  (`smart_*`, `garrix-offre`).
+- `docker-compose.prod.yml` (surcharge) : service `web`, PostgreSQL et API non publiés, image sans
+  pytest (`INSTALL_DEV=false`), healthchecks, redémarrage automatique, logs limités.
+- Au démarrage, le conteneur de l'API applique les migrations Alembic puis le seed (idempotent).
 
-URLs : `/api/v1/health`, `/docs` (Swagger), `/redoc`, `/api/v1/...`, `/media/...`.
+URLs : `/` (application web), `/api/v1/health`, `/docs` (Swagger), `/redoc`, `/api/v1/...`, `/media/...`.
+
+Dans le navigateur, les jetons de connexion sont gardés dans le `localStorage` du site (le stockage
+chiffré de Flutter exige HTTPS) ; les PDF et exports Excel sont téléchargés par le navigateur.
 
 ## Le `.env` du serveur
 
@@ -41,9 +50,10 @@ Après une modification du `.env` : `dc up -d` (voir plus bas).
 VPS_HOST=185.215.167.79 VPS_USER=smart SSH_KEY=~/.ssh/valperso_deploy scripts/deploy.sh
 ```
 
-`scripts/deploy.sh` copie le backend (sans `.env`, `frontend`, `.git`), remplace l'ancien code
-du serveur, lance `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
---wait`, puis vérifie `/api/v1/health`.
+Nécessite Flutter sur le poste. `scripts/deploy.sh` compile la version web (`flutter build web`),
+copie le backend (sans `.env`, sources Flutter, `.git`) et la version web (dans `deploy/web`),
+remplace l'ancien code du serveur, lance `docker compose -f docker-compose.yml -f
+docker-compose.prod.yml up -d --build --wait`, puis vérifie `/api/v1/health` et la page d'accueil.
 
 ## CI/CD GitHub Actions
 
@@ -54,7 +64,7 @@ Le workflow `.github/workflows/ci-cd.yml` :
 | `backend` | push et pull request | Ruff, pytest (PostgreSQL 17 en service) |
 | `frontend` | push et pull request | `flutter analyze`, `flutter test --exclude-tags visual` |
 | `docker` | push et pull request | construction de l'image de production de l'API |
-| `deploy` | push sur `main` (ou lancement manuel) | `scripts/deploy.sh` vers le VPS, après `backend` et `docker` |
+| `deploy` | push sur `main` (ou lancement manuel) | `scripts/deploy.sh` (compilation web + envoi sur le VPS), après les trois autres jobs |
 
 Les captures de référence (`test/visual`, tag `visual`) dépendent des polices installées sur le
 poste : elles restent à lancer en local (`flutter test`).
@@ -94,8 +104,8 @@ ssh smart@185.215.167.79
 cd ~/valperso
 alias dc='docker compose -f docker-compose.yml -f docker-compose.prod.yml'   # toujours les 2 fichiers
 
-dc ps                      # état (api doit être "healthy")
-dc logs -f api             # logs ; Ctrl+C pour quitter
+dc ps                      # état (api et web doivent être "healthy")
+dc logs -f api web         # logs ; Ctrl+C pour quitter
 dc up -d                   # appliquer une modification du .env
 dc restart api             # redémarrer l'API
 dc exec -T postgres pg_dump -U commerce commerce > sauvegarde_$(date +%F).sql   # sauvegarde

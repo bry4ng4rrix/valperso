@@ -39,15 +39,16 @@ Future<Uint8List> _pdfFor(BuildContext context, Invoice invoice) async {
 }
 
 /// Partage la facture en PDF (WhatsApp, email, impression via le menu de partage d'Android...).
-/// Sur ordinateur, le PDF est enregistré dans le dossier Téléchargements.
+/// Sur ordinateur, le PDF est enregistré dans le dossier Téléchargements ; dans le navigateur
+/// (même sur un téléphone), il est téléchargé.
 Future<void> shareInvoice(BuildContext context, int saleId, {Invoice? invoice}) async {
   try {
     final data = invoice ?? await context.read<SalesRepository>().invoice(saleId);
     if (!context.mounted) return;
     final bytes = await _pdfFor(context, data);
-    if (defaultTargetPlatform != TargetPlatform.android) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       final path = await saveExportFile(bytes, invoiceFileName(data));
-      if (context.mounted) Notify.success(context, 'Facture enregistrée : $path');
+      if (context.mounted) Notify.success(context, '${kIsWeb ? 'Facture téléchargée' : 'Facture enregistrée'} : $path');
       return;
     }
     final directory = await getTemporaryDirectory();
@@ -83,5 +84,9 @@ Future<void> printInvoice(BuildContext context, Invoice invoice) async {
   }
 }
 
-/// Libellé du partage : sur ordinateur, le PDF est enregistré (pas de menu de partage).
-String get sharePdfLabel => defaultTargetPlatform == TargetPlatform.android ? 'Partager en PDF' : 'Enregistrer en PDF';
+/// Libellé du partage : sur ordinateur, le PDF est enregistré ; dans le navigateur, il est téléchargé.
+String get sharePdfLabel => kIsWeb
+    ? 'Télécharger le PDF'
+    : defaultTargetPlatform == TargetPlatform.android
+    ? 'Partager en PDF'
+    : 'Enregistrer en PDF';

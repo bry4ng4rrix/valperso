@@ -16,7 +16,8 @@ services:
     build:
       args:
         INSTALL_DEV: "false"
-    # Port public : API_PORT du .env du serveur (8000 est déjà pris sur le VPS).
+    # Pas de port public : l'API est jointe par nginx (service web).
+    ports: !reset []
     restart: unless-stopped
     healthcheck:
       test:
@@ -28,4 +29,22 @@ services:
       timeout: 5s
       retries: 6
       start_period: 30s
+    logging: *logging
+
+  # Application web + entrée unique : nginx sert la version web et transmet /api, /media, /docs à l'API.
+  web:
+    build:
+      context: ./deploy
+    depends_on:
+      api:
+        condition: service_healthy
+    # Port public : API_PORT du .env du serveur (8000 est déjà pris sur le VPS).
+    ports:
+      - "${API_PORT:-8020}:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
     logging: *logging
