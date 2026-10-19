@@ -140,6 +140,18 @@ def count_out_of_stock(db: Session, store_id: int | None) -> int:
     return _count_active_lines(db, Stock.out_of_stock, store_id)
 
 
+def count_products_in_stock(db: Session, store_id: int | None) -> int:
+    """Produits actifs ayant au moins une unité dans le magasin (sinon dans au moins un magasin)."""
+    stmt = (
+        select(func.count(sa.distinct(Stock.product_id)))
+        .join(Stock.product)
+        .where(Stock.quantity > 0, Product.is_active.is_(True))
+    )
+    if store_id is not None:
+        stmt = stmt.where(Stock.store_id == store_id)
+    return db.scalar(stmt) or 0
+
+
 def total_quantity(db: Session, store_id: int | None) -> int:
     stmt = select(func.coalesce(func.sum(Stock.quantity), 0))
     if store_id is not None:

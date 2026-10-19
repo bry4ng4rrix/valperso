@@ -41,6 +41,7 @@ def test_summary(client, admin_headers, activity):
     assert body["amount_collected"] == 45000.0
     assert body["debt_amount"] == 10000.0
     assert (body["products_count"], body["stores_count"]) == (3, 2)
+    assert body["products_in_stock_count"] == 2  # riz (magasin) et huile (Stock Local) ; pas le sel
     assert body["stock_quantity"] == 87  # 100 - 15 vendus + 2 huiles ; le transfert ne change pas le total
     assert body["low_stock_count"] == 1  # huile : 2 <= seuil
     # Sel à zéro dans le Stock Local ; le riz restant (85) a été déplacé en totalité vers le magasin :
@@ -57,6 +58,7 @@ def test_summary_by_store(client, admin_headers, activity):
     ).json()
     assert body["sales_count"] == 0 and body["revenue"] == 0.0
     assert body["stock_quantity"] == 85 and body["out_of_stock_count"] == 0
+    assert body["products_in_stock_count"] == 1  # seul le riz est dans ce magasin
     assert body["estimated_profit"] == 85000.0 and body["sales_margin"] == 0.0  # marge du stock du magasin
 
 

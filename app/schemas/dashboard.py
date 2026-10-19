@@ -87,6 +87,9 @@ class DashboardSummary(BaseModel):
     amount_collected: Money = Field(description="Paiements reçus sur la période")
     debt_amount: Money = Field(description="Total des restes à payer des ventes de la période")
     products_count: int = Field(description="Produits actifs au catalogue")
+    products_in_stock_count: int = Field(
+        description="Produits actifs en stock (magasin filtré, sinon dans au moins un magasin)"
+    )
     stores_count: int = Field(description="Magasins actifs")
     stock_quantity: int = Field(description="Unités en stock (magasin filtré, sinon tous les magasins)")
     low_stock_count: int = Field(description="Lignes de stock sous le seuil d'alerte")

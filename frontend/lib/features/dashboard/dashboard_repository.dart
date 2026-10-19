@@ -84,6 +84,7 @@ class DashboardSummary {
     required this.amountCollected,
     required this.debtAmount,
     required this.productsCount,
+    required this.productsInStockCount,
     required this.storesCount,
     required this.stockQuantity,
     required this.lowStockCount,
@@ -103,6 +104,7 @@ class DashboardSummary {
     amountCollected: toDouble(json['amount_collected']),
     debtAmount: toDouble(json['debt_amount']),
     productsCount: toInt(json['products_count']),
+    productsInStockCount: toInt(json['products_in_stock_count']),
     storesCount: toInt(json['stores_count']),
     stockQuantity: toInt(json['stock_quantity']),
     lowStockCount: toInt(json['low_stock_count']),
@@ -127,6 +129,9 @@ class DashboardSummary {
   final double amountCollected;
   final double debtAmount;
   final int productsCount;
+
+  /// Produits en stock dans le magasin filtré (sinon dans au moins un magasin).
+  final int productsInStockCount;
   final int storesCount;
   final int stockQuantity;
   final int lowStockCount;

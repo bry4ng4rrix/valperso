@@ -56,6 +56,7 @@ def get_summary(db: Session, user: User, query: DashboardQuery) -> DashboardSumm
         amount_collected=dashboard_repository.amount_collected(db, *period),
         debt_amount=debt_amount,
         products_count=product_repository.count_active(db),
+        products_in_stock_count=stock_repository.count_products_in_stock(db, store_id),
         stores_count=store_repository.count_active(db),
         stock_quantity=stock_repository.total_quantity(db, store_id),
         low_stock_count=stock_repository.count_low_stock(db, store_id),

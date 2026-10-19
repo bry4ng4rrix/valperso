@@ -171,7 +171,7 @@ class _DashboardViewState extends State<DashboardView> {
               builder: (context, snapshot) {
                 if (snapshot.hasError) return ErrorState(message: errorMessageOf(snapshot.error), onRetry: _refresh);
                 if (!snapshot.hasData) return const SizedBox(height: 360, child: LoadingState(lines: 4));
-                return _SummaryContent(summary: snapshot.data!, user: user, chart: _chart);
+                return _SummaryContent(summary: snapshot.data!, user: user, chart: _chart, storeId: _storeId);
               },
             ),
           ],
@@ -182,10 +182,13 @@ class _DashboardViewState extends State<DashboardView> {
 }
 
 class _SummaryContent extends StatelessWidget {
-  const _SummaryContent({required this.summary, required this.user, required this.chart});
+  const _SummaryContent({required this.summary, required this.user, required this.chart, this.storeId});
 
   final DashboardSummary summary;
   final CurrentUser user;
+
+  /// Magasin filtré : la carte « Produits » ouvre la liste sur ce magasin.
+  final int? storeId;
   final Future<List<SalesPoint>>? chart;
 
   @override
@@ -207,6 +210,13 @@ class _SummaryContent extends StatelessWidget {
               value: Formats.quantity(s.salesCount),
               icon: Icons.receipt_long,
               onTap: () => context.go(Routes.salesHistory),
+            ),
+            StatCard(
+              label: 'Produits',
+              value: Formats.quantity(s.productsInStockCount),
+              icon: Icons.inventory_2_outlined,
+              caption: '${Formats.quantity(s.stockQuantity)} pièces en stock',
+              onTap: () => context.go(storeId == null ? Routes.products : '${Routes.products}?store=$storeId'),
             ),
             // Les marges révèlent les prix : réservées à qui peut voir les rapports.
             if (user.can(Perm.reportView)) ...[
