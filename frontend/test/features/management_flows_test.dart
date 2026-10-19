@@ -351,7 +351,7 @@ void main() {
 
   testWidgets('accueil « Stock faible » : Produits filtrés, tous les magasins', (tester) async {
     final api = await _admin(tester, '/', (_) {});
-    await tester.tap(find.byTooltip('Afficher 4 de plus').first); // indicateurs masqués derrière « ⋯ »
+    await tester.tap(find.byTooltip('Afficher 5 de plus').first); // indicateurs masqués derrière « ⋯ »
     await tester.pumpAndSettle();
     await tester.tap(find.text('Stock faible').first); // la carte du tableau de bord
     await settle(tester);
@@ -381,25 +381,28 @@ void main() {
 
   testWidgets('accueil : 4 indicateurs et 3 actions rapides, « ⋯ » affiche les autres', (tester) async {
     await _admin(tester, '/', (_) {});
-    for (final label in ['Chiffre d\'affaires', 'Ventes', 'Bénéfice estimé', 'Encaissé']) {
+    for (final label in ['Chiffre d\'affaires', 'Ventes', 'Produits', 'Bénéfice estimé']) {
       expect(find.widgetWithText(StatCard, label), findsOneWidget, reason: label);
     }
-    expect(find.widgetWithText(StatCard, 'Reste à encaisser'), findsNothing);
+    expect(find.widgetWithText(StatCard, 'Encaissé'), findsNothing);
     expect(find.byType(QuickActionCard), findsNWidgets(3));
+    // Produits = produits en stock (magasin filtré), avec le nombre de pièces en légende.
+    expect(find.descendant(of: find.widgetWithText(StatCard, 'Produits'), matching: find.text('9')), findsOneWidget);
+    expect(find.text('150 pièces en stock'), findsOneWidget);
     // Bénéfice estimé = marge du stock actuel ; Encaissé = marge des produits vendus (sales_margin).
     expect(
       find.descendant(of: find.widgetWithText(StatCard, 'Bénéfice estimé'), matching: find.text('5\u00A0000 Ar')),
       findsOneWidget,
     );
     expect(find.text('Marge du stock actuel'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Afficher 5 de plus').first); // indicateurs
+    await tester.pumpAndSettle();
     expect(
       find.descendant(of: find.widgetWithText(StatCard, 'Encaissé'), matching: find.text('4\u00A0000 Ar')),
       findsOneWidget,
     );
     expect(find.text('Marge des produits vendus'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Afficher 4 de plus').first); // indicateurs
-    await tester.pumpAndSettle();
     expect(find.widgetWithText(StatCard, 'Reste à encaisser'), findsOneWidget);
     expect(find.widgetWithText(StatCard, 'Produits indisponibles partout'), findsOneWidget);
 

@@ -530,6 +530,7 @@ void stubDemoApi(FakeApi api) {
       'amount_collected': 165000,
       'debt_amount': 245000,
       'products_count': demoProducts.length,
+      'products_in_stock_count': demoProducts.length,
       'stores_count': demoStores.length,
       'stock_quantity': 96,
       'low_stock_count': low.length,

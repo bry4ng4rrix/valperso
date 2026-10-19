@@ -169,6 +169,7 @@ Map<String, Object?> dashboardJson() => {
   'amount_collected': 12000,
   'debt_amount': 3000,
   'products_count': 12,
+  'products_in_stock_count': 9,
   'stores_count': 3,
   'stock_quantity': 150,
   'low_stock_count': 2,
